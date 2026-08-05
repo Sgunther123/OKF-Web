@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "okf-web"
+version = "0.1.0"
+description = "Companion knowledge layer for ecommerce GEO: survey, evaluate, verify, and publish an Open Knowledge Format (OKF v0.2) bundle alongside a storefront."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+llm = ["anthropic>=0.40"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+okf-web = "okf_web.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+okf_web = ["prompts/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
