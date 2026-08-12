@@ -90,3 +90,7 @@ CDN as the site at `/.well-known/okf/`; config snippets are in
 
 Reference implementation accompanying the design. The fictional store
 in `bundle-example/` uses reserved `.example` domains throughout.
+
+## License
+
+[Apache-2.0](LICENSE).

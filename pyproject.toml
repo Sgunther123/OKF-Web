@@ -7,7 +7,11 @@ name = "okf-web"
 version = "0.1.0"
 description = "Companion knowledge layer for ecommerce GEO: survey, evaluate, verify, and publish an Open Knowledge Format (OKF v0.2) bundle alongside a storefront."
 readme = "README.md"
+license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+]
 dependencies = [
     "PyYAML>=6.0",
 ]
