@@ -2,7 +2,17 @@
 
 Subcommands mirror the lifecycle: survey → review → lint → evaluate →
 publish. LLM-backed commands (survey, questions, evaluate without
---dry-run) need ``pip install okf-web[llm]`` and ``ANTHROPIC_API_KEY``.
+--dry-run) take ``--llm`` to choose how calls are billed and
+authenticated:
+
+* ``--llm api`` (default) — the Anthropic SDK; needs ``pip install
+  okf-web[llm]`` plus either ``ANTHROPIC_API_KEY`` or a keyless
+  ``ant auth login`` OAuth profile. Use this for anything scheduled or
+  unattended.
+* ``--llm claude-code`` — routes calls through a locally installed,
+  logged-in Claude Code in print mode, drawing on your existing Claude
+  subscription. Interactive, human-initiated runs only; no extra
+  Python dependency.
 """
 
 from __future__ import annotations
@@ -15,10 +25,26 @@ from . import evaluator, linter, publisher, review, surveyor
 from .model import load_bundle
 
 
-def _llm(model: str):
+def _llm(args):
+    if getattr(args, "llm", "api") == "claude-code":
+        from .llm import claude_code_client
+
+        return claude_code_client(model=args.model)
     from .llm import AnthropicClient
 
-    return AnthropicClient(model=model)
+    return AnthropicClient(model=args.model)
+
+
+def _add_llm_args(parser) -> None:
+    parser.add_argument("--model", default="claude-sonnet-5")
+    parser.add_argument(
+        "--llm",
+        choices=["api", "claude-code"],
+        default="api",
+        help="api: Anthropic SDK (API key or `ant auth login` profile); "
+        "claude-code: your Claude subscription via a local `claude -p` "
+        "(interactive runs only)",
+    )
 
 
 def cmd_lint(args) -> int:
@@ -79,7 +105,7 @@ def cmd_survey(args) -> int:
         return 2
     if args.limit:
         urls = urls[: args.limit]
-    result = surveyor.survey(urls, args.bundle, _llm(args.model))
+    result = surveyor.survey(urls, args.bundle, _llm(args))
     print(
         f"written: {len(result.written)}  proposed: {len(result.proposed)}  "
         f"unchanged: {len(result.skipped_unchanged)}  "
@@ -103,7 +129,7 @@ def cmd_index(args) -> int:
 def cmd_questions(args) -> int:
     bundle = load_bundle(args.bundle)
     questions = evaluator.generate_questions(
-        bundle, _llm(args.model), per_archetype=args.per_archetype
+        bundle, _llm(args), per_archetype=args.per_archetype
     )
     out = Path(args.bundle) / "evaluations" / "questions.yaml"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -133,7 +159,7 @@ def cmd_evaluate(args) -> int:
         print(f"question set not found: {questions_path}", file=sys.stderr)
         return 2
     questions = evaluator.load_questions(questions_path)
-    llm = None if args.dry_run else _llm(args.model)
+    llm = None if args.dry_run else _llm(args)
     report = evaluator.evaluate(bundle, questions, llm=llm, top_k=args.top_k)
     metrics = report.metrics(bundle)
     for key, value in metrics.items():
@@ -195,7 +221,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--sitemap", help="site base URL; reads <base>/sitemap.xml")
     p.add_argument("--urls", help="file with one URL per line")
     p.add_argument("--limit", type=int, default=0)
-    p.add_argument("--model", default="claude-sonnet-5")
+    _add_llm_args(p)
     p.set_defaults(func=cmd_survey)
 
     p = sub.add_parser("index", help="rebuild index.md from bundle contents")
@@ -205,7 +231,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("questions", help="LLM-generate an evaluation question set")
     p.add_argument("bundle")
     p.add_argument("--per-archetype", type=int, default=3)
-    p.add_argument("--model", default="claude-sonnet-5")
+    _add_llm_args(p)
     p.set_defaults(func=cmd_questions)
 
     p = sub.add_parser("evaluate", help="run the answerability evaluation")
@@ -213,7 +239,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--questions", help="question set YAML (default: bundle/evaluations/questions.yaml)")
     p.add_argument("--dry-run", action="store_true", help="retrieval-only, no LLM")
     p.add_argument("--top-k", type=int, default=4)
-    p.add_argument("--model", default="claude-sonnet-5")
+    _add_llm_args(p)
     p.add_argument("--write-scorecard", action="store_true")
     p.set_defaults(func=cmd_evaluate)
 

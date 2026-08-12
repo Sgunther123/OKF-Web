@@ -20,6 +20,10 @@ dependencies = [
 llm = ["anthropic>=0.40"]
 dev = ["pytest>=8.0"]
 
+[project.urls]
+Repository = "https://github.com/Sgunther123/OKF-Web"
+"Hosted edition" = "https://www.okf-web.com"
+
 [project.scripts]
 okf-web = "okf_web.cli:main"
 

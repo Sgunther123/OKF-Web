@@ -65,7 +65,7 @@ okf-web review approve bundle-example policies/warranty.md --by legal@alpinepeak
 # Build the static companion (refuses to ship unapproved high-risk drafts)
 okf-web publish bundle-example dist/
 
-# Against a real store (needs ANTHROPIC_API_KEY)
+# Against a real store (see "LLM access" below for credential options)
 okf-web survey my-bundle --sitemap https://www.example-store.com --limit 25
 okf-web questions my-bundle
 okf-web evaluate my-bundle --write-scorecard
@@ -77,6 +77,32 @@ refuse to ship until a human approves it. That invariant (lint rule
 E010) is the heart of the design: **no price, policy, or safety claim
 reaches an AI engine without a named human verifier**, while low-risk
 descriptive facts flow at machine speed.
+
+## LLM access
+
+The LLM-backed commands (`survey`, `questions`, `evaluate` without
+`--dry-run`) support three credential paths — pick with `--llm`:
+
+- **API key** (`--llm api`, default): `pip install okf-web[llm]` and
+  `export ANTHROPIC_API_KEY=...`. Metered API billing. **Required for
+  anything scheduled or unattended** — cron surveys, CI evaluations,
+  hosted services.
+- **Keyless OAuth** (also `--llm api`): run `ant auth login` once; the
+  SDK picks up the OAuth profile automatically — same metered API
+  billing, no key to create or manage.
+- **Your Claude subscription** (`--llm claude-code`): routes calls
+  through a locally installed, logged-in
+  [Claude Code](https://code.claude.com) in print mode, drawing on the
+  Claude Pro/Max subscription you already pay for. No API account and
+  no extra Python dependency. **Interactive, human-initiated runs
+  only**: consumer subscriptions are personal and rate-limited in
+  rolling windows — a survey paused by a limit resumes incrementally
+  (unchanged pages cost nothing) — and automation belongs on API
+  credentials.
+
+Prefer not to run the pipeline yourself? A fully hosted, commercial
+edition is developed as
+[www.okf-web.com](https://www.okf-web.com).
 
 ## Hosting the companion
 
