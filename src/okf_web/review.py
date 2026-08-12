@@ -26,12 +26,10 @@ from pathlib import Path
 from .model import (
     Bundle,
     Concept,
-    FrontmatterError,
     RISK_HIGH,
     RISK_MEDIUM,
     TRUST_UNVERIFIED,
     load_bundle,
-    parse_document,
 )
 
 _RISK_ORDER = {RISK_HIGH: 0, RISK_MEDIUM: 1}
@@ -117,25 +115,6 @@ def reject(bundle: Bundle, rel_path: str, reviewer: str, reason: str) -> Concept
         f"**Reject**: [{concept.title}](/{concept.rel_path}) sent back by {actor}: {reason}",
     )
     return concept
-
-
-def drift_proposals(root: Path | str) -> list[Concept]:
-    """Surveyor-proposed replacements for human-reviewed concepts.
-
-    These live under ``_review/proposed/`` (mirroring the bundle path
-    they would replace) and never enter the bundle without a human
-    accepting them.
-    """
-    base = Path(root) / "_review" / "proposed"
-    proposals: list[Concept] = []
-    for path in sorted(base.rglob("*.md")) if base.exists() else []:
-        rel = path.relative_to(base).as_posix()
-        try:
-            fm, body = parse_document(path.read_text(encoding="utf-8"))
-        except FrontmatterError:
-            continue
-        proposals.append(Concept(rel, fm, body, abs_path=path))
-    return proposals
 
 
 def append_log(root: Path, message: str, today: _dt.date | None = None) -> None:

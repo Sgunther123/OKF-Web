@@ -109,17 +109,9 @@ edition is developed as
 
 `okf-web publish` emits a static tree — bundle + `manifest.json`
 (sha256 delta sync) + `linkmap.json` (page ⇄ concept `<link>` tags) +
-`llms-snippet.txt` (discovery via `llms.txt`) + `viewer.html`, a
-self-contained, **noindex** provenance view for humans who click an
-AI's citation: trust badges, verification history, sources, and a
-prominent link to the live page (never a shadow storefront; skip with
-`--no-viewer`). Serve it from the same CDN as the site at
-`/.well-known/okf/`; config snippets are in
+`llms-snippet.txt` (discovery via `llms.txt`). Serve it from the same
+CDN as the site at `/.well-known/okf/`; config snippets are in
 [docs/DESIGN.md §8](docs/DESIGN.md#8-hosting-and-discovery).
-
-For reviewers, `okf-web review packet <bundle>` renders the pending
-queue (and any drift proposals) as a single read-only HTML briefing —
-approvals still happen via the CLI or a git review.
 
 ## Status
 

@@ -142,7 +142,6 @@ complete conformant instance):
   manifest.json             # sha256 + size per file → delta sync
   linkmap.json              # live URL → concept path (for <link rel>)
   llms-snippet.txt          # block to merge into the site's llms.txt
-  viewer.html               # noindex human-readable provenance view (optional)
   store.md                  # Store Identity
   policies/*.md             # Policy (risk a)
   catalog/*.md              # Product Collection
