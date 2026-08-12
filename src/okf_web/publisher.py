@@ -15,6 +15,10 @@ Turns a bundle working copy into the static artifact served at
   page ↔ concept binding in the other direction).
 * **llms-snippet.txt** — the block to add to the site's ``llms.txt`` so
   generative engines discover the bundle.
+* **viewer.html** (optional, on by default) — a self-contained,
+  ``noindex`` provenance view for humans who click an AI's citation:
+  trust badges, verification history, sources, and a prominent link to
+  the live page. A trust surface, deliberately not a shadow storefront.
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import render
 from .linter import has_errors, lint_bundle
 from .model import INTERNAL_DIRS, RISK_HIGH, load_bundle
 
@@ -46,6 +51,7 @@ def publish(
     dist: Path | str,
     include_machine_confirmed: bool = False,
     base_path: str = "/.well-known/okf",
+    viewer: bool = True,
 ) -> PublishResult:
     bundle_root = Path(bundle_root)
     dist = Path(dist)
@@ -89,6 +95,10 @@ def publish(
     _write_manifest(dist, result.published)
     _write_linkmap(dist, bundle, result.published, base_path)
     _write_llms_snippet(dist, base_path)
+    if viewer:
+        (dist / "viewer.html").write_text(
+            render.build_viewer_html(bundle, set(result.published)), encoding="utf-8"
+        )
     return result
 
 

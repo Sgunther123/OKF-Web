@@ -157,6 +157,17 @@ pointing at the page it came from.
 okf-web review list my-store
 ```
 
+Prefer reading in your browser? This writes the whole queue as one
+nicely formatted page (it even includes the exact approve command to
+copy for each item):
+
+```
+okf-web review packet my-store
+```
+
+Then open the file it names (double-click works). The page is
+read-only — approving still happens with the commands below.
+
 Items about money, policies, or safety are listed first. Open each
 file in any text editor (they're plain text) and check one thing:
 **does each claim match what your website actually says?** The
@@ -202,6 +213,12 @@ okf-web publish my-store dist
 This builds the final folder (called `dist`) — and here the safety
 net shows itself: anything high-stakes that a person hasn't approved
 is **withheld**, and the tool tells you what it held back.
+
+The folder also includes `viewer.html` — a human-readable view of
+your published fact sheets, showing who verified what and linking back
+to your real pages. That's what a curious shopper sees if they click
+an AI's citation. It's deliberately marked so search engines ignore it
+(it will never compete with your actual store pages).
 
 Send the `dist` folder to whoever manages your website and ask them
 to serve it at:
@@ -446,6 +463,7 @@ technical docs live alongside this guide:
 | --- | --- |
 | Check the folder's health | `okf-web lint my-store` |
 | See what needs your approval | `okf-web review list my-store` |
+| Read the queue in your browser | `okf-web review packet my-store` |
 | Approve a fact sheet | `okf-web review approve my-store <file> --by you@yourstore.com` |
 | Send one back | `okf-web review reject my-store <file> --by you@yourstore.com --reason "…"` |
 | Draft fact sheets from your site | `okf-web survey my-store --sitemap https://yourstore.com --limit 25 --llm claude-code` |

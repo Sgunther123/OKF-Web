@@ -21,7 +21,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import evaluator, linter, publisher, review, surveyor
+from . import evaluator, linter, publisher, render, review, surveyor
 from .model import load_bundle
 
 
@@ -77,6 +77,20 @@ def cmd_review(args) -> int:
             print("\ndrift proposals (surveyor found changes to human-reviewed concepts):")
             for path in proposed:
                 print(f"  {path}")
+        return 0
+    if args.action == "packet":
+        items = review.pending(bundle)
+        proposals = review.drift_proposals(args.bundle)
+        out = Path(args.out) if args.out else Path(args.bundle) / "_review" / "packet.html"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            render.build_review_packet_html(bundle, items, proposals), encoding="utf-8"
+        )
+        print(
+            f"review packet written to {out} "
+            f"({len(items)} pending, {len(proposals)} drift proposal(s)) — "
+            "open it in a browser; approvals still happen via the CLI"
+        )
         return 0
     if not args.path or not args.by:
         print("approve/reject need a concept path and --by <reviewer-id>", file=sys.stderr)
@@ -183,11 +197,14 @@ def cmd_publish(args) -> int:
             args.dist,
             include_machine_confirmed=args.include_machine_confirmed,
             base_path=args.base_path,
+            viewer=not args.no_viewer,
         )
     except publisher.PublishError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     print(f"published {len(result.published)} file(s) to {result.dist}")
+    if not args.no_viewer:
+        print(f"provenance viewer: {result.dist}/viewer.html (noindex)")
     if result.withheld:
         print(f"withheld {len(result.withheld)} unapproved draft(s):")
         for rel in result.withheld:
@@ -209,11 +226,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_lint)
 
     p = sub.add_parser("review", help="human-in-the-loop verification queue")
-    p.add_argument("action", choices=["list", "approve", "reject"])
+    p.add_argument("action", choices=["list", "packet", "approve", "reject"])
     p.add_argument("bundle")
     p.add_argument("path", nargs="?", help="concept path within the bundle")
     p.add_argument("--by", help="reviewer id (becomes human:<id>)")
     p.add_argument("--reason", help="rejection reason")
+    p.add_argument(
+        "--out",
+        help="packet only: output HTML path (default <bundle>/_review/packet.html)",
+    )
     p.set_defaults(func=cmd_review)
 
     p = sub.add_parser("survey", help="LLM-populate draft concepts from site pages")
@@ -252,6 +273,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="also publish non-high-risk drafts (they surface as unverified/machine-confirmed)",
     )
     p.add_argument("--base-path", default="/.well-known/okf")
+    p.add_argument(
+        "--no-viewer",
+        action="store_true",
+        help="skip emitting viewer.html (the noindex human-readable provenance view)",
+    )
     p.set_defaults(func=cmd_publish)
 
     return parser

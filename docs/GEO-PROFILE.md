@@ -141,7 +141,10 @@ self-verify).
 (rejected LLM output) — working-copy state that MUST NOT be
 published; and at publish time, generated artifacts `manifest.json`
 (per-file sha256 + bytes), `linkmap.json` (live URL → concept path),
-`llms-snippet.txt`.
+`llms-snippet.txt`, and optionally `viewer.html` — a self-contained,
+`noindex` provenance rendering of the published concepts for humans
+who follow an AI citation (a trust surface, deliberately not a second
+storefront).
 
 ## 8. Lint vocabulary
 
