@@ -113,6 +113,15 @@ edition is developed as
 CDN as the site at `/.well-known/okf/`; config snippets are in
 [docs/DESIGN.md §8](docs/DESIGN.md#8-hosting-and-discovery).
 
+Bundles can be **signed**: `okf-web publish dist/ --sign` (or
+`okf-web sign dist/`, after `pip install okf-web[sign]`) puts a
+sigstore keyless signature over `manifest.json` — which lists every
+file's sha256, so one signature authenticates the whole bundle, with
+no keys for the merchant to manage. Consumers run
+`okf-web verify dist/ --cert-identity <id> --cert-oidc-issuer <url>`
+for the full chain: signature → manifest → file hashes (the hash
+sweep runs stdlib-only, even without sigstore installed).
+
 ## Status
 
 Reference implementation accompanying the design. The fictional store

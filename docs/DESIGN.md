@@ -281,6 +281,22 @@ The bundle is static files — publishable to the same CDN as the site:
 - **Freshness plumbing:** standard `ETag`/`Last-Modified` per file;
   `manifest.json` sha256s let an agent sync a 500-concept bundle by
   fetching one JSON file and the handful of changed concepts.
+- **Integrity & authenticity (signed bundles):** because
+  `manifest.json` records every published file's sha256, it is the
+  bundle's merkle root — one sigstore signature over it authenticates
+  the whole bundle. `okf-web publish --sign` (or `okf-web sign dist/`)
+  produces `manifest.json.sigstore.json` via sigstore's keyless flow:
+  OIDC identity (a browser login for a human; the workflow's ambient
+  identity in CI, which is the recommended automated mode), Fulcio
+  short-lived certificate, Rekor transparency log — no key management
+  for the merchant. Consumers probe the conventional signature name
+  next to the manifest, check the identity, then re-hash files;
+  `okf-web verify dist/ --cert-identity <id> --cert-oidc-issuer <url>`
+  implements both layers (the hash sweep runs stdlib-only even without
+  sigstore installed). Re-publishing regenerates the manifest, so
+  re-sign on every publish. This signature is also the substrate for
+  third-party attestation later: an auditor countersigns the same
+  manifest.
 - **Serving config:** `text/markdown; charset=utf-8`, permissive CORS
   (`Access-Control-Allow-Origin: *` — the bundle is public knowledge),
   and an explicit `Allow` for AI crawlers in `robots.txt` if the site

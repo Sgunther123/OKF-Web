@@ -141,7 +141,10 @@ self-verify).
 (rejected LLM output) — working-copy state that MUST NOT be
 published; and at publish time, generated artifacts `manifest.json`
 (per-file sha256 + bytes), `linkmap.json` (live URL → concept path),
-`llms-snippet.txt`.
+`llms-snippet.txt`, and optionally `manifest.json.sigstore.json` — a
+sigstore signature over the manifest that authenticates the entire
+published bundle (consumers probe this conventional name, verify the
+signer identity, then re-hash files against the manifest).
 
 ## 8. Lint vocabulary
 

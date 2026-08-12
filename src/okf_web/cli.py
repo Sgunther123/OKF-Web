@@ -21,7 +21,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import evaluator, linter, publisher, review, surveyor
+from . import evaluator, linter, publisher, review, signing, surveyor
 from .model import load_bundle
 
 
@@ -201,6 +201,16 @@ def cmd_publish(args) -> int:
             print(f"  {rel}")
     for warning in result.warnings:
         print(f"warning: {warning}")
+    if args.sign:
+        try:
+            out = signing.sign_manifest(
+                args.dist, sigstore_bin=args.sigstore_bin, staging=args.staging
+            )
+        except signing.SigningError as exc:
+            print(f"signing failed: {exc}", file=sys.stderr)
+            return 1
+        print(f"signed: {out} (verify with `okf-web verify {args.dist} "
+              "--cert-identity <id> --cert-oidc-issuer <issuer>`)")
     if args.check_robots:
         site = args.site
         if not site:
@@ -225,6 +235,64 @@ def cmd_publish(args) -> int:
             else:
                 print("robots.txt: all checked AI agents may fetch the bundle")
     return 0
+
+
+def cmd_sign(args) -> int:
+    try:
+        out = signing.sign_manifest(
+            args.dist, sigstore_bin=args.sigstore_bin, staging=args.staging
+        )
+    except signing.SigningError as exc:
+        print(f"signing failed: {exc}", file=sys.stderr)
+        return 1
+    print(f"signed: {out}")
+    print(
+        "consumers verify with: okf-web verify "
+        f"{args.dist} --cert-identity <your-oidc-identity> "
+        "--cert-oidc-issuer <issuer-url>"
+    )
+    return 0
+
+
+def cmd_verify(args) -> int:
+    errors, warnings = signing.verify_integrity(args.dist)
+    for err in errors:
+        print(f"integrity error: {err}")
+    for warning in warnings:
+        print(f"integrity warning: {warning}")
+    if not errors:
+        print("integrity: all manifest hashes match")
+
+    failed = bool(errors)
+    has_sig = signing.signature_path(args.dist).exists()
+    if args.cert_identity or args.cert_oidc_issuer:
+        if not (args.cert_identity and args.cert_oidc_issuer):
+            print(
+                "signature check needs both --cert-identity and "
+                "--cert-oidc-issuer",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            signing.verify_signature(
+                args.dist,
+                cert_identity=args.cert_identity,
+                cert_oidc_issuer=args.cert_oidc_issuer,
+                sigstore_bin=args.sigstore_bin,
+                staging=args.staging,
+            )
+            print(f"signature: valid for {args.cert_identity} ({args.cert_oidc_issuer})")
+        except signing.SigningError as exc:
+            print(f"signature: {exc}", file=sys.stderr)
+            failed = True
+    elif has_sig:
+        print(
+            "signature present but not checked — pass --cert-identity and "
+            "--cert-oidc-issuer to verify it"
+        )
+    else:
+        print("no signature found (bundle is unsigned)")
+    return 1 if failed else 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -306,7 +374,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="site origin for --check-robots (default: x_geo.site from the "
         "bundle's root index.md)",
     )
+    p.add_argument(
+        "--sign",
+        action="store_true",
+        help="sigstore-sign manifest.json after publishing (needs "
+        "`pip install okf-web[sign]`; OIDC login or CI ambient identity)",
+    )
+    p.add_argument("--sigstore-bin", default="sigstore", help="signing tool executable")
+    p.add_argument(
+        "--staging", action="store_true", help="use sigstore's staging infrastructure"
+    )
     p.set_defaults(func=cmd_publish)
+
+    p = sub.add_parser("sign", help="sigstore-sign a published bundle's manifest.json")
+    p.add_argument("dist", help="published bundle directory (from `okf-web publish`)")
+    p.add_argument("--sigstore-bin", default="sigstore")
+    p.add_argument("--staging", action="store_true")
+    p.set_defaults(func=cmd_sign)
+
+    p = sub.add_parser(
+        "verify",
+        help="consumer-side check of a published bundle: manifest↔file "
+        "integrity, plus signature identity when requested",
+    )
+    p.add_argument("dist", help="published bundle directory")
+    p.add_argument("--cert-identity", help="expected signer identity (email or CI workflow URI)")
+    p.add_argument("--cert-oidc-issuer", help="expected OIDC issuer URL")
+    p.add_argument("--sigstore-bin", default="sigstore")
+    p.add_argument("--staging", action="store_true")
+    p.set_defaults(func=cmd_verify)
 
     return parser
 
