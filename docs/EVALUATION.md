@@ -24,8 +24,13 @@ Sets are LLM-generated from the bundle outline
 ([prompt](../src/okf_web/prompts/evaluator_questions.md)), then
 **human-curated** — curation should add negative probes the bundle
 *should* answer with a sourced "no" (out-of-catalog discovery, refused
-capabilities). Sets live in `evaluations/questions.yaml` and are
-versioned with the bundle so scores are comparable across runs.
+capabilities). Because the generator reads the bundle's own outline,
+the prompt requires **shopper vocabulary over bundle vocabulary**
+(synonyms and paraphrase, at least one question per archetype avoiding
+the target concepts' key nouns) — otherwise questions echo the
+bundle's terms and inflate retrieval hit rate. Sets live in
+`evaluations/questions.yaml` and are versioned with the bundle so
+scores are comparable across runs.
 
 ## 2. Harness
 
@@ -48,6 +53,14 @@ Per question:
 
 `--dry-run` executes step 1 only (no LLM) — cheap enough for every
 CI run.
+
+**Evaluate what engines see, not the working copy.** By default the
+harness reads the working bundle, drafts included — useful while
+iterating, but a full run would happily answer questions from drafts
+the publisher withholds, overstating the published reality.
+`--published` evaluates the published view (withheld concepts
+removed; `--include-machine-confirmed` mirrors that publish mode).
+Release scorecards should always use `--published`.
 
 ## 3. Metrics
 

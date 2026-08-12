@@ -115,6 +115,8 @@ def cmd_survey(args) -> int:
         print(f"  draft: {rel}")
     for rel in result.proposed:
         print(f"  drift proposal: _review/proposed/{rel}")
+    for note in result.collisions:
+        print(f"  path collision: {note}")
     for err in result.errors:
         print(f"  error: {err}", file=sys.stderr)
     return 0 if not result.errors else 1
@@ -154,6 +156,11 @@ def cmd_questions(args) -> int:
 
 def cmd_evaluate(args) -> int:
     bundle = load_bundle(args.bundle)
+    if args.published:
+        bundle = publisher.published_view(
+            bundle, include_machine_confirmed=args.include_machine_confirmed
+        )
+        print(f"evaluating the published view ({len(bundle.concepts)} concept(s); drafts excluded)")
     questions_path = Path(args.questions or Path(args.bundle) / "evaluations" / "questions.yaml")
     if not questions_path.exists():
         print(f"question set not found: {questions_path}", file=sys.stderr)
@@ -192,6 +199,31 @@ def cmd_publish(args) -> int:
         print(f"withheld {len(result.withheld)} unapproved draft(s):")
         for rel in result.withheld:
             print(f"  {rel}")
+    for warning in result.warnings:
+        print(f"warning: {warning}")
+    if args.check_robots:
+        site = args.site
+        if not site:
+            root_index = load_bundle(args.bundle).indexes.get("index.md")
+            x_geo = (root_index.frontmatter.get("x_geo") or {}) if root_index else {}
+            site = x_geo.get("site") if isinstance(x_geo, dict) else None
+        if not site:
+            print(
+                "warning: --check-robots needs a site URL (pass --site or set "
+                "x_geo.site on the root index.md)"
+            )
+        else:
+            blocked, error = publisher.check_robots(str(site), args.base_path)
+            if error:
+                print(f"warning: robots check inconclusive — {error}")
+            elif blocked:
+                print(
+                    "warning: robots.txt blocks these AI agents from the bundle "
+                    f"path ({args.base_path}): {', '.join(blocked)} — the bundle "
+                    "is published but unreachable for them"
+                )
+            else:
+                print("robots.txt: all checked AI agents may fetch the bundle")
     return 0
 
 
@@ -238,6 +270,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("bundle")
     p.add_argument("--questions", help="question set YAML (default: bundle/evaluations/questions.yaml)")
     p.add_argument("--dry-run", action="store_true", help="retrieval-only, no LLM")
+    p.add_argument(
+        "--published",
+        action="store_true",
+        help="evaluate the published view (drafts excluded) — what engines "
+        "actually see, not the working copy",
+    )
+    p.add_argument(
+        "--include-machine-confirmed",
+        action="store_true",
+        help="with --published: mirror a publish that includes non-high-risk drafts",
+    )
     p.add_argument("--top-k", type=int, default=4)
     _add_llm_args(p)
     p.add_argument("--write-scorecard", action="store_true")
@@ -252,6 +295,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="also publish non-high-risk drafts (they surface as unverified/machine-confirmed)",
     )
     p.add_argument("--base-path", default="/.well-known/okf")
+    p.add_argument(
+        "--check-robots",
+        action="store_true",
+        help="fetch the live site's robots.txt and warn if AI agents are "
+        "blocked from the bundle path",
+    )
+    p.add_argument(
+        "--site",
+        help="site origin for --check-robots (default: x_geo.site from the "
+        "bundle's root index.md)",
+    )
     p.set_defaults(func=cmd_publish)
 
     return parser

@@ -193,6 +193,10 @@ and saves a scorecard. The two numbers to look at:
   This is your to-do list: each gap is usually a page worth surveying
   or a fact sheet worth adding.
 
+Tip: add `--published` to the evaluate command to grade only what's
+actually published — unapproved drafts are excluded, which is exactly
+what AI assistants really see. Use that mode for the score you trust.
+
 ### Step 6 — Publish
 
 ```

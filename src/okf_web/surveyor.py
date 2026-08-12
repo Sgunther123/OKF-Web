@@ -6,7 +6,11 @@ The survey loop is incremental and provenance-first:
    list).
 2. **Fetch + normalize** each page to plain text and hash it. A concept
    already in the bundle whose ``x_geo.source_hash`` matches is skipped —
-   unchanged pages cost zero LLM tokens on re-survey.
+   unchanged pages cost zero LLM tokens on re-survey. The hash is taken
+   over a *stabilized* view of the text (lines carrying dates, clock
+   times, cart badges, item counts, and copyright years are dropped) so
+   dynamic page chrome doesn't defeat incrementality; the page's real
+   content still changes the hash.
 3. **Extract** with the extraction contract prompt. The model must emit
    complete OKF documents (frontmatter + body) with every material claim
    footnoted to a source, wrapped in ``<<<CONCEPT path="...">>>``
@@ -15,7 +19,11 @@ The survey loop is incremental and provenance-first:
    touches the bundle. Unparseable output goes to ``_quarantine/``;
    pages whose existing concept is already *human-reviewed* get a
    proposal under ``_review/proposed/`` instead of an overwrite — the
-   surveyor never silently replaces human-approved knowledge.
+   surveyor never silently replaces human-approved knowledge. Paths are
+   kept **stable and unique**: a URL that already has a concept keeps
+   its original path even if the model proposes a new name, and a
+   proposed path already owned by a *different* URL is disambiguated
+   with a slug instead of silently overwriting the other product.
 5. **Stamp**: ``status: draft``, ``generated.by:
    okf-web-surveyor/<model>``, and the source hash for the next
    incremental pass.
@@ -134,12 +142,48 @@ def extraction_prompt() -> str:
     )
 
 
+# Lines dominated by volatile page chrome. Dropping them from the hash
+# input keeps a cart badge, a "today" stamp, or a copyright year from
+# forcing a paid re-extraction of a page whose facts didn't change.
+# Deliberately heuristic: a false positive merely means that one line
+# stops participating in change detection.
+_VOLATILE_LINE = re.compile(
+    r"(?i)("
+    r"\b(mon|tues|wednes|thurs|fri|satur|sun)day\b"
+    r"|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b"
+    r"|\b\d{1,2}:\d{2}(\s*(am|pm))?\b"
+    r"|\b(cart|basket)\b"
+    r"|\b\d+\s+items?\b"
+    r"|\b(just now|minutes? ago|hours? ago|today|yesterday)\b"
+    r"|\b\d{4}-\d{2}-\d{2}\b"
+    r"|(©|&copy;)\s*\d{4}"
+    r")"
+)
+
+
+def stable_page_hash(page_text: str) -> str:
+    """Hash the page text with volatile-chrome lines removed.
+
+    Bundles surveyed before this stabilization carry raw-text hashes;
+    their first re-survey re-extracts once and converges.
+    """
+    kept = [l for l in page_text.splitlines() if not _VOLATILE_LINE.search(l)]
+    return sha256_text("\n".join(kept))
+
+
+def _url_slug(url: str) -> str:
+    tail = url.rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0]
+    tail = tail.rsplit(".", 1)[0]
+    return re.sub(r"[^a-z0-9]+", "-", tail.lower()).strip("-")[:40]
+
+
 @dataclass
 class SurveyResult:
     written: list[str] = field(default_factory=list)
     proposed: list[str] = field(default_factory=list)
     skipped_unchanged: list[str] = field(default_factory=list)
     quarantined: list[str] = field(default_factory=list)
+    collisions: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
 
@@ -177,7 +221,7 @@ def survey_page(
 ) -> None:
     """Run one page through extract → gate → stamp → write."""
     bundle_root = Path(bundle_root)
-    source_hash = sha256_text(page_text)
+    source_hash = stable_page_hash(page_text)
     existing = _existing_by_resource(bundle_root).get(url)
     if existing is not None and existing.source_hash == source_hash:
         result.skipped_unchanged.append(url)
@@ -236,8 +280,34 @@ def survey_page(
             result.quarantined.append(f"{url} -> {rel}")
             continue
 
+        state = load_bundle(bundle_root)
+
+        # Path stability: a URL that already has a concept keeps its
+        # path, even when the model proposes a new name on re-survey —
+        # otherwise a rename would orphan the old file and duplicate
+        # the product.
+        prior = next((c for c in state.concepts.values() if c.resource == url), None)
+        if prior is not None and prior.rel_path != rel:
+            rel = prior.rel_path
+
+        # Collision safety: never let one page's draft silently
+        # overwrite a different page's concept. Disambiguate with a
+        # slug from the URL (hash fallback if the slug also collides).
+        occupant = state.get(rel)
+        if occupant is not None and occupant.resource and occupant.resource != url:
+            stem = rel[: -len(".md")]
+            slug = _url_slug(url) or sha256_text(url)[7:15]
+            candidate = f"{stem}-{slug}.md"
+            squatter = state.get(candidate)
+            if squatter is not None and squatter.resource != url:
+                candidate = f"{stem}-{sha256_text(url)[7:15]}.md"
+            result.collisions.append(
+                f"{rel} already belongs to {occupant.resource}; wrote {candidate} instead"
+            )
+            rel = candidate
+
         target = bundle_root / rel
-        current = load_bundle(bundle_root).get(rel)
+        current = state.get(rel)
         if current is not None and current.trust_tier == TRUST_HUMAN:
             # Never overwrite human-approved knowledge: file a drift proposal.
             proposal = bundle_root / "_review" / "proposed" / rel

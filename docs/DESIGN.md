@@ -284,7 +284,11 @@ The bundle is static files — publishable to the same CDN as the site:
 - **Serving config:** `text/markdown; charset=utf-8`, permissive CORS
   (`Access-Control-Allow-Origin: *` — the bundle is public knowledge),
   and an explicit `Allow` for AI crawlers in `robots.txt` if the site
-  otherwise restricts them.
+  otherwise restricts them. `okf-web publish --check-robots` fetches
+  the live `robots.txt` and warns when common AI agents (GPTBot,
+  ClaudeBot, PerplexityBot, …) are blocked from the bundle path — a
+  published-but-unreachable bundle is the silent failure mode of this
+  whole section.
 
 Example nginx:
 

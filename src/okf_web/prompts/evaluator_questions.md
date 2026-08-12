@@ -38,6 +38,13 @@ description.
    gaps are the point of the evaluation.
 3. Never leak answers or concept paths into the question text.
 4. One sentence per question.
+5. **Use shopper vocabulary, not the bundle's.** You are reading the
+   bundle's own outline, so echoing its titles and descriptions would
+   test nothing — retrieval must survive paraphrase. Prefer everyday
+   synonyms over the outline's terms ("shop" for store, "money back"
+   for refund, "send it back" for return, "how long until it arrives"
+   for delivery timelines), and make at least one question per
+   archetype avoid the key nouns of the concepts it targets.
 
 # Output
 
