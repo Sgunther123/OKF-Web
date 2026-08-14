@@ -7,6 +7,11 @@ are addressable in the open-source tool. Items are phased by
 leverage — how much adoption or trust each unit of work unlocks — not
 by size.
 
+This document phases the *tooling*; the companion
+[EXPANSION.md](EXPANSION.md) phases the *use case* — the concept
+classes that widen what a bundle is worth beyond pre-purchase
+answerability.
+
 ## Phase 1 — shipped
 
 The three highest-leverage fixes plus the consumption bridge:
