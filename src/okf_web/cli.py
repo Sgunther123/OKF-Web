@@ -21,8 +21,45 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import drift as drift_mod
 from . import evaluator, linter, publisher, review, signing, surveyor
 from .model import load_bundle
+
+
+def _build_retriever(args, bundle_dir):
+    """Retriever callable from --retriever/--embed-model, or None for lexical."""
+    if args.retriever == "lexical":
+        return None
+    from .retrieval import CACHE_NAME, EmbeddingIndex, HashingEmbedder
+
+    cache = Path(bundle_dir) / CACHE_NAME
+    if args.retriever == "embedding":
+        from .retrieval import VoyageClient
+
+        embedder = VoyageClient(model=args.embed_model)
+    else:
+        embedder = HashingEmbedder()
+    return EmbeddingIndex(embedder, cache_path=cache)
+
+
+def _add_retriever_args(parser) -> None:
+    parser.add_argument(
+        "--retriever",
+        choices=["lexical", "embedding", "hashing"],
+        default="lexical",
+        help="lexical: tf-idf (default); embedding: Voyage semantic "
+        "embeddings with an on-disk cache (`pip install okf-web[embed]`, "
+        "VOYAGE_API_KEY); hashing: dependency-free local embedder",
+    )
+    parser.add_argument("--embed-model", default="voyage-3.5")
+
+
+def _bundle_site(bundle_root) -> str | None:
+    """The store origin declared on the root index.md (x_geo.site)."""
+    root_index = load_bundle(bundle_root).indexes.get("index.md")
+    x_geo = (root_index.frontmatter.get("x_geo") or {}) if root_index else {}
+    site = x_geo.get("site") if isinstance(x_geo, dict) else None
+    return str(site) if site else None
 
 
 def _llm(args):
@@ -166,18 +203,7 @@ def cmd_evaluate(args) -> int:
         print(f"question set not found: {questions_path}", file=sys.stderr)
         return 2
     questions = evaluator.load_questions(questions_path)
-    retriever = None
-    if args.retriever != "lexical":
-        from .retrieval import CACHE_NAME, EmbeddingIndex, HashingEmbedder
-
-        cache = Path(args.bundle) / CACHE_NAME
-        if args.retriever == "embedding":
-            from .retrieval import VoyageClient
-
-            embedder = VoyageClient(model=args.embed_model)
-        else:
-            embedder = HashingEmbedder()
-        retriever = EmbeddingIndex(embedder, cache_path=cache)
+    retriever = _build_retriever(args, args.bundle)
     llm = None if args.dry_run else _llm(args)
     report = evaluator.evaluate(
         bundle, questions, llm=llm, top_k=args.top_k, retriever=retriever
@@ -198,23 +224,36 @@ def cmd_evaluate(args) -> int:
 
 
 def cmd_publish(args) -> int:
+    site = args.site or _bundle_site(args.bundle)
     try:
         result = publisher.publish(
             args.bundle,
             args.dist,
             include_machine_confirmed=args.include_machine_confirmed,
             base_path=args.base_path,
+            freshness=args.freshness,
+            site=site,
+            bundle_url=args.bundle_url,
         )
     except publisher.PublishError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     print(f"published {len(result.published)} file(s) to {result.dist}")
     if result.withheld:
-        print(f"withheld {len(result.withheld)} unapproved draft(s):")
+        print(
+            f"withheld {len(result.withheld)} concept(s) "
+            "(drafts, expired promotions, or stale under --freshness withhold):"
+        )
         for rel in result.withheld:
             print(f"  {rel}")
     for warning in result.warnings:
         print(f"warning: {warning}")
+    if args.bundle_url:
+        print(
+            "delegated hosting: serve the dist at "
+            f"{args.bundle_url.rstrip('/')}/ and paste the <link rel=\"okf-bundle\"> "
+            "tag from llms-snippet.txt into the storefront's <head>"
+        )
     if args.sign:
         try:
             out = signing.sign_manifest(
@@ -226,11 +265,6 @@ def cmd_publish(args) -> int:
         print(f"signed: {out} (verify with `okf-web verify {args.dist} "
               "--cert-identity <id> --cert-oidc-issuer <issuer>`)")
     if args.check_robots:
-        site = args.site
-        if not site:
-            root_index = load_bundle(args.bundle).indexes.get("index.md")
-            x_geo = (root_index.frontmatter.get("x_geo") or {}) if root_index else {}
-            site = x_geo.get("site") if isinstance(x_geo, dict) else None
         if not site:
             print(
                 "warning: --check-robots needs a site URL (pass --site or set "
@@ -248,6 +282,43 @@ def cmd_publish(args) -> int:
                 )
             else:
                 print("robots.txt: all checked AI agents may fetch the bundle")
+    return 0
+
+
+def cmd_drift(args) -> int:
+    report = drift_mod.check_bundle(args.bundle, timeout=args.timeout)
+    for rel, url in report.drifted:
+        print(f"drifted: {rel} ({url})")
+    for rel, err in report.unreachable:
+        print(f"unreachable: {rel} ({err})")
+    print(
+        f"\n{len(report.unchanged)} unchanged, {len(report.drifted)} drifted, "
+        f"{len(report.unreachable)} unreachable, {len(report.skipped)} skipped "
+        "(no surveyed source)"
+    )
+    if report.drifted:
+        print("re-survey the drifted URLs to refresh those concepts")
+    return 0 if report.clean else 1
+
+
+def cmd_mcp(args) -> int:
+    from . import mcp_bridge
+
+    retriever = _build_retriever(args, args.bundle)
+    state = mcp_bridge.build_state(
+        args.bundle,
+        working=args.working,
+        include_machine_confirmed=args.include_machine_confirmed,
+        retriever=retriever,
+        top_k=args.top_k,
+    )
+    view = "working copy (drafts included)" if args.working else "published view"
+    print(
+        f"okf-web mcp: serving {len(state.bundle.concepts)} concept(s) "
+        f"[{view}] over stdio",
+        file=sys.stderr,
+    )
+    mcp_bridge.serve_stdio(state)
     return 0
 
 
@@ -364,15 +435,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="with --published: mirror a publish that includes non-high-risk drafts",
     )
     p.add_argument("--top-k", type=int, default=4)
-    p.add_argument(
-        "--retriever",
-        choices=["lexical", "embedding", "hashing"],
-        default="lexical",
-        help="lexical: tf-idf (default); embedding: Voyage semantic "
-        "embeddings with an on-disk cache (`pip install okf-web[embed]`, "
-        "VOYAGE_API_KEY); hashing: dependency-free local embedder",
-    )
-    p.add_argument("--embed-model", default="voyage-3.5")
+    _add_retriever_args(p)
     _add_llm_args(p)
     p.add_argument("--write-scorecard", action="store_true")
     p.set_defaults(func=cmd_evaluate)
@@ -387,6 +450,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--base-path", default="/.well-known/okf")
     p.add_argument(
+        "--freshness",
+        choices=["warn", "withhold"],
+        default="warn",
+        help="what to do with concepts past stale_after: warn (default) "
+        "ships them with a warning; withhold retires them from the "
+        "published set (expired promotions are always withheld)",
+    )
+    p.add_argument(
         "--check-robots",
         action="store_true",
         help="fetch the live site's robots.txt and warn if AI agents are "
@@ -394,8 +465,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--site",
-        help="site origin for --check-robots (default: x_geo.site from the "
-        "bundle's root index.md)",
+        help="storefront origin the bundle speaks for; recorded in "
+        "manifest.json and used for --check-robots (default: x_geo.site "
+        "from the bundle's root index.md)",
+    )
+    p.add_argument(
+        "--bundle-url",
+        help="absolute base URL where the bundle will be served, when that "
+        "is NOT <site>/.well-known/okf (platform-hosted stores that cannot "
+        "serve root paths); enables the delegated-discovery artifacts",
     )
     p.add_argument(
         "--sign",
@@ -414,6 +492,36 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--sigstore-bin", default="sigstore")
     p.add_argument("--staging", action="store_true")
     p.set_defaults(func=cmd_sign)
+
+    p = sub.add_parser(
+        "drift",
+        help="LLM-free check: re-fetch each surveyed concept's source page "
+        "and report which ones changed (cheap enough for nightly CI)",
+    )
+    p.add_argument("bundle")
+    p.add_argument("--timeout", type=float, default=30.0)
+    p.set_defaults(func=cmd_drift)
+
+    p = sub.add_parser(
+        "mcp",
+        help="serve the bundle to MCP clients (Claude Desktop/Code, other "
+        "assistants) over stdio: retrieval, concept reads, capability calls",
+    )
+    p.add_argument("bundle")
+    p.add_argument(
+        "--working",
+        action="store_true",
+        help="serve the working copy (drafts included) instead of the "
+        "published view — for merchant self-testing only",
+    )
+    p.add_argument(
+        "--include-machine-confirmed",
+        action="store_true",
+        help="published view mirrors a publish that includes non-high-risk drafts",
+    )
+    p.add_argument("--top-k", type=int, default=4)
+    _add_retriever_args(p)
+    p.set_defaults(func=cmd_mcp)
 
     p = sub.add_parser(
         "verify",

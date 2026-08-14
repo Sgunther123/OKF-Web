@@ -18,7 +18,7 @@ sources:
     title: Tents collection page
     last_modified: 2026-07-25
 x_geo:
-  profile: ecommerce-geo/1.1
+  profile: ecommerce-geo/1.2
   risk: c
   intents: [discovery, comparison]
   source_hash: sha256:1a4c6e8f0b2d4a6c8e0f2b4d6a8c0e2f4b6d8a0c2e4f6b8d0a2c4e6f8b0d2a4c

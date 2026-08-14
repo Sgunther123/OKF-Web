@@ -43,8 +43,9 @@ lock-in; any engine that reads files can consume it.
 | --- | --- |
 | [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) | Plain-English guide for store owners — walkthrough and FAQs, no programming background needed |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | The system design — architecture, novelty, threat model, efficiency budget |
-| [`docs/GEO-PROFILE.md`](docs/GEO-PROFILE.md) | The `ecommerce-geo/1.1` profile: concept types, `x_geo` namespace, risk tiers, `http` runtime |
+| [`docs/GEO-PROFILE.md`](docs/GEO-PROFILE.md) | The `ecommerce-geo/1.2` profile: concept types, `x_geo` namespace, risk tiers, `http` runtime |
 | [`docs/EVALUATION.md`](docs/EVALUATION.md) | The answerability rubric: archetypes, metrics, gating |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phased roadmap, ranked by adoption leverage |
 | [`bundle-example/`](bundle-example/index.md) | Complete conformant companion bundle for a fictional store |
 | [`src/okf_web/`](src/okf_web/) | Reference implementation (`okf-web` CLI) |
 | [`src/okf_web/prompts/`](src/okf_web/prompts/) | The versioned LLM prompts: extraction contract, question generation, answerer, judge |
@@ -70,6 +71,13 @@ okf-web publish bundle-example dist/
 okf-web survey my-bundle --sitemap https://www.example-store.com --limit 25
 okf-web questions my-bundle
 okf-web evaluate my-bundle --write-scorecard
+
+# Keep it honest over time (both are LLM-free — nightly-cheap)
+okf-web drift my-bundle                          # did source pages change?
+okf-web publish my-bundle dist/ --freshness withhold   # retire stale concepts
+
+# Serve the bundle to Claude Desktop/Code and other MCP clients today
+okf-web mcp my-bundle
 ```
 
 `okf-web review list` on the example bundle shows one item: the
@@ -112,6 +120,26 @@ edition is developed as
 `llms-snippet.txt` (discovery via `llms.txt`). Serve it from the same
 CDN as the site at `/.well-known/okf/`; config snippets are in
 [docs/DESIGN.md §8](docs/DESIGN.md#8-hosting-and-discovery).
+
+**On a hosted platform that can't serve root paths** (Shopify and
+friends): publish with `--bundle-url https://<any-host>/<path>`, host
+the dist there, and paste the emitted
+`<link rel="okf-bundle" href="…">` tag into your storefront's
+`<head>` via the theme editor. The pointer on your domain plus the
+`site` recorded in `manifest.json` form a verifiable two-way binding
+([GEO-PROFILE §8](docs/GEO-PROFILE.md#8-discovery-and-delegation)).
+
+**Consumption doesn't have to wait for crawlers**: `okf-web mcp
+my-bundle` serves the published view to any MCP client — Claude
+Desktop config:
+
+```json
+{"mcpServers": {"my-store": {"command": "okf-web", "args": ["mcp", "/path/to/my-bundle"]}}}
+```
+
+giving the assistant `okf_search`, `okf_get`, `okf_capabilities`,
+and `okf_execute` (live price/stock via the store's declared
+read-only endpoints).
 
 Bundles can be **signed**: `okf-web publish dist/ --sign` (or
 `okf-web sign dist/`, after `pip install okf-web[sign]`) puts a

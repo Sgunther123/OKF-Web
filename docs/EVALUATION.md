@@ -113,14 +113,16 @@ Suggested CI policy (thresholds are merchant-tunable):
 | `okf-web lint --strict` | every PR | errors fail; warnings fail on release branches |
 | `evaluate --dry-run` | every PR | `retrieval_hit_rate` < 0.95 fails |
 | Full AnsEval | weekly + before big merges | `coverage` drop > 0.05 vs last scorecard fails; `groundedness` < 0.9 fails |
-| Faithfulness sweep | nightly | claim/source mismatch demotes concept to `draft` + review item |
+| `okf-web drift` | nightly | exit 1 (source pages changed or unreachable) files a re-survey item |
+| Faithfulness sweep | nightly, on drifted URLs | claim/source mismatch demotes concept to `draft` + review item |
 
 ## 6. Judged-set hygiene
 
 - Never let the answering model see judge prompts or ground truth.
 - Rotate ~20% of questions per quarter (stale sets overfit the
   bundle); keep a frozen core for longitudinal comparison.
-- The judge scores support-in-context, not real-world truth; the
-  faithfulness sweep (claims vs live pages) covers truth. Both must
-  pass — one without the other is either hallucination-proof-but-stale
-  or fresh-but-ungrounded.
+- The judge scores support-in-context, not real-world truth; truth is
+  covered mechanically by `okf-web drift` (did the source page change
+  under the concept?) and semantically by re-surveying the URLs drift
+  flags. Both must pass — one without the other is either
+  hallucination-proof-but-stale or fresh-but-ungrounded.

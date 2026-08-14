@@ -18,7 +18,7 @@ sources:
     title: Tent Buying Guide page
     last_modified: 2026-04-09
 x_geo:
-  profile: ecommerce-geo/1.1
+  profile: ecommerce-geo/1.2
   risk: b
   intents: [comparison, discovery, product_fact]
   source_hash: sha256:6a8c0e2f4b6d8a0c2e4f6b8d0a2c4e6f8b0d2a4c6e8f0b2d4a6c8e0f2b4d6a8c

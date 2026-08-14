@@ -3,7 +3,7 @@ okf_version: "0.2"
 title: Alpine Peak Outfitters — Knowledge Bundle
 description: Curated, provenance-tracked knowledge about the Alpine Peak Outfitters store, published as an OKF companion to the live site.
 x_geo:
-  profile: ecommerce-geo/1.1
+  profile: ecommerce-geo/1.2
   site: https://www.alpinepeakoutfitters.example
 ---
 

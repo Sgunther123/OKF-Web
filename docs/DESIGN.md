@@ -2,7 +2,7 @@
 
 **Status:** v1 design · **Format:** Open Knowledge Format (OKF) v0.2
 ([spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf))
-· **Profile:** `ecommerce-geo/1.1`
+· **Profile:** `ecommerce-geo/1.2`
 
 ## 1. Problem
 
@@ -278,6 +278,14 @@ The bundle is static files — publishable to the same CDN as the site:
   3. `robots.txt` may add `# okf-bundle: /.well-known/okf/index.md`.
   4. Agents that simply probe `/.well-known/okf/index.md` get the
      progressive-disclosure entry point.
+- **Delegated hosting** (platform-hosted stores that cannot serve
+  root paths — most of ecommerce by store count): publish with
+  `--bundle-url` to host the bundle on any HTTPS origin, then paste
+  the emitted `<link rel="okf-bundle" href="…">` tag into the
+  storefront's head (a theme-editor edit every platform allows). The
+  binding is bidirectional — the pointer sits on the store's origin,
+  and `manifest.json` records the claimed `site` — so consumers can
+  verify the bundle speaks for the store (GEO-PROFILE §8).
 - **Freshness plumbing:** standard `ETag`/`Last-Modified` per file;
   `manifest.json` sha256s let an agent sync a 500-concept bundle by
   fetching one JSON file and the handful of changed concepts.
@@ -323,13 +331,18 @@ location /.well-known/okf/ {
 - **Cadence:** survey on content deploys (CMS webhook) plus nightly;
   evaluate weekly and after any large merge; humans review on their
   own schedule — the queue holds.
-- **Drift:** `process:okf-web-faithfulness-check` re-fetches each
-  concept's sources on a schedule; hash changes trigger re-survey,
-  claim mismatches demote the concept to `draft` and file a review
-  item. `stale_after` is the merchant's freshness SLA per content
-  class (90 days for product facts, 6 months for policies in the
-  reference bundle); the linter warns when it lapses, and consuming
-  engines can see it too.
+- **Drift:** `okf-web drift` re-fetches each surveyed concept's
+  source page and compares its stabilized hash to the
+  `x_geo.source_hash` the concept was extracted from — zero LLM
+  tokens, so it runs nightly; a non-zero exit means "these URLs
+  changed under the bundle: re-survey them" (the semantic
+  claim-vs-page check rides on that re-survey). `stale_after` is the
+  merchant's freshness SLA per content class (90 days for product
+  facts, 6 months for policies in the reference bundle); the linter
+  warns when it lapses, consuming engines can see it, and
+  `publish --freshness withhold` retires lapsed concepts outright —
+  the graceful-degradation mode for a bundle nobody is maintaining,
+  where the failure should be "says less" rather than "lies".
 - **Audit:** `log.md` (newest-first, per the spec) plus git history
   answer "who said this, when, and who approved it" for every claim —
   which is precisely the question a merchant's lawyer asks after an
@@ -355,9 +368,12 @@ the citations.
 ## 11. Limitations and roadmap
 
 - **Adoption asymmetry:** engines must choose to read the bundle.
-  Mitigation: the bundle is also the cheapest correct source for any
-  RAG pipeline the merchant runs (support bots, on-site search), so it
-  pays for itself before external engines arrive.
+  Mitigations: the bundle is also the cheapest correct source for any
+  RAG pipeline the merchant runs (support bots, on-site search), and
+  `okf-web mcp` serves it to MCP clients (Claude Desktop/Code and a
+  growing set of assistants) *today* — retrieval, concept reads, and
+  capability execution as tools over the published view — so
+  consumption starts before any crawler adopts the well-known path.
 - **Self-declared trust:** `verified` is the store vouching for
   itself. Attested computations (signed receipts) are the wedge toward
   third-party attestation; a future profile version can add external
@@ -370,11 +386,13 @@ the citations.
   *proxy* for engines' own pipelines either way; scores are
   comparative, not absolute.
 - **Shipped from earlier revisions of this list:** signed bundles
-  (sigstore over `manifest.json` — §8) and promotion calendars
-  (`Promotion` concepts with `x_geo.starts_at`/`ends_at`, lint-gated
-  end dates, and publisher auto-retirement after expiry — the one
-  content class where "stale facts keep being served" has an
-  unambiguous machine-readable fix).
-- **Next:** multi-language bundles (concept-per-locale) and catalog
-  connectors (Shopify/BigCommerce product exports as a survey source
-  alongside HTML).
+  (sigstore over `manifest.json` — §8); promotion calendars
+  (`Promotion` concepts with lint-gated end dates and publisher
+  auto-retirement); discovery delegation for platform-hosted stores
+  (GEO-PROFILE §8); LLM-free drift detection (`okf-web drift`); the
+  freshness publish policy (`--freshness withhold`); and the MCP
+  bridge (`okf-web mcp`).
+- **Next:** see [ROADMAP.md](ROADMAP.md) for the phased remainder —
+  packaging and reviewer ergonomics first, then reach (multi-language
+  bundles, consumption measurement, a consumer-side delegation
+  verifier).

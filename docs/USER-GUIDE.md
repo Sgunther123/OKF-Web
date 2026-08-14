@@ -228,6 +228,19 @@ silently overwrite the approved version — it files a "drift proposal"
 for a human to look at. Each fact sheet also carries a freshness
 date; when it passes, the tool starts reminding you.
 
+Two helpers make "fresh" cheap to keep an eye on:
+
+```
+okf-web drift my-store
+```
+
+checks — without any AI cost — whether the pages your fact sheets
+came from have changed since, and names the ones to re-survey. And if
+life gets busy, publish with `--freshness withhold`: fact sheets past
+their freshness date are quietly left out of the public folder
+instead of shipped stale. A neglected folder then *says less* rather
+than saying something wrong.
+
 ---
 
 ## FAQs — The concept
@@ -423,9 +436,27 @@ its normal review screens.
 A: Today the tool reads your public site via its sitemap, which works
 on any platform. Direct catalog connectors (reading your product data
 straight from the platform, syncing automatically) are on the
-roadmap. One platform note: Shopify doesn't allow files at the
-`/.well-known/` address — your folder lives at an alternate path like
-`/apps/okf/`, which the publish command supports (`--base-path`).
+roadmap.
+
+**Q: My platform won't let me host files at that `/.well-known/` address.**
+A: Common, and solved. Host the folder anywhere you *can* — any
+static file host works — and publish with
+`--bundle-url https://that-host/your-folder`. The tool then gives
+you one line to paste into your storefront's theme (every platform's
+theme editor allows it): a small tag that tells AI systems where
+your fact folder lives. Because the tag sits on *your* domain and
+the folder names *your* store inside it, AI systems can verify the
+two belong together.
+
+**Q: Can I see it working with an AI assistant right now, before any
+search engine picks it up?**
+A: Yes — this is the quickest payoff in the whole tool. Run
+`okf-web mcp my-store` and connect it to Claude Desktop (one small
+config entry, shown in the README). Claude can then search your fact
+folder, read the sheets, and even call your store's live price/stock
+lookups — citing your verified facts instead of guessing from your
+web pages. It's also the best way to *feel* what the scorecard
+measures: ask the assistant the questions your customers ask.
 
 **Q: What if I don't want to run any of this myself?**
 A: That's a fair choice — the open tool will always be able to do
@@ -455,3 +486,6 @@ technical docs live alongside this guide:
 | Draft fact sheets from your site | `okf-web survey my-store --sitemap https://yourstore.com --limit 25 --llm claude-code` |
 | Get the report card | `okf-web evaluate my-store --write-scorecard --llm claude-code` |
 | Build the publishable folder | `okf-web publish my-store dist` |
+| See if source pages changed (free) | `okf-web drift my-store` |
+| Leave stale sheets out when publishing | `okf-web publish my-store dist --freshness withhold` |
+| Let Claude use your folder today | `okf-web mcp my-store` |

@@ -9,7 +9,7 @@ generated:
   by: okf-web-evaluator/claude-sonnet-5
   at: 2026-08-05T16:05:33Z
 x_geo:
-  profile: ecommerce-geo/1.1
+  profile: ecommerce-geo/1.2
   risk: c
   metrics:
     questions: 24

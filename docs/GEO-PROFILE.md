@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.1` Profile for OKF v0.2
+# The `ecommerce-geo/1.2` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.1`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.2`.
 
 ## 1. Concept types
 
@@ -60,7 +60,7 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.1` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.2` (opt-in marker) |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
 | `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
@@ -158,7 +158,47 @@ sigstore signature over the manifest that authenticates the entire
 published bundle (consumers probe this conventional name, verify the
 signer identity, then re-hash files against the manifest).
 
-## 8. Lint vocabulary
+## 8. Discovery and delegation
+
+How engines find a bundle, in order of preference:
+
+1. **Well-known location** (primary): `https://<store-domain>/.well-known/okf/`,
+   entry point `index.md`, `manifest.json` for freshness/delta-sync.
+   An entry in the site's `llms.txt` (the publisher emits the block)
+   makes the location explicit for engines that read it.
+2. **Delegated location**: many platform-hosted stores cannot serve
+   files at the domain root. Such a store MAY host the bundle at any
+   HTTPS base URL and point to it from the storefront's HTML head —
+   a surface every platform's theme editor can edit:
+
+   ```html
+   <link rel="okf-bundle" href="https://cdn.example.net/acme-okf/">
+   ```
+
+   (and/or an `llms.txt` entry with the absolute URL).
+
+**The binding is bidirectional.** A delegated bundle must prove it
+speaks for the store, and the store must prove it chose the bundle:
+
+- *store → bundle*: the pointer above lives on the store's own origin
+  — only the merchant can put it there.
+- *bundle → store*: the published `manifest.json` carries a `site`
+  key naming the storefront origin the bundle claims (the publisher
+  writes it from `--site` or the root index's `x_geo.site`).
+
+Consumers of an off-origin bundle MUST check both halves — pointer
+origin equals `manifest.site` — before treating the bundle as the
+store's own voice, and SHOULD check that concept `resource` URLs
+(equivalently `linkmap.json` keys) are on that origin; the publisher
+warns at build time when they are not. A sigstore signature over the
+manifest (§7) additionally proves *who* published; delegation proves
+*for which store*. The two compose: signature for authenticity,
+binding for authority.
+
+Same-origin bundles at the well-known location need none of this —
+path position is the binding.
+
+## 9. Lint vocabulary
 
 | Code | Level | Rule |
 | --- | --- | --- |
@@ -171,7 +211,7 @@ signer identity, then re-hash files against the manifest).
 | E013 | error | Risk-`a` concept without `sources` |
 | E014 | error | Stable `Promotion` without `x_geo.ends_at` |
 | W020 | warn | Footnote ref without matching `sources[].id`/definition |
-| W021 | warn | `stale_after` has passed |
+| W021 | warn | `stale_after` has passed (publish `--freshness withhold` retires such concepts instead of shipping them) |
 | W022 | warn | Broken bundle-internal link |
 | W027 | warn | `Promotion` missing end date (draft) or `stale_after` ≠ `ends_at` |
 | W028 | warn | Promotion ended; publisher withholds it — retire the concept |
@@ -180,12 +220,16 @@ signer identity, then re-hash files against the manifest).
 
 Errors block publishing; `--strict` promotes warnings for CI.
 
-## 9. Versioning
+## 10. Versioning
 
-**1.1** (current) adds the `Promotion` type, the
-`starts_at`/`ends_at` keys, the `promotion` intent, and lint codes
-E014/W027/W028 — all additive, so 1.0 concepts remain valid and 1.0
-consumers simply ignore the new type and keys.
+**1.2** (current) adds the discovery/delegation convention (§8) and
+the manifest `site`/`bundle_url` keys. Bundle-level only: no concept
+frontmatter changes, so concepts declaring 1.1 remain fully valid.
+
+**1.1** adds the `Promotion` type, the `starts_at`/`ends_at` keys,
+the `promotion` intent, and lint codes E014/W027/W028 — all additive,
+so 1.0 concepts remain valid and 1.0 consumers simply ignore the new
+type and keys.
 
 The profile versions independently of OKF (`ecommerce-geo/<major>.<minor>`),
 minor = additive. Consumers encountering an unknown minor MUST treat

@@ -13,8 +13,14 @@ Turns a bundle working copy into the static artifact served at
 * **linkmap.json** — live URL → concept path, for the site to emit
   ``<link rel="alternate" type="text/markdown" ...>`` on each page (the
   page ↔ concept binding in the other direction).
-* **llms-snippet.txt** — the block to add to the site's ``llms.txt`` so
-  generative engines discover the bundle.
+* **llms-snippet.txt** — the blocks to add to the site's ``llms.txt``
+  and HTML ``<head>`` so generative engines discover the bundle, on
+  this origin or a delegated one.
+* **Freshness policy** — ``freshness="warn"`` (default) ships concepts
+  past ``stale_after`` with a loud warning; ``freshness="withhold"``
+  retires them from the published set, capping the damage an
+  unmaintained bundle can do. Expired promotions are withheld under
+  either policy (their end date is machine-readable and unambiguous).
 """
 
 from __future__ import annotations
@@ -23,6 +29,7 @@ import datetime as _dt
 import hashlib
 import json
 import shutil
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -49,6 +56,7 @@ def select_publishable(
     bundle: Bundle,
     include_machine_confirmed: bool = False,
     today: _dt.date | None = None,
+    freshness: str = "warn",
 ) -> tuple[set[str], list[str]]:
     """Split the bundle's concepts into (publishable, withheld).
 
@@ -56,11 +64,20 @@ def select_publishable(
     ``x_geo.ends_at`` is machine-readable, so this is the one content
     class where auto-retirement is unambiguous: a publish after the
     end date can never ship a dead sale.
+
+    ``freshness="withhold"`` extends that retirement to any concept
+    past its ``stale_after``: the merchant told consumers "do not
+    trust this after date X", so a publish after X stops shipping it.
+    The default ("warn") keeps shipping and warns — withholding a
+    stale returns policy may be worse than serving it a week late, so
+    strict retirement is opt-in.
     """
     include: set[str] = set()
     withheld: list[str] = []
     for rel, concept in bundle.concepts.items():
         if concept.type == "Promotion" and concept.promo_expired(today):
+            withheld.append(rel)
+        elif freshness == "withhold" and concept.is_stale(today):
             withheld.append(rel)
         elif concept.status == "stable":
             include.add(rel)
@@ -75,6 +92,7 @@ def published_view(
     bundle: Bundle,
     include_machine_confirmed: bool = False,
     today: _dt.date | None = None,
+    freshness: str = "warn",
 ) -> Bundle:
     """The bundle as consumers see it: withheld concepts removed.
 
@@ -82,7 +100,7 @@ def published_view(
     scorecard honest — a full evaluation over the working copy would
     happily answer questions from drafts the publisher withholds.
     """
-    include, _ = select_publishable(bundle, include_machine_confirmed, today)
+    include, _ = select_publishable(bundle, include_machine_confirmed, today, freshness)
     view = Bundle(root=bundle.root)
     view.concepts = {rel: c for rel, c in bundle.concepts.items() if rel in include}
     view.indexes = dict(bundle.indexes)
@@ -95,9 +113,27 @@ def publish(
     dist: Path | str,
     include_machine_confirmed: bool = False,
     base_path: str = "/.well-known/okf",
+    freshness: str = "warn",
+    today: _dt.date | None = None,
+    site: str | None = None,
+    bundle_url: str | None = None,
 ) -> PublishResult:
+    """Build the static bundle.
+
+    ``site`` is the storefront origin the bundle speaks for; when the
+    bundle is served off-origin (platform-hosted stores that cannot
+    serve root paths), ``bundle_url`` is the absolute base URL where
+    this dist will live. Both feed the discovery/delegation artifacts:
+    ``manifest.json`` records the claimed ``site`` (the bundle→store
+    half of the binding; the store→bundle half is the pointer the
+    merchant pastes from ``llms-snippet.txt``).
+    """
     bundle_root = Path(bundle_root)
     dist = Path(dist)
+    site = site.rstrip("/") if site else None
+    if bundle_url is None and site:
+        bundle_url = site + base_path
+    bundle_url = bundle_url.rstrip("/") if bundle_url else None
 
     _, findings = lint_bundle(bundle_root)
     if has_errors(findings):
@@ -108,9 +144,34 @@ def publish(
     result = PublishResult(dist=dist)
 
     concept_include, result.withheld = select_publishable(
-        bundle, include_machine_confirmed
+        bundle, include_machine_confirmed, today, freshness
     )
     include = concept_include | set(bundle.indexes) | set(bundle.logs)
+
+    # Freshness warnings under the default policy: shipping a concept
+    # its own frontmatter says not to trust is exactly the failure an
+    # unmaintained bundle decays into, so it never happens silently.
+    for rel in sorted(concept_include):
+        concept = bundle.concepts[rel]
+        if concept.is_stale(today):
+            result.warnings.append(
+                f"{rel} is past stale_after "
+                f"({concept.frontmatter.get('stale_after')}) but ships anyway; "
+                "re-survey it or publish with --freshness withhold"
+            )
+
+    # Origin consistency: a bundle claiming to speak for `site` whose
+    # concepts cite pages on a different origin is either misdeclared
+    # or misassembled — either way consumers will reject the binding.
+    if site:
+        site_origin = _origin(site)
+        for rel in sorted(concept_include):
+            resource = bundle.concepts[rel].resource
+            if resource and resource.startswith(("http://", "https://")) and _origin(resource) != site_origin:
+                result.warnings.append(
+                    f"{rel} resource {resource} is not on the declared site "
+                    f"origin {site_origin} — delegation verifiers will flag it"
+                )
 
     if dist.exists():
         shutil.rmtree(dist)
@@ -135,9 +196,9 @@ def publish(
         shutil.copy2(path, target)
         result.published.append(rel)
 
-    _write_manifest(dist, result.published)
-    _write_linkmap(dist, bundle, result.published, base_path)
-    _write_llms_snippet(dist, base_path)
+    _write_manifest(dist, result.published, site=site, bundle_url=bundle_url)
+    _write_linkmap(dist, bundle, result.published, bundle_url or base_path)
+    _write_llms_snippet(dist, base_path, site=site, bundle_url=bundle_url)
 
     # An index that advertises withheld concepts ships dangling links —
     # legal per the spec (consumers must tolerate them) but a producer
@@ -156,7 +217,17 @@ def publish(
     return result
 
 
-def _write_manifest(dist: Path, published: list[str]) -> None:
+def _origin(url: str) -> str:
+    parts = urllib.parse.urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}".lower()
+
+
+def _write_manifest(
+    dist: Path,
+    published: list[str],
+    site: str | None = None,
+    bundle_url: str | None = None,
+) -> None:
     files = {}
     for rel in sorted(published):
         data = (dist / rel).read_bytes()
@@ -173,15 +244,23 @@ def _write_manifest(dist: Path, published: list[str]) -> None:
         .replace("+00:00", "Z"),
         "files": files,
     }
+    # The bundle→store half of the delegation binding (the store→bundle
+    # half is the pointer on the site itself). Consumers of an
+    # off-origin bundle MUST check manifest.site against the origin
+    # that pointed them here.
+    if site:
+        manifest["site"] = site
+    if bundle_url:
+        manifest["bundle_url"] = bundle_url
     (dist / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=False) + "\n", encoding="utf-8"
     )
 
 
-def _write_linkmap(dist: Path, bundle, published: list[str], base_path: str) -> None:
+def _write_linkmap(dist: Path, bundle, published: list[str], prefix: str) -> None:
     published_set = set(published)
     linkmap = {
-        concept.resource: f"{base_path}/{rel}"
+        concept.resource: f"{prefix}/{rel}"
         for rel, concept in sorted(bundle.concepts.items())
         if concept.resource and rel in published_set
     }
@@ -233,13 +312,34 @@ def check_robots(
     return evaluate_robots(robots_txt, site, base_path), None
 
 
-def _write_llms_snippet(dist: Path, base_path: str) -> None:
+def _write_llms_snippet(
+    dist: Path,
+    base_path: str,
+    site: str | None = None,
+    bundle_url: str | None = None,
+) -> None:
+    base = bundle_url or base_path
     snippet = (
+        "# Paste into your site's llms.txt:\n"
+        "\n"
         "## Knowledge\n"
         "\n"
-        f"- [OKF knowledge bundle]({base_path}/index.md): Curated, "
+        f"- [OKF knowledge bundle]({base}/index.md): Curated, "
         "provenance-tracked facts about this store (products, policies, "
         "capabilities) in Open Knowledge Format v0.2. Start at index.md; "
-        f"see {base_path}/manifest.json for freshness and delta sync.\n"
+        f"see {base}/manifest.json for freshness and delta sync.\n"
     )
+    if bundle_url:
+        # The store→bundle half of the discovery binding. On platforms
+        # that cannot serve /.well-known/*, this head tag (which every
+        # platform's theme editor can add) is how engines find an
+        # off-origin bundle — and, paired with manifest.site, how they
+        # verify it speaks for this store.
+        snippet += (
+            "\n"
+            "# Paste into your storefront's HTML <head> "
+            "(required when the bundle is hosted off-origin):\n"
+            "\n"
+            f'<link rel="okf-bundle" href="{bundle_url}/">\n'
+        )
     (dist / "llms-snippet.txt").write_text(snippet, encoding="utf-8")

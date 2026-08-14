@@ -71,7 +71,7 @@ def test_surveyor_parses_and_gates_llm_output(tmp_path):
         "    resource: https://shop.example/faq\n"
         "    title: FAQ page\n"
         "x_geo:\n"
-        "  profile: ecommerce-geo/1.1\n"
+        "  profile: ecommerce-geo/1.2\n"
         "  risk: b\n"
         "  intents: [trust]\n"
         "---\n"
