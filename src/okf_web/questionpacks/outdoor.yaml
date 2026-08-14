@@ -1,0 +1,29 @@
+# Starter question pack: outdoor / camping / hiking gear.
+# Seed for evaluations/questions.yaml — customize the nouns to your
+# catalog, then curate: add negative probes your bundle should answer
+# with a sourced "no".
+questions:
+  - {id: disc-1, archetype: discovery, question: "I need a tent for two people for summer backpacking — what do you have?"}
+  - {id: disc-2, archetype: discovery, question: "What sleeping bag would work for shoulder-season nights around freezing?"}
+  - {id: disc-3, archetype: discovery, question: "Do you sell four-season mountaineering tents?"}
+  - {id: fact-1, archetype: product_fact, question: "What is the packed weight of your lightest two-person tent?"}
+  - {id: fact-2, archetype: product_fact, question: "What temperature rating does your warmest sleeping bag carry?"}
+  - {id: fact-3, archetype: product_fact, question: "What fabric and coatings is your rain shell made of?"}
+  - {id: comp-1, archetype: comparison, question: "What's the difference between your regular and long sleeping bag sizes?"}
+  - {id: comp-2, archetype: comparison, question: "Which of your tents handles wind better, and why?"}
+  - {id: comp-3, archetype: comparison, question: "Down or synthetic — which of your bags should I pick for a wet climate?"}
+  - {id: pol-1, archetype: policy, question: "Can I return a tent after pitching it once indoors?"}
+  - {id: pol-2, archetype: policy, question: "How long is your warranty on zippers and seams?"}
+  - {id: pol-3, archetype: policy, question: "Do you repair gear after the return window closes?"}
+  - {id: ful-1, archetype: fulfillment, question: "Do you ship internationally, and what does it cost?"}
+  - {id: ful-2, archetype: fulfillment, question: "How long does standard delivery usually take?"}
+  - {id: ful-3, archetype: fulfillment, question: "Is there a minimum order for free shipping?"}
+  - {id: tru-1, archetype: trust, question: "How do I reach a human at your store?"}
+  - {id: tru-2, archetype: trust, question: "How long has this store been operating, and where is it based?"}
+  - {id: tru-3, archetype: trust, question: "What payment methods do you accept?"}
+  - {id: cap-1, archetype: capability, question: "Can my assistant check the live price of an item through an API?"}
+  - {id: cap-2, archetype: capability, question: "Is there a way to check whether an item is in stock right now?"}
+  - {id: cap-3, archetype: capability, question: "Can I look up the status of my order programmatically?"}
+  - {id: promo-1, archetype: promotion, question: "Is there a sale on right now?"}
+  - {id: promo-2, archetype: promotion, question: "Do you have a discount code for first-time orders?"}
+  - {id: promo-3, archetype: promotion, question: "When does your current promotion end?"}

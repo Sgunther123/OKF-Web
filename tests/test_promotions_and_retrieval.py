@@ -148,8 +148,13 @@ def test_embedding_cache_is_incremental(bundle_copy):
     embedder = CountingEmbedder()
     index = EmbeddingIndex(embedder, cache_path=cache)
     first = index.build(bundle)
+    # Mirrors the build filter: scorecards and translation trees don't embed.
     assert first == len(
-        [c for c in bundle.concepts.values() if c.type != "GEO Scorecard"]
+        [
+            c
+            for rel, c in bundle.concepts.items()
+            if c.type != "GEO Scorecard" and not rel.startswith("l10n/")
+        ]
     )
     assert cache.exists()
 

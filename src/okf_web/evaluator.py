@@ -38,6 +38,7 @@ from .model import (
     Concept,
     TRUST_UNVERIFIED,
     render_document,
+    split_l10n,
 )
 
 ARCHETYPES = [
@@ -204,11 +205,21 @@ META_TYPES = {"GEO Scorecard"}
 
 
 def retrieve(bundle: Bundle, question: str, top_k: int = 4) -> list[Concept]:
-    """Rank concepts by overlap with the question (tf * idf-lite)."""
+    """Rank concepts by overlap with the question (tf * idf-lite).
+
+    Translation trees (``l10n/<lang>/``) are excluded by key: in the
+    default view they would duplicate their sources in another
+    language, while in a ``localized_view`` the active translation
+    sits under its source key and participates normally.
+    """
     query = set(_tokens(question))
     if not query:
         return []
-    candidates = [c for c in bundle.concepts.values() if c.type not in META_TYPES]
+    candidates = [
+        c
+        for rel, c in bundle.concepts.items()
+        if c.type not in META_TYPES and split_l10n(rel) is None
+    ]
     docs = {c.rel_path: _tokens(c.retrieval_text()) for c in candidates}
     doc_freq = {term: sum(1 for toks in docs.values() if term in toks) for term in query}
     n_docs = max(1, len(docs))

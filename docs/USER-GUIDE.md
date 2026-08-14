@@ -489,3 +489,7 @@ technical docs live alongside this guide:
 | See if source pages changed (free) | `okf-web drift my-store` |
 | Leave stale sheets out when publishing | `okf-web publish my-store dist --freshness withhold` |
 | Let Claude use your folder today | `okf-web mcp my-store` |
+| Start with ready-made questions (free) | `okf-web questions my-store --pack outdoor` |
+| Approve all low-stakes drafts at once | `okf-web review batch-approve my-store --by you@yourstore.com` |
+| See which AI systems fetched your folder | `okf-web logscan access.log` |
+| Check your setup like an AI would | `okf-web discover https://yourstore.com` |

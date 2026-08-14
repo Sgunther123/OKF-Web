@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Protocol
 
 from .evaluator import META_TYPES  # same exclusion as the lexical retriever
-from .model import Bundle, Concept, sha256_text
+from .model import Bundle, Concept, sha256_text, split_l10n
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
@@ -148,7 +148,7 @@ class EmbeddingIndex:
         self._vectors, self._hashes = {}, {}
         todo: list[tuple[str, str]] = []
         for rel, concept in bundle.concepts.items():
-            if concept.type in META_TYPES:
+            if concept.type in META_TYPES or split_l10n(rel) is not None:
                 continue
             text = concept.retrieval_text()
             digest = sha256_text(text)

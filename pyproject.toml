@@ -4,13 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "okf-web"
-version = "0.1.0"
+version = "0.2.0"
 description = "Companion knowledge layer for ecommerce GEO: survey, evaluate, verify, and publish an Open Knowledge Format (OKF v0.2) bundle alongside a storefront."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
+keywords = ["geo", "generative-engine-optimization", "okf", "ecommerce", "llm", "knowledge"]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP :: Site Management",
+    "Topic :: Text Processing :: Markup :: Markdown",
 ]
 dependencies = [
     "PyYAML>=6.0",
@@ -33,7 +44,7 @@ okf-web = "okf_web.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-okf_web = ["prompts/*.md"]
+okf_web = ["prompts/*.md", "questionpacks/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

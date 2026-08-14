@@ -1,0 +1,29 @@
+# Starter question pack: consumer electronics.
+# Seed for evaluations/questions.yaml — customize the nouns to your
+# catalog, then curate: add negative probes your bundle should answer
+# with a sourced "no".
+questions:
+  - {id: disc-1, archetype: discovery, question: "I need noise-cancelling headphones for daily commuting under a mid-range budget — what do you carry?"}
+  - {id: disc-2, archetype: discovery, question: "What do you have for someone setting up a small home office?"}
+  - {id: disc-3, archetype: discovery, question: "Do you sell refurbished or open-box units?"}
+  - {id: fact-1, archetype: product_fact, question: "What is the battery life of your flagship earbuds with the case?"}
+  - {id: fact-2, archetype: product_fact, question: "Which charging standards does your power bank support, and at what wattage?"}
+  - {id: fact-3, archetype: product_fact, question: "Is your top monitor compatible with a Mac over USB-C?"}
+  - {id: comp-1, archetype: comparison, question: "What's the practical difference between your two mid-range laptop models?"}
+  - {id: comp-2, archetype: comparison, question: "Which of your routers is better for a large house with thick walls?"}
+  - {id: comp-3, archetype: comparison, question: "Wired or wireless — which of your keyboards has lower latency for gaming?"}
+  - {id: pol-1, archetype: policy, question: "Can I return a device after opening the box and turning it on?"}
+  - {id: pol-2, archetype: policy, question: "How long is the warranty, and who handles repairs — you or the manufacturer?"}
+  - {id: pol-3, archetype: policy, question: "Do you offer price protection if the item drops in price after I buy?"}
+  - {id: ful-1, archetype: fulfillment, question: "Do you ship internationally, and do batteries restrict where you can ship?"}
+  - {id: ful-2, archetype: fulfillment, question: "How fast is delivery, and can I get it insured or signed-for?"}
+  - {id: ful-3, archetype: fulfillment, question: "Is there a minimum order for free shipping?"}
+  - {id: tru-1, archetype: trust, question: "Are you an authorized dealer for the brands you sell?"}
+  - {id: tru-2, archetype: trust, question: "How do I reach a human for technical help before buying?"}
+  - {id: tru-3, archetype: trust, question: "What payment methods do you accept?"}
+  - {id: cap-1, archetype: capability, question: "Can my assistant check the live price of an item through an API?"}
+  - {id: cap-2, archetype: capability, question: "Can I check stock for a specific model and configuration right now?"}
+  - {id: cap-3, archetype: capability, question: "Can I look up the status of my order or repair programmatically?"}
+  - {id: promo-1, archetype: promotion, question: "Is there a sale on right now?"}
+  - {id: promo-2, archetype: promotion, question: "Do you have bundle deals or a trade-in program running?"}
+  - {id: promo-3, archetype: promotion, question: "When does your current promotion end?"}

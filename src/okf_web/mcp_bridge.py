@@ -45,7 +45,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import evaluator
-from .model import Bundle, Concept, load_bundle
+from .model import Bundle, Concept, load_bundle, localized_view
 from .publisher import published_view
 
 USER_AGENT = "okf-web-mcp/0.1"
@@ -76,8 +76,11 @@ def build_state(
     top_k: int = 4,
     http_get: Callable[[str], tuple[int, str]] | None = None,
     today: _dt.date | None = None,
+    lang: str | None = None,
 ) -> BridgeState:
     bundle = load_bundle(bundle_root)
+    if lang:
+        bundle = localized_view(bundle, lang)
     if not working:
         bundle = published_view(bundle, include_machine_confirmed, today)
     return BridgeState(

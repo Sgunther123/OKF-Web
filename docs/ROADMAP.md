@@ -35,35 +35,55 @@ The three highest-leverage fixes plus the consumption bridge:
   capability execution over the published view. Consumption today,
   without waiting for crawler adoption.
 
-## Phase 2 — packaging and operator ergonomics
+## Phase 2 — packaging and operator ergonomics (shipped)
 
 Lowering the floor for the first bundle and thinning the standing
 human cost:
 
-- **PyPI release** — `pipx install okf-web` instead of a git clone.
-  (Cheapest single friction fix available; blocked only on cutting a
-  version.)
-- **Review ergonomics** — filter the queue by risk tier, batch-approve
-  machine-confirmed `b`/`c` concepts, surface queue counts in CI
-  output so a rotting queue is visible before it rots.
-- **Starter question packs** — per-vertical `questions.yaml` seeds
-  (apparel, outdoor, electronics, grocery) so the first evaluation
-  doesn't require question-writing skill.
-- **Consumption measurement recipe** — a documented CDN-log query
-  (reusing the `AI_USER_AGENTS` list the robots checker already
-  maintains) so merchants can see engines fetching the bundle. The
-  feedback loop that sustains maintenance.
+- **Release readiness** — version 0.2.0, complete package metadata,
+  and a tag-triggered PyPI publish workflow using Trusted Publishing
+  (`.github/workflows/release.yml`). Cutting the release is one
+  `git tag v0.2.0` once the PyPI project is registered.
+- **Review ergonomics** — `review list --risk a` filters the queue;
+  every listing ends with a greppable
+  `pending: N (a/b/c)` summary; `review list --fail-nonempty` turns
+  a rotting queue into a red CI job; `review batch-approve` clears
+  the `b`/`c` draft tail in one command (risk `a` is deliberately not
+  batchable — E010 stays individual).
+- **Starter question packs** — `okf-web questions my-store --pack
+  outdoor|apparel|electronics|grocery`: 24 curated questions across
+  all eight archetypes, no LLM or credentials needed for the first
+  evaluation.
+- **Consumption measurement** — [MEASUREMENT.md](MEASUREMENT.md)
+  (where the logs live, how to read them honestly) plus
+  `okf-web logscan` over Combined-Log-Format and JSON-lines access
+  logs, reusing the `AI_USER_AGENTS` roster; `--fail-empty` is the
+  monthly "nobody is reading this" CI alarm.
 
-## Phase 3 — reach
+## Phase 3 — reach (shipped)
 
-- **Multi-language bundles** — concept-per-locale layout and lint
-  rules; international stores are currently first-language-only.
-- **Delegation verifier** — `okf-web discover <store-url>`: the
-  consumer-side counterpart to §8 (find the pointer, fetch the
-  bundle, check the bidirectional binding and signature) so anyone
-  can audit a store's delegation in one command.
-- **Log-scan tool** — promote the Phase-2 recipe into
-  `okf-web logscan` over common CDN log formats.
+- **Multi-language bundles** (profile 1.3) — translations live at
+  `l10n/<lang>/<same-path>`, pinned to their source's content hash;
+  lint W030/W031 catch orphaned and out-of-date translations;
+  `evaluate --lang` / `mcp --lang` serve the localized view
+  (translations overlay sources, untranslated concepts fall back to
+  the default language).
+- **Delegation verifier** — `okf-web discover <store-url>`: finds
+  the bundle (well-known probe + `<link rel="okf-bundle">`), checks
+  the bidirectional store↔bundle binding and signature presence,
+  and reports what an engine would conclude. Exit code makes it
+  CI-able.
+- **Log-scan tool** — shipped with Phase 2 as `okf-web logscan`.
+
+## Phase 4 — candidates (not started)
+
+- **Connector-neutral catalog ingestion** — survey from a product
+  feed file (Google Merchant/CSV) as a sitemap alternative; true
+  platform connectors remain a hosted capability.
+- **Attestation ecosystem** — auditor countersignatures over the
+  published manifest (the signing substrate already supports it).
+- **Localized question packs** — starter packs in the languages the
+  l10n convention now serves.
 
 ## Elsewhere
 

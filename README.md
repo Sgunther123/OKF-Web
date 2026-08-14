@@ -43,9 +43,11 @@ lock-in; any engine that reads files can consume it.
 | --- | --- |
 | [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) | Plain-English guide for store owners — walkthrough and FAQs, no programming background needed |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | The system design — architecture, novelty, threat model, efficiency budget |
-| [`docs/GEO-PROFILE.md`](docs/GEO-PROFILE.md) | The `ecommerce-geo/1.2` profile: concept types, `x_geo` namespace, risk tiers, `http` runtime |
+| [`docs/GEO-PROFILE.md`](docs/GEO-PROFILE.md) | The `ecommerce-geo/1.3` profile: concept types, `x_geo` namespace, risk tiers, `http` runtime |
 | [`docs/EVALUATION.md`](docs/EVALUATION.md) | The answerability rubric: archetypes, metrics, gating |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phased roadmap, ranked by adoption leverage |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phased tooling roadmap, ranked by adoption leverage |
+| [`docs/EXPANSION.md`](docs/EXPANSION.md) | Value expansion plan: fit, ownership, passports, omnichannel, B2B |
+| [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md) | Seeing engines consume the bundle (logscan + log recipes) |
 | [`bundle-example/`](bundle-example/index.md) | Complete conformant companion bundle for a fictional store |
 | [`src/okf_web/`](src/okf_web/) | Reference implementation (`okf-web` CLI) |
 | [`src/okf_web/prompts/`](src/okf_web/prompts/) | The versioned LLM prompts: extraction contract, question generation, answerer, judge |
@@ -69,12 +71,18 @@ okf-web publish bundle-example dist/
 
 # Against a real store (see "LLM access" below for credential options)
 okf-web survey my-bundle --sitemap https://www.example-store.com --limit 25
-okf-web questions my-bundle
+okf-web questions my-bundle --pack outdoor   # or: apparel/electronics/grocery; no LLM needed
 okf-web evaluate my-bundle --write-scorecard
 
-# Keep it honest over time (both are LLM-free — nightly-cheap)
+# Keep it honest over time (all LLM-free — nightly-cheap)
 okf-web drift my-bundle                          # did source pages change?
 okf-web publish my-bundle dist/ --freshness withhold   # retire stale concepts
+okf-web review list my-bundle --fail-nonempty    # CI alarm for a rotting queue
+okf-web review batch-approve my-bundle --by you@store.com  # clear the b/c draft tail
+
+# See who's consuming, and verify discovery like an engine would
+okf-web logscan access.log                       # AI-agent fetches (docs/MEASUREMENT.md)
+okf-web discover https://www.example-store.com   # find bundle + verify the binding
 
 # Serve the bundle to Claude Desktop/Code and other MCP clients today
 okf-web mcp my-bundle

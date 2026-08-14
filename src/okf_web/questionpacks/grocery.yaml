@@ -1,0 +1,29 @@
+# Starter question pack: grocery / food & beverage.
+# Seed for evaluations/questions.yaml — customize the nouns to your
+# catalog, then curate: add negative probes your bundle should answer
+# with a sourced "no".
+questions:
+  - {id: disc-1, archetype: discovery, question: "What do you have for a gluten-free baking project this weekend?"}
+  - {id: disc-2, archetype: discovery, question: "I'm cooking for someone with a severe nut allergy — what ranges are safe?"}
+  - {id: disc-3, archetype: discovery, question: "Do you carry local or organic produce?"}
+  - {id: fact-1, archetype: product_fact, question: "What are the ingredients and allergens in your house-brand granola?"}
+  - {id: fact-2, archetype: product_fact, question: "How long does your fresh pasta keep once delivered?"}
+  - {id: fact-3, archetype: product_fact, question: "Is your olive oil single-origin, and what's the harvest date?"}
+  - {id: comp-1, archetype: comparison, question: "What's the difference between your standard and premium coffee subscriptions?"}
+  - {id: comp-2, archetype: comparison, question: "Which of your meal kits is quickest to cook on a weeknight?"}
+  - {id: comp-3, archetype: comparison, question: "Frozen or fresh — which of your fish options is actually fresher when it arrives?"}
+  - {id: pol-1, archetype: policy, question: "What happens if something arrives spoiled or damaged?"}
+  - {id: pol-2, archetype: policy, question: "Can I get a refund on perishables, or only credit?"}
+  - {id: pol-3, archetype: policy, question: "How do I pause or cancel a subscription?"}
+  - {id: ful-1, archetype: fulfillment, question: "Which areas do you deliver to, and on which days?"}
+  - {id: ful-2, archetype: fulfillment, question: "How is cold-chain shipping handled in summer?"}
+  - {id: ful-3, archetype: fulfillment, question: "Is there a minimum order for free delivery?"}
+  - {id: tru-1, archetype: trust, question: "Where do you source your meat, and is it certified?"}
+  - {id: tru-2, archetype: trust, question: "How do I reach a human about a delivery problem?"}
+  - {id: tru-3, archetype: trust, question: "What payment methods do you accept, including EBT or vouchers?"}
+  - {id: cap-1, archetype: capability, question: "Can my assistant check the live price of an item through an API?"}
+  - {id: cap-2, archetype: capability, question: "Can I check whether an item is in stock for my delivery window?"}
+  - {id: cap-3, archetype: capability, question: "Can I look up my delivery slot or order status programmatically?"}
+  - {id: promo-1, archetype: promotion, question: "Is there a sale on right now?"}
+  - {id: promo-2, archetype: promotion, question: "Do you have a discount for first orders or referrals?"}
+  - {id: promo-3, archetype: promotion, question: "When does your current promotion end?"}

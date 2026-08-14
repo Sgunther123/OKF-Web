@@ -100,10 +100,10 @@ def cmd_review(args) -> int:
     bundle = load_bundle(args.bundle)
     if args.action == "list":
         items = review.pending(bundle)
+        shown = [i for i in items if not args.risk or i.concept.risk == args.risk]
         if not items:
             print("review queue is empty")
-            return 0
-        for item in items:
+        for item in shown:
             c = item.concept
             print(
                 f"[risk {c.risk}] {c.rel_path} ({c.type}, {c.trust_tier}) — "
@@ -114,6 +114,30 @@ def cmd_review(args) -> int:
             print("\ndrift proposals (surveyor found changes to human-reviewed concepts):")
             for path in proposed:
                 print(f"  {path}")
+        # Machine-greppable summary so CI can surface a rotting queue.
+        by_risk = {"a": 0, "b": 0, "c": 0}
+        for item in items:
+            by_risk[item.concept.risk] = by_risk.get(item.concept.risk, 0) + 1
+        print(
+            f"\npending: {len(items)} (a: {by_risk['a']}, b: {by_risk['b']}, "
+            f"c: {by_risk['c']}); drift proposals: {len(proposed)}"
+        )
+        if args.fail_nonempty and (items or proposed):
+            return 1
+        return 0
+    if args.action == "batch-approve":
+        if not args.by:
+            print("batch-approve needs --by <reviewer-id>", file=sys.stderr)
+            return 2
+        approved = review.batch_approve(
+            bundle, args.by, only_machine_confirmed=args.only_machine_confirmed
+        )
+        for concept in approved:
+            print(f"approved {concept.rel_path} -> {concept.trust_tier}, status {concept.status}")
+        print(
+            f"{len(approved)} concept(s) batch-approved (risk b/c drafts only; "
+            "risk a always needs individual review)"
+        )
         return 0
     if not args.path or not args.by:
         print("approve/reject need a concept path and --by <reviewer-id>", file=sys.stderr)
@@ -165,12 +189,50 @@ def cmd_index(args) -> int:
     return 0
 
 
+def _question_packs() -> dict[str, str]:
+    """Available starter packs: name -> YAML text."""
+    from importlib import resources
+
+    packs = {}
+    for entry in resources.files("okf_web").joinpath("questionpacks").iterdir():
+        if entry.name.endswith(".yaml"):
+            packs[entry.name[: -len(".yaml")]] = entry.read_text("utf-8")
+    return packs
+
+
 def cmd_questions(args) -> int:
+    out = Path(args.bundle) / "evaluations" / "questions.yaml"
+    if args.list_packs:
+        for name in sorted(_question_packs()):
+            print(name)
+        return 0
+    if args.pack:
+        packs = _question_packs()
+        if args.pack not in packs:
+            print(
+                f"unknown pack {args.pack!r}; available: {', '.join(sorted(packs))}",
+                file=sys.stderr,
+            )
+            return 2
+        if out.exists() and not args.force:
+            print(
+                f"{out} already exists; pass --force to replace it with the "
+                f"{args.pack} starter pack",
+                file=sys.stderr,
+            )
+            return 2
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(packs[args.pack], encoding="utf-8")
+        count = len(evaluator.load_questions(out))
+        print(
+            f"wrote {count} starter questions ({args.pack}) to {out} — "
+            "customize the nouns to your catalog, then curate"
+        )
+        return 0
     bundle = load_bundle(args.bundle)
     questions = evaluator.generate_questions(
         bundle, _llm(args), per_archetype=args.per_archetype
     )
-    out = Path(args.bundle) / "evaluations" / "questions.yaml"
     out.parent.mkdir(parents=True, exist_ok=True)
     import yaml
 
@@ -193,6 +255,11 @@ def cmd_questions(args) -> int:
 
 def cmd_evaluate(args) -> int:
     bundle = load_bundle(args.bundle)
+    if args.lang:
+        from .model import localized_view
+
+        bundle = localized_view(bundle, args.lang)
+        print(f"evaluating the {args.lang} localized view")
     if args.published:
         bundle = publisher.published_view(
             bundle, include_machine_confirmed=args.include_machine_confirmed
@@ -301,6 +368,61 @@ def cmd_drift(args) -> int:
     return 0 if report.clean else 1
 
 
+def cmd_discover(args) -> int:
+    from . import discover as discover_mod
+
+    report = discover_mod.discover(args.store_url, timeout=args.timeout)
+    print(f"store origin: {report.store_origin}")
+    print(f"routes found: {', '.join(report.routes) or 'none'}")
+    if report.bundle_url:
+        print(f"bundle: {report.bundle_url} ({report.files} file(s), "
+              f"profile {report.manifest.get('profile', '?')})")
+        print(f"signature: {'present' if report.signed else 'absent'}"
+              + (" — verify identity with `okf-web verify`" if report.signed else ""))
+    print(f"binding: {report.binding}")
+    for problem in report.problems:
+        print(f"problem: {problem}")
+    if report.ok:
+        print("OK: the bundle is discoverable and speaks for this store")
+        return 0
+    return 1
+
+
+def cmd_logscan(args) -> int:
+    from . import logscan
+
+    def _lines():
+        for name in args.logfile:
+            if name == "-":
+                yield from sys.stdin
+            else:
+                with open(name, "r", encoding="utf-8", errors="replace") as fh:
+                    yield from fh
+
+    report = logscan.scan_lines(_lines(), base_path=args.base_path)
+    print(
+        f"scanned {report.lines} line(s): {report.ai_hits} AI-agent bundle "
+        f"fetch(es), {report.other_hits} other bundle fetch(es)"
+    )
+    for agent, count in report.by_agent.most_common():
+        print(f"  {agent}: {count}")
+    if report.by_file:
+        print("top files:")
+        for path, count in report.by_file.most_common(5):
+            print(f"  {path}: {count}")
+    if report.first_seen and report.last_seen:
+        print(f"window: {report.first_seen.isoformat()} … {report.last_seen.isoformat()}")
+    if report.ai_hits == 0:
+        print(
+            "no AI-agent fetches found — check robots.txt reachability "
+            "(`okf-web publish --check-robots`) and discovery "
+            "(llms.txt / <link rel=\"okf-bundle\">)"
+        )
+        if args.fail_empty:
+            return 1
+    return 0
+
+
 def cmd_mcp(args) -> int:
     from . import mcp_bridge
 
@@ -311,6 +433,7 @@ def cmd_mcp(args) -> int:
         include_machine_confirmed=args.include_machine_confirmed,
         retriever=retriever,
         top_k=args.top_k,
+        lang=args.lang,
     )
     view = "working copy (drafts included)" if args.working else "published view"
     print(
@@ -394,11 +517,26 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_lint)
 
     p = sub.add_parser("review", help="human-in-the-loop verification queue")
-    p.add_argument("action", choices=["list", "approve", "reject"])
+    p.add_argument("action", choices=["list", "approve", "reject", "batch-approve"])
     p.add_argument("bundle")
     p.add_argument("path", nargs="?", help="concept path within the bundle")
     p.add_argument("--by", help="reviewer id (becomes human:<id>)")
     p.add_argument("--reason", help="rejection reason")
+    p.add_argument(
+        "--risk", choices=["a", "b", "c"], help="list: only show this risk tier"
+    )
+    p.add_argument(
+        "--fail-nonempty",
+        action="store_true",
+        help="list: exit 1 when anything is pending — CI visibility for a "
+        "rotting queue",
+    )
+    p.add_argument(
+        "--only-machine-confirmed",
+        action="store_true",
+        help="batch-approve: only drafts that already carry a machine "
+        "verification event",
+    )
     p.set_defaults(func=cmd_review)
 
     p = sub.add_parser("survey", help="LLM-populate draft concepts from site pages")
@@ -413,9 +551,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("bundle")
     p.set_defaults(func=cmd_index)
 
-    p = sub.add_parser("questions", help="LLM-generate an evaluation question set")
+    p = sub.add_parser(
+        "questions",
+        help="write an evaluation question set: --pack for a no-LLM vertical "
+        "starter, or LLM-generate from the bundle outline",
+    )
     p.add_argument("bundle")
     p.add_argument("--per-archetype", type=int, default=3)
+    p.add_argument(
+        "--pack",
+        help="start from a vertical starter pack instead of LLM generation "
+        "(see --list-packs); no credentials needed",
+    )
+    p.add_argument("--list-packs", action="store_true", help="print available starter packs")
+    p.add_argument("--force", action="store_true", help="replace an existing questions.yaml")
     _add_llm_args(p)
     p.set_defaults(func=cmd_questions)
 
@@ -435,6 +584,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="with --published: mirror a publish that includes non-high-risk drafts",
     )
     p.add_argument("--top-k", type=int, default=4)
+    p.add_argument(
+        "--lang",
+        help="evaluate the localized view: l10n/<lang>/ translations "
+        "overlaid on the default language",
+    )
     _add_retriever_args(p)
     _add_llm_args(p)
     p.add_argument("--write-scorecard", action="store_true")
@@ -503,6 +657,30 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_drift)
 
     p = sub.add_parser(
+        "discover",
+        help="consumer-side check of a live store: find its bundle "
+        "(well-known or <link rel=\"okf-bundle\">) and verify the "
+        "store↔bundle binding",
+    )
+    p.add_argument("store_url", help="storefront URL, e.g. https://www.example-store.com")
+    p.add_argument("--timeout", type=float, default=15.0)
+    p.set_defaults(func=cmd_discover)
+
+    p = sub.add_parser(
+        "logscan",
+        help="scan server/CDN access logs for AI agents fetching the bundle "
+        "— the consumption feedback loop (see docs/MEASUREMENT.md)",
+    )
+    p.add_argument("logfile", nargs="+", help="access log file(s), or - for stdin")
+    p.add_argument("--base-path", default="/.well-known/okf")
+    p.add_argument(
+        "--fail-empty",
+        action="store_true",
+        help="exit 1 when no AI-agent fetches are found (CI signal)",
+    )
+    p.set_defaults(func=cmd_logscan)
+
+    p = sub.add_parser(
         "mcp",
         help="serve the bundle to MCP clients (Claude Desktop/Code, other "
         "assistants) over stdio: retrieval, concept reads, capability calls",
@@ -520,6 +698,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="published view mirrors a publish that includes non-high-risk drafts",
     )
     p.add_argument("--top-k", type=int, default=4)
+    p.add_argument(
+        "--lang",
+        help="serve the localized view (l10n/<lang>/ overlaid on the default)",
+    )
     _add_retriever_args(p)
     p.set_defaults(func=cmd_mcp)
 

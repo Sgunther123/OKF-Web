@@ -27,7 +27,9 @@ from .model import (
     Bundle,
     Concept,
     RISK_HIGH,
+    RISK_LOW,
     RISK_MEDIUM,
+    TRUST_MACHINE,
     TRUST_UNVERIFIED,
     load_bundle,
 )
@@ -98,6 +100,37 @@ def approve(bundle: Bundle, rel_path: str, reviewer: str) -> Concept:
         f"**Verify**: [{concept.title}](/{concept.rel_path}) approved by {actor}.",
     )
     return concept
+
+
+def batch_approve(
+    bundle: Bundle,
+    reviewer: str,
+    risks: tuple[str, ...] = (RISK_MEDIUM, RISK_LOW),
+    only_machine_confirmed: bool = False,
+) -> list[Concept]:
+    """Approve every pending *draft* in the given risk tiers at once.
+
+    This thins the low-stakes tail of the queue after a skim — the
+    descriptive-facts tier the profile says may flow at machine speed.
+    Risk ``a`` is deliberately not batchable: E010 exists so that
+    money/legal/safety claims get individual human eyes, and a batch
+    command must not become the way around it.
+
+    ``only_machine_confirmed`` narrows further to drafts that already
+    carry a machine verification event (e.g. a faithfulness check),
+    leaving wholly unverified drafts in the queue.
+    """
+    if RISK_HIGH in risks:
+        raise ValueError("risk-a concepts cannot be batch-approved; review them individually")
+    approved: list[Concept] = []
+    for item in pending(bundle):
+        concept = item.concept
+        if concept.status != "draft" or concept.risk not in risks:
+            continue
+        if only_machine_confirmed and concept.trust_tier != TRUST_MACHINE:
+            continue
+        approved.append(approve(bundle, concept.rel_path, reviewer))
+    return approved
 
 
 def reject(bundle: Bundle, rel_path: str, reviewer: str, reason: str) -> Concept:

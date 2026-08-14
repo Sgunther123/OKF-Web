@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.2` Profile for OKF v0.2
+# The `ecommerce-geo/1.3` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.2`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.3`.
 
 ## 1. Concept types
 
@@ -60,7 +60,7 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.2` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.3` (opt-in marker) |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
 | `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
@@ -70,6 +70,7 @@ the OKF core surface stays pristine.
 | `source_fetched_at` | date | When the source was fetched |
 | `live_price` / `live_stock` | path | Bundle path of the capability concept serving the live value |
 | `review` | mapping | Set by `reject`: `{rejected_by, at, reason}`; cleared on approval |
+| `l10n_source_hash` | string | Translations only (§7): content hash of the source concept at translation time — powers the parity check |
 | `metrics` / `baseline` | mapping | Scorecard concepts only |
 | `rate_limit` / `auth` | string | Capability concepts: consumption etiquette |
 
@@ -151,7 +152,19 @@ self-verify).
 `index.md`, `log.md` per OKF. Additionally reserved by this profile:
 `_review/` (drift proposals awaiting humans) and `_quarantine/`
 (rejected LLM output) — working-copy state that MUST NOT be
-published; and at publish time, generated artifacts `manifest.json`
+published; **`l10n/<lang>/<rel-path>`** (added in 1.3) — a
+translation of the concept at `<rel-path>`, same layout mirrored
+under a language tag. Translations are full concepts (they lint,
+verify, and publish like any other) and MUST pin
+`x_geo.l10n_source_hash` to their source's content hash so parity is
+checkable (W030/W031). Tooling reads a language through a *localized
+view*: translations overlay their sources, untranslated concepts
+fall back to the default language, and other languages drop out —
+partial translation degrades to mixed language, never to missing
+knowledge. Default-language retrieval and evaluation exclude `l10n/`
+trees so translations never duplicate their sources in ranking.
+
+At publish time, generated artifacts `manifest.json`
 (per-file sha256 + bytes), `linkmap.json` (live URL → concept path),
 `llms-snippet.txt`, and optionally `manifest.json.sigstore.json` — a
 sigstore signature over the manifest that authenticates the entire
@@ -217,12 +230,18 @@ path position is the binding.
 | W028 | warn | Promotion ended; publisher withholds it — retire the concept |
 | W024 | warn | Risk-`a` concept with no claim-level footnotes |
 | W026 | warn | Attested Computation without `executor.resource` |
+| W030 | warn | Translation with no source concept at the mirrored path |
+| W031 | warn | Translation unpinned or out of date vs its source (`x_geo.l10n_source_hash`) |
 
 Errors block publishing; `--strict` promotes warnings for CI.
 
 ## 10. Versioning
 
-**1.2** (current) adds the discovery/delegation convention (§8) and
+**1.3** (current) adds the `l10n/<lang>/` translation convention
+(§7), the `l10n_source_hash` key, and lint codes W030/W031 —
+additive; concepts declaring earlier minors remain fully valid.
+
+**1.2** adds the discovery/delegation convention (§8) and
 the manifest `site`/`bundle_url` keys. Bundle-level only: no concept
 frontmatter changes, so concepts declaring 1.1 remain fully valid.
 

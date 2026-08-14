@@ -23,6 +23,10 @@ RESERVED_FILENAMES = {"index.md", "log.md"}
 # They live inside the bundle checkout but are never published.
 INTERNAL_DIRS = {"_quarantine", "_review"}
 
+# Reserved root directory for translations: l10n/<lang>/<rel-path>
+# mirrors the default-language concept at <rel-path> (profile 1.3).
+L10N_DIR = "l10n"
+
 TRUST_UNVERIFIED = "unverified"
 TRUST_MACHINE = "machine-confirmed"
 TRUST_HUMAN = "human-reviewed"
@@ -299,6 +303,48 @@ class Bundle:
     def all_documents(self) -> Iterator[Concept]:
         yield from self.indexes.values()
         yield from self.concepts.values()
+
+
+def split_l10n(rel_path: str) -> tuple[str, str] | None:
+    """``('es', 'faq/general.md')`` for ``l10n/es/faq/general.md``; else None."""
+    parts = rel_path.split("/", 2)
+    if len(parts) == 3 and parts[0] == L10N_DIR and parts[1] and parts[2]:
+        return parts[1], parts[2]
+    return None
+
+
+def concept_content_hash(concept: Concept) -> str:
+    """Content identity of a concept — what a translation pins itself to
+    via ``x_geo.l10n_source_hash`` so parity is checkable offline."""
+    return sha256_text(concept.render())
+
+
+def localized_view(bundle: Bundle, lang: str) -> Bundle:
+    """The bundle a ``lang`` shopper's engine reads.
+
+    Translations under ``l10n/<lang>/`` overlay their source concepts
+    (same bundle path, translated content); untranslated concepts stay
+    in the default language — a partial translation degrades to mixed
+    language, never to missing knowledge. Other languages' trees drop
+    out. ``l10n/<lang>/index.md``, when present, replaces the root
+    index.
+    """
+    view = Bundle(root=bundle.root)
+    view.concepts = {
+        rel: c for rel, c in bundle.concepts.items() if split_l10n(rel) is None
+    }
+    for rel, concept in bundle.concepts.items():
+        parsed = split_l10n(rel)
+        if parsed and parsed[0] == lang:
+            view.concepts[parsed[1]] = concept
+    view.indexes = {
+        rel: doc for rel, doc in bundle.indexes.items() if split_l10n(rel) is None
+    }
+    localized_index = bundle.indexes.get(f"{L10N_DIR}/{lang}/index.md")
+    if localized_index is not None:
+        view.indexes["index.md"] = localized_index
+    view.logs = dict(bundle.logs)
+    return view
 
 
 def load_bundle(root: Path | str, include_internal: bool = False) -> Bundle:

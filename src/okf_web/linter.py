@@ -28,7 +28,9 @@ from .model import (
     RISK_HIGH,
     TRUST_HUMAN,
     _as_date,
+    concept_content_hash,
     load_bundle,
+    split_l10n,
 )
 
 ERROR = "error"
@@ -210,6 +212,48 @@ def lint_bundle(
 
     for concept in bundle.concepts.values():
         findings.extend(lint_concept(concept, today=today))
+
+    # Translation parity: l10n/<lang>/<rel> mirrors <rel>. A translation
+    # is knowledge too — but one whose source moved on is worse than
+    # none, because it contradicts the default language with equal
+    # confidence.
+    for rel, concept in sorted(bundle.concepts.items()):
+        parsed = split_l10n(rel)
+        if parsed is None:
+            continue
+        _, source_rel = parsed
+        source = bundle.concepts.get(source_rel)
+        if source is None:
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W030",
+                    rel,
+                    f"translation has no source concept at {source_rel}",
+                )
+            )
+            continue
+        pinned = concept.x_geo.get("l10n_source_hash")
+        if not pinned:
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W031",
+                    rel,
+                    "translation is not pinned to its source — set "
+                    "x_geo.l10n_source_hash to the source concept's content hash",
+                )
+            )
+        elif str(pinned) != concept_content_hash(source):
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W031",
+                    rel,
+                    f"translation is out of date: {source_rel} changed since "
+                    "it was translated — re-translate and re-pin",
+                )
+            )
 
     # Broken bundle-internal links (concepts and indexes alike).
     known_paths = set(bundle.concepts) | set(bundle.indexes) | set(bundle.logs)
