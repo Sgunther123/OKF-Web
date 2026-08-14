@@ -9,15 +9,15 @@ generated:
   by: okf-web-evaluator/claude-sonnet-5
   at: 2026-08-05T16:05:33Z
 x_geo:
-  profile: ecommerce-geo/1.0
+  profile: ecommerce-geo/1.1
   risk: c
   metrics:
-    questions: 21
+    questions: 24
     retrieval_hit_rate: 1.0
-    context_tokens_mean: 1924
-    coverage: 0.905
-    groundedness: 0.905
-    citability: 0.857
+    context_tokens_mean: 1875
+    coverage: 0.917
+    groundedness: 0.917
+    citability: 0.875
     freshness: 1.0
     by_archetype:
       discovery: { questions: 3, answered: 3 }
@@ -27,8 +27,9 @@ x_geo:
       fulfillment: { questions: 3, answered: 3 }
       trust: { questions: 3, answered: 3 }
       capability: { questions: 3, answered: 2 }
+      promotion: { questions: 3, answered: 3 }
   baseline:
-    condition: raw site HTML (12 pages, same questions)
+    condition: raw site HTML (13 pages, same questions)
     context_tokens_mean: 41780
     coverage: 0.667
 ---
@@ -58,6 +59,9 @@ x_geo:
 | cap-1 | capability | 4 | yes | /capabilities/price-check.md |
 | cap-2 | capability | 4 | yes | /capabilities/stock-check.md |
 | cap-3 | capability | 4 | no | — |
+| promo-1 | promotion | 4 | yes | /promotions/fall-clearance.md |
+| promo-2 | promotion | 4 | yes | /promotions/fall-clearance.md |
+| promo-3 | promotion | 4 | yes | /promotions/fall-clearance.md |
 
 Note on disc-3: the bundle answers correctly that the store does
 *not* sell four-season tents — an explicit negative sourced from
@@ -75,8 +79,8 @@ Note on disc-3: the bundle answers correctly that the store does
 
 # Baseline comparison
 
-Answering the same 21 questions from raw site HTML consumed a mean of
-41,780 context tokens per question versus 1,924 from this bundle
-(22× reduction) and covered 14/21 questions versus 19/21. The largest
+Answering the same 24 questions from raw site HTML consumed a mean of
+41,780 context tokens per question versus 1,875 from this bundle
+(22× reduction) and covered 16/24 questions versus 22/24. The largest
 raw-HTML failures were capability questions (no API surface is
 described in page HTML) and policy edge cases buried in accordion UI.

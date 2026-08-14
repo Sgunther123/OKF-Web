@@ -2,7 +2,7 @@
 
 **Status:** v1 design · **Format:** Open Knowledge Format (OKF) v0.2
 ([spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf))
-· **Profile:** `ecommerce-geo/1.0`
+· **Profile:** `ecommerce-geo/1.1`
 
 ## 1. Problem
 
@@ -107,7 +107,7 @@ history is the audit trail.
    while low-risk descriptive facts flow through at machine speed.
 3. **Answerability evaluation as the GEO metric.** Instead of proxy
    advice ("add FAQ schema"), the evaluator role-plays the consumer:
-   it generates shopper questions across seven intent archetypes,
+   it generates shopper questions across eight intent archetypes,
    answers them *only* from the bundle, judges the answers strictly,
    and publishes the result **into the bundle** as a `GEO Scorecard`
    concept. Coverage, groundedness, citability, freshness, and token
@@ -346,8 +346,8 @@ A 500-product store, ~50 KB of extractable text per page:
 | Weekly upkeep, ~3% pages changed | full re-crawl per engine, per question | ~15 re-extractions total |
 | Freshness check | re-crawl | 1 GET of `manifest.json` |
 
-The reference scorecard measures 41,780 → 1,924 mean context tokens
-per answered question (22×) with coverage rising from 0.667 to 0.905.
+The reference scorecard measures 41,780 → 1,875 mean context tokens
+per answered question (22×) with coverage rising from 0.667 to 0.917.
 The asymmetry is the point: the merchant pays extraction **once**;
 every engine, every question, every day inherits the savings — and
 the citations.
@@ -362,10 +362,19 @@ the citations.
   itself. Attested computations (signed receipts) are the wedge toward
   third-party attestation; a future profile version can add external
   auditor actors.
-- **Retrieval is lexical** in the reference implementation; embedding
-  retrieval slots in behind the same interface.
-- **Next:** multi-language bundles (concept-per-locale), promotion
-  calendars as time-bounded concepts (`stale_after` per sale), catalog
+- **Retrieval is pluggable:** the evaluator takes any callable with
+  the retriever signature — lexical tf-idf by default, a
+  dependency-free feature-hashing embedder, or Voyage-backed semantic
+  embeddings with an incremental on-disk vector cache
+  (`okf-web evaluate --retriever embedding`). Our retrieval remains a
+  *proxy* for engines' own pipelines either way; scores are
+  comparative, not absolute.
+- **Shipped from earlier revisions of this list:** signed bundles
+  (sigstore over `manifest.json` — §8) and promotion calendars
+  (`Promotion` concepts with `x_geo.starts_at`/`ends_at`, lint-gated
+  end dates, and publisher auto-retirement after expiry — the one
+  content class where "stale facts keep being served" has an
+  unambiguous machine-readable fix).
+- **Next:** multi-language bundles (concept-per-locale) and catalog
   connectors (Shopify/BigCommerce product exports as a survey source
-  alongside HTML), and a signed-bundle convention (sigstore over
-  `manifest.json`).
+  alongside HTML).

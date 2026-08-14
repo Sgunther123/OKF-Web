@@ -18,7 +18,7 @@ sources:
     title: Return & Exchange Policy page
     last_modified: 2026-05-30
 x_geo:
-  profile: ecommerce-geo/1.0
+  profile: ecommerce-geo/1.1
   risk: a
   intents: [policy, trust]
   source_hash: sha256:9c2e4a6f8d0b2c4a6e8f0d2b4c6a8e0f2d4b6c8a0e2f4d6b8c0a2e4f6d8b0c2a

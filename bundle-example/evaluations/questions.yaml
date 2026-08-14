@@ -66,3 +66,12 @@ questions:
   - id: cap-3
     archetype: capability
     question: My assistant wants to check my order status — can it do that without my account password?
+  - id: promo-1
+    archetype: promotion
+    question: Is there a sale on right now?
+  - id: promo-2
+    archetype: promotion
+    question: Do you have a discount code I can use at checkout?
+  - id: promo-3
+    archetype: promotion
+    question: When does the current promotion end?

@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.robotparser import RobotFileParser
 
+from . import OKF_VERSION, PROFILE
 from .linter import has_errors, lint_bundle
 from .model import Bundle, INTERNAL_DIRS, RISK_HIGH, load_bundle
 
@@ -45,13 +46,23 @@ class PublishError(RuntimeError):
 
 
 def select_publishable(
-    bundle: Bundle, include_machine_confirmed: bool = False
+    bundle: Bundle,
+    include_machine_confirmed: bool = False,
+    today: _dt.date | None = None,
 ) -> tuple[set[str], list[str]]:
-    """Split the bundle's concepts into (publishable, withheld)."""
+    """Split the bundle's concepts into (publishable, withheld).
+
+    Expired promotions are withheld even when stable and approved —
+    ``x_geo.ends_at`` is machine-readable, so this is the one content
+    class where auto-retirement is unambiguous: a publish after the
+    end date can never ship a dead sale.
+    """
     include: set[str] = set()
     withheld: list[str] = []
     for rel, concept in bundle.concepts.items():
-        if concept.status == "stable":
+        if concept.type == "Promotion" and concept.promo_expired(today):
+            withheld.append(rel)
+        elif concept.status == "stable":
             include.add(rel)
         elif include_machine_confirmed and concept.risk != RISK_HIGH:
             include.add(rel)
@@ -60,14 +71,18 @@ def select_publishable(
     return include, withheld
 
 
-def published_view(bundle: Bundle, include_machine_confirmed: bool = False) -> Bundle:
+def published_view(
+    bundle: Bundle,
+    include_machine_confirmed: bool = False,
+    today: _dt.date | None = None,
+) -> Bundle:
     """The bundle as consumers see it: withheld concepts removed.
 
     Evaluating this view instead of the working bundle keeps the
     scorecard honest — a full evaluation over the working copy would
     happily answer questions from drafts the publisher withholds.
     """
-    include, _ = select_publishable(bundle, include_machine_confirmed)
+    include, _ = select_publishable(bundle, include_machine_confirmed, today)
     view = Bundle(root=bundle.root)
     view.concepts = {rel: c for rel, c in bundle.concepts.items() if rel in include}
     view.indexes = dict(bundle.indexes)
@@ -109,6 +124,10 @@ def publish(
         rel = path.relative_to(bundle_root).as_posix()
         if rel.split("/", 1)[0] in INTERNAL_DIRS:
             continue
+        # Hidden files are working state (embedding caches, editor
+        # droppings), never published knowledge.
+        if any(part.startswith(".") for part in rel.split("/")):
+            continue
         if path.suffix == ".md" and rel not in include:
             continue
         target = dist / rel
@@ -146,8 +165,8 @@ def _write_manifest(dist: Path, published: list[str]) -> None:
             "bytes": len(data),
         }
     manifest = {
-        "okf_version": "0.2",
-        "profile": "ecommerce-geo/1.0",
+        "okf_version": OKF_VERSION,
+        "profile": PROFILE,
         "published_at": _dt.datetime.now(_dt.timezone.utc)
         .replace(microsecond=0)
         .isoformat()

@@ -8,6 +8,7 @@
 * **Verify**: [Alpine 2 Tent](/catalog/products/alpine-2-tent.md) approved by human:merch-lead@alpinepeakoutfitters.example.
 * **Verify**: [General FAQ](/faq/general.md) approved by human:support-lead@alpinepeakoutfitters.example.
 * **Verify**: [Live Price Check](/capabilities/price-check.md), [Live Stock Check](/capabilities/stock-check.md), and [Order Status Lookup](/capabilities/order-status.md) approved by human:platform-lead@alpinepeakoutfitters.example.
+* **Verify**: [Fall Clearance — 15% Off Sleeping Bags](/promotions/fall-clearance.md) approved by human:merch-lead@alpinepeakoutfitters.example; retires automatically after 2026-12-31.
 * **Update**: [Answerability evaluation — 2026-08-05](/evaluations/geo-scorecard.md) written by okf-web-evaluator/claude-sonnet-5 (21 questions, coverage 0.905).
 * **Note**: [Limited Warranty](/policies/warranty.md) remains a draft pending legal review; withheld from publishing.
 

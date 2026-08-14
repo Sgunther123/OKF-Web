@@ -166,8 +166,22 @@ def cmd_evaluate(args) -> int:
         print(f"question set not found: {questions_path}", file=sys.stderr)
         return 2
     questions = evaluator.load_questions(questions_path)
+    retriever = None
+    if args.retriever != "lexical":
+        from .retrieval import CACHE_NAME, EmbeddingIndex, HashingEmbedder
+
+        cache = Path(args.bundle) / CACHE_NAME
+        if args.retriever == "embedding":
+            from .retrieval import VoyageClient
+
+            embedder = VoyageClient(model=args.embed_model)
+        else:
+            embedder = HashingEmbedder()
+        retriever = EmbeddingIndex(embedder, cache_path=cache)
     llm = None if args.dry_run else _llm(args)
-    report = evaluator.evaluate(bundle, questions, llm=llm, top_k=args.top_k)
+    report = evaluator.evaluate(
+        bundle, questions, llm=llm, top_k=args.top_k, retriever=retriever
+    )
     metrics = report.metrics(bundle)
     for key, value in metrics.items():
         if key != "by_archetype":
@@ -350,6 +364,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="with --published: mirror a publish that includes non-high-risk drafts",
     )
     p.add_argument("--top-k", type=int, default=4)
+    p.add_argument(
+        "--retriever",
+        choices=["lexical", "embedding", "hashing"],
+        default="lexical",
+        help="lexical: tf-idf (default); embedding: Voyage semantic "
+        "embeddings with an on-disk cache (`pip install okf-web[embed]`, "
+        "VOYAGE_API_KEY); hashing: dependency-free local embedder",
+    )
+    p.add_argument("--embed-model", default="voyage-3.5")
     _add_llm_args(p)
     p.add_argument("--write-scorecard", action="store_true")
     p.set_defaults(func=cmd_evaluate)

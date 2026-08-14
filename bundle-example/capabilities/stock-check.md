@@ -26,7 +26,7 @@ executor:
 attester:
   resource: https://www.alpinepeakoutfitters.example/api/v1/stock?sku={sku}
 x_geo:
-  profile: ecommerce-geo/1.0
+  profile: ecommerce-geo/1.1
   risk: a
   intents: [capability, fulfillment]
   rate_limit: 60 requests/minute per client

@@ -28,6 +28,8 @@ description.
   human.
 - **capability** — what an agent can do programmatically (check live
   price/stock, order status) and how.
+- **promotion** — current sales and discount codes, what they apply
+  to, and when a deal ends.
 
 # Rules
 

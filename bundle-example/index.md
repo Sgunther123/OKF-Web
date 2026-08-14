@@ -3,7 +3,7 @@ okf_version: "0.2"
 title: Alpine Peak Outfitters — Knowledge Bundle
 description: Curated, provenance-tracked knowledge about the Alpine Peak Outfitters store, published as an OKF companion to the live site.
 x_geo:
-  profile: ecommerce-geo/1.0
+  profile: ecommerce-geo/1.1
   site: https://www.alpinepeakoutfitters.example
 ---
 
@@ -31,6 +31,10 @@ price or stock claim. Only `stable` concepts are listed here.
 
 * [Tent Buying Guide](/guides/tent-buying-guide.md) - How to choose between the store's tents by season, capacity, and weight.
 * [General FAQ](/faq/general.md) - Payment methods, contacting support, sizing help, and gift cards.
+
+## Promotions
+
+* [Fall Clearance — 15% Off Sleeping Bags](/promotions/fall-clearance.md) - 15% off all sleeping bags with code FALL15 through December 31, 2026.
 
 ## Capabilities
 

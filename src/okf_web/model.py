@@ -199,6 +199,19 @@ class Concept:
         value = self.x_geo.get("source_hash")
         return str(value) if value else None
 
+    # -- promotion time bounds (type: Promotion) ---------------------------
+    @property
+    def promo_starts(self) -> _dt.date | None:
+        return _as_date(self.x_geo.get("starts_at"))
+
+    @property
+    def promo_ends(self) -> _dt.date | None:
+        return _as_date(self.x_geo.get("ends_at"))
+
+    def promo_expired(self, today: _dt.date | None = None) -> bool:
+        ends = self.promo_ends
+        return ends is not None and (today or _dt.date.today()) > ends
+
     # -- sources / citations ----------------------------------------------
     @property
     def sources(self) -> list[dict[str, Any]]:

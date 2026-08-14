@@ -7,7 +7,7 @@ varies the knowledge.
 
 ## 1. Question set
 
-Questions simulate what shoppers ask AI assistants, across seven
+Questions simulate what shoppers ask AI assistants, across eight
 archetypes (one axis of coverage each):
 
 | Archetype | Probes | Example |
@@ -19,6 +19,7 @@ archetypes (one axis of coverage each):
 | `fulfillment` | Destinations, costs, timing | "Ship to Canada, what cost?" |
 | `trust` | Legitimacy, payments, reaching humans | "How do I reach support?" |
 | `capability` | What agents can *do* programmatically | "Get the live price via API?" |
+| `promotion` | Current sales, codes, when deals end | "Is there a sale on right now?" |
 
 Sets are LLM-generated from the bundle outline
 ([prompt](../src/okf_web/prompts/evaluator_questions.md)), then
@@ -37,9 +38,16 @@ scores are comparable across runs.
 Per question:
 
 1. **Retrieve** top-k concepts (default 4) the way a frugal agent
-   would. Reference implementation: lexical tf-idf over
-   title/description/tags/body with an `x_geo.intents` boost.
-   Retrieval is pluggable; the metric contract doesn't change.
+   would. Retrieval is pluggable — any callable with the retriever
+   signature — and the metric contract doesn't change:
+   `--retriever lexical` (default) is tf-idf over
+   title/description/tags/body with an `x_geo.intents` boost;
+   `--retriever embedding` uses Voyage semantic embeddings with an
+   incremental on-disk cache (`.embeddings.json`, hidden and never
+   published; re-embeds only changed concepts);
+   `--retriever hashing` is a dependency-free local embedder for
+   offline runs — quality ≈ lexical, since feature hashing can't know
+   synonyms.
 2. **Answer** from retrieved context only
    ([prompt](../src/okf_web/prompts/evaluator_answer.md)). The
    answerer must cite concept paths, prefer higher trust tiers, defer
@@ -79,7 +87,7 @@ With `N` questions, `R_q` the result for question `q`:
 
 **GEO lift** = bundle coverage − baseline coverage, and the token
 ratio `baseline.context_tokens_mean / context_tokens_mean`. The
-reference bundle reports 0.667 → 0.905 coverage and a 22× token
+reference bundle reports 0.667 → 0.917 coverage and a 22× token
 reduction.
 
 ## 4. Scorecard

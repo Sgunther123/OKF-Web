@@ -48,6 +48,7 @@ ARCHETYPES = [
     "fulfillment",    # shipping destinations, costs, timelines
     "trust",          # legitimacy, guarantees, contact, provenance
     "capability",     # what can an agent *do* against the store (live price/stock)
+    "promotion",      # current sales, discount codes, when a deal ends
 ]
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
@@ -195,20 +196,19 @@ def _tokens(text: str) -> list[str]:
     return [t for t in _WORD_RE.findall(text.lower()) if t not in _STOPWORDS]
 
 
-_META_TYPES = {"GEO Scorecard"}
+# Meta-knowledge about the bundle itself (scorecards) never
+# participates in retrieval: it describes the evaluation, not the
+# store, and its tables are dense with concept paths that would
+# pollute ranking. Shared with the embedding retriever.
+META_TYPES = {"GEO Scorecard"}
 
 
 def retrieve(bundle: Bundle, question: str, top_k: int = 4) -> list[Concept]:
-    """Rank concepts by overlap with the question (tf * idf-lite).
-
-    Meta-knowledge about the bundle itself (scorecards) is excluded:
-    it describes the evaluation, not the store, and its tables are
-    dense with concept paths that would pollute ranking.
-    """
+    """Rank concepts by overlap with the question (tf * idf-lite)."""
     query = set(_tokens(question))
     if not query:
         return []
-    candidates = [c for c in bundle.concepts.values() if c.type not in _META_TYPES]
+    candidates = [c for c in bundle.concepts.values() if c.type not in META_TYPES]
     docs = {c.rel_path: _tokens(c.retrieval_text()) for c in candidates}
     doc_freq = {term: sum(1 for toks in docs.values() if term in toks) for term in query}
     n_docs = max(1, len(docs))
@@ -274,11 +274,17 @@ def evaluate(
     questions: list[Question],
     llm=None,
     top_k: int = 4,
+    retriever=None,
 ) -> Report:
+    """Run the harness. ``retriever`` is any callable with the
+    signature ``(bundle, question, top_k) -> [Concept]`` — the lexical
+    default, an :class:`okf_web.retrieval.EmbeddingIndex`, or an
+    engine-specific stand-in; the metric contract doesn't change."""
+    retrieve_fn = retriever or retrieve
     dry_run = llm is None
     results: list[QuestionResult] = []
     for question in questions:
-        retrieved = retrieve(bundle, question.question, top_k=top_k)
+        retrieved = retrieve_fn(bundle, question.question, top_k)
         context = "\n\n".join(
             f"<concept path=\"/{c.rel_path}\" trust=\"{c.trust_tier}\">\n"
             f"{c.render()}\n</concept>"

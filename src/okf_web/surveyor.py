@@ -268,6 +268,10 @@ def survey_page(
         x_geo["source_fetched_at"] = now.date().isoformat()
         if not fm.get("resource"):
             fm["resource"] = url
+        # Promotions retire with their sale: default stale_after to the
+        # end date so the freshness machinery tracks the time bound.
+        if fm.get("type") == "Promotion" and x_geo.get("ends_at") and not fm.get("stale_after"):
+            fm["stale_after"] = x_geo["ends_at"]
 
         concept = Concept(rel, fm, body)
         hard_errors = [f for f in lint_concept(concept, today=today) if f.severity == ERROR]

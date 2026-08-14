@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 llm = ["anthropic>=0.40"]
 sign = ["sigstore>=3.0"]
+embed = ["voyageai>=0.2"]
 dev = ["pytest>=8.0"]
 
 [project.urls]

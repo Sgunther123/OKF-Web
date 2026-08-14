@@ -10,3 +10,4 @@ venv/
 .coverage
 bundle-example/_quarantine/
 bundle-example/_review/
+.embeddings.json

@@ -27,6 +27,7 @@ from .model import (
     Concept,
     RISK_HIGH,
     TRUST_HUMAN,
+    _as_date,
     load_bundle,
 )
 
@@ -105,6 +106,54 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                     "cannot run it",
                 )
             )
+    if concept.type == "Promotion":
+        ends = concept.promo_ends
+        if ends is None:
+            if concept.status == "stable":
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "E014",
+                        rel,
+                        "stable Promotion has no `x_geo.ends_at`; unbounded "
+                        "promotions are exactly what engines misquote — add "
+                        "the end date before publishing",
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W027",
+                        rel,
+                        "Promotion draft has no `x_geo.ends_at`; a reviewer "
+                        "must add the end date before it can go stable",
+                    )
+                )
+        else:
+            stale_date = _as_date(concept.frontmatter.get("stale_after"))
+            if stale_date is None or stale_date > ends:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W027",
+                        rel,
+                        "Promotion `stale_after` should equal `x_geo.ends_at` "
+                        "so the freshness machinery retires it with the sale",
+                    )
+                )
+            if (today or _dt.date.today()) > ends:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W028",
+                        rel,
+                        f"promotion ended {ends.isoformat()}; the publisher "
+                        "withholds it automatically, but retire or re-survey "
+                        "the concept",
+                    )
+                )
+
     if concept.type == "Product" and not concept.resource:
         findings.append(
             Finding(

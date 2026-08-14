@@ -18,7 +18,7 @@ sources:
     title: Shipping Policy page
     last_modified: 2026-07-11
 x_geo:
-  profile: ecommerce-geo/1.0
+  profile: ecommerce-geo/1.1
   risk: a
   intents: [fulfillment, policy]
   source_hash: sha256:3b6d8f0a2c4e6f8a0c2e4d6f8b0d2a4c6e8f0b2d4a6c8e0f2b4d6a8c0e2f4d6b
