@@ -36,3 +36,6 @@ questions:
   - {id: pass-1, archetype: compliance, question: "What's the exact fiber composition, and where was it made?"}
   - {id: pass-2, archetype: compliance, question: "Which certifications back your sustainability claims — can I see them?"}
   - {id: pass-3, archetype: compliance, question: "Is this recyclable at end of life, or does it go to landfill?"}
+  - {id: loc-1, archetype: local_availability, question: "Where is your nearest store, and does it have fitting rooms?"}
+  - {id: loc-2, archetype: local_availability, question: "Can I pick up an online order in store today, and how fast is it ready?"}
+  - {id: loc-3, archetype: local_availability, question: "Can I return an online order at the store instead of shipping it back?"}

@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.6` Profile for OKF v0.2
+# The `ecommerce-geo/1.7` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.6`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.7`.
 
 ## 1. Concept types
 
@@ -28,6 +28,7 @@ tooling and engines can dispatch on them.
 | `Compatibility` | Fit charts, works-with matrices, part fitment (added in 1.4) | `b` |
 | `Ownership Guide` | Care, setup, troubleshooting, warranty process for owners (added in 1.5) | `b` |
 | `Product Passport` | Materials, origin, certifications, repairability (added in 1.6) | `a` (always) |
+| `Store Location` | A physical store or pickup point: address, hours, services (added in 1.7) | `b` |
 | `GEO Scorecard` | Machine-generated answerability evaluation | `c` |
 
 ### Per-type requirements (beyond OKF's required `type`)
@@ -90,6 +91,18 @@ tooling and engines can dispatch on them.
   signature verification is the tamper-evidence chain, and a
   third-party auditor countersignature over the same manifest is the
   designed extension point.
+- **`Store Location`:** the static layer of omnichannel — most of
+  the value needs no API at all. `x_geo.entity` (a stable `loc:` id
+  other concepts and stock capabilities reference) and
+  `x_geo.location.address` required before `stable` (E018; W032 for
+  drafts); `hours`, `phone`, `services` as posted. Risk `b` at
+  minimum (W033 flags `c`) — a wrong address sends someone to a
+  closed door. *Posted* hours are static claims; **open right now
+  and shelf stock are live values** (§4) — a per-location stock
+  capability (parameters `sku` + `location`, availability classes
+  rather than counts) is the upgrade when the store has the API, and
+  BOPIS ordering is a mutating flow that stays on the store's pages
+  (§5).
 - **`GEO Scorecard`:** `generated` required; metrics live under
   `x_geo.metrics` (schema in [EVALUATION.md](EVALUATION.md)).
 
@@ -100,15 +113,16 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.6` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.7` (opt-in marker) |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
-| `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership`, `compliance` — retrieval hint for engines |
+| `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership`, `compliance`, `local_availability` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
 | `entity` | string | Stable store-local id, e.g. `sku:APO-TENT-A2`, `org:acme` |
 | `fits` / `works_with` | list | Compatibility concepts (and products declaring interop): entity ids this concept gives fit guidance for / declares interoperable — every id must resolve to a concept's `entity` (W032) |
 | `covers` | list | Ownership Guide concepts: entity ids this is post-purchase guidance for — same resolution rule (W032) |
 | `passport_for` | string | Product Passport concepts: the single entity described — same resolution rule (W032) |
 | `passport` | mapping | Product Passport concepts: `materials` (list), `origin`, `certifications` (list of name/issuer/resource), `repairability` — extra keys legal |
+| `location` | mapping | Store Location concepts: `address` (required before stable), `hours`, `phone`, `services` — extra keys legal |
 | `brand` | string | Product brand |
 | `source_hash` | string | `sha256:<hex>` of the normalized source text at survey time — powers incremental re-survey |
 | `source_fetched_at` | date | When the source was fetched |
@@ -154,7 +168,10 @@ x_geo:
 
 with a body section directing agents to execute the capability. This
 keeps the bundle permanently non-lying about the two facts stores are
-most often wrong about in third-party surfaces.
+most often wrong about in third-party surfaces. The same rule covers
+physical presence: *posted* hours are static claims, but whether a
+store is open **right now** and what is on the shelf **right now**
+are live values — quote posted hours, execute a stock capability.
 
 ## 5. The `http` runtime for Attested Computations
 
@@ -288,14 +305,20 @@ path position is the binding.
 | E015 | error | Stable `Compatibility` without `x_geo.fits`/`works_with` |
 | E016 | error | Stable `Ownership Guide` without `x_geo.covers` |
 | E017 | error | Stable `Product Passport` missing `passport_for` or `passport.materials`/`origin` |
+| E018 | error | Stable `Store Location` missing `x_geo.entity` or `location.address` |
 | W032 | warn | Compatibility/Ownership Guide/Passport draft missing its refs, or a `fits`/`works_with`/`covers`/`passport_for` id that resolves to no concept's `entity` |
-| W033 | warn | `Compatibility`/`Ownership Guide` classified risk `c`, or `Product Passport` declaring anything but `a` (it is gated as `a` regardless) |
+| W033 | warn | `Compatibility`/`Ownership Guide`/`Store Location` classified risk `c`, or `Product Passport` declaring anything but `a` (it is gated as `a` regardless) |
 
 Errors block publishing; `--strict` promotes warnings for CI.
 
 ## 10. Versioning
 
-**1.6** (current) adds the `Product Passport` type, the
+**1.7** (current) adds the `Store Location` type, the `location`
+mapping, the `local_availability` intent, lint code E018, and the
+live-values clarification for open-right-now and shelf stock —
+additive; concepts declaring earlier minors remain fully valid.
+
+**1.6** adds the `Product Passport` type, the
 `passport_for`/`passport` keys, the `compliance` intent, lint code
 E017, and the effective-risk rule (passports gate as `a` regardless
 of declared risk, enforced across linter, publisher, and batch

@@ -36,3 +36,6 @@ questions:
   - {id: pass-1, archetype: compliance, question: "Where do the main ingredients in this actually come from?"}
   - {id: pass-2, archetype: compliance, question: "Is the organic claim certified, and by whom?"}
   - {id: pass-3, archetype: compliance, question: "Is the packaging recyclable or compostable where I live?"}
+  - {id: loc-1, archetype: local_availability, question: "Do you deliver to my area, or is there a pickup point near me?"}
+  - {id: loc-2, archetype: local_availability, question: "Can I get a same-day pickup slot if I order this morning?"}
+  - {id: loc-3, archetype: local_availability, question: "Will everything in my order actually be in stock at my pickup location?"}

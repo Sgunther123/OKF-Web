@@ -3,7 +3,7 @@ okf_version: "0.2"
 title: Alpine Peak Outfitters — Knowledge Bundle
 description: Curated, provenance-tracked knowledge about the Alpine Peak Outfitters store, published as an OKF companion to the live site.
 x_geo:
-  profile: ecommerce-geo/1.6
+  profile: ecommerce-geo/1.7
   site: https://www.alpinepeakoutfitters.example
 ---
 
@@ -44,6 +44,10 @@ price or stock claim. Only `stable` concepts are listed here.
 
 * [Product Passport — Ridgeline 20 Sleeping Bag](/passports/ridgeline-20.md) - Materials, origin, certifications, and repairability, each claim linked to its certificate.
 
+## Locations
+
+* [Alpine Peak Outfitters — Denver Flagship](/locations/denver-flagship.md) - Address, posted hours, in-store pickup and returns for the physical store.
+
 ## Promotions
 
 * [Fall Clearance — 15% Off Sleeping Bags](/promotions/fall-clearance.md) - 15% off all sleeping bags with code FALL15 through December 31, 2026.
@@ -54,6 +58,7 @@ price or stock claim. Only `stable` concepts are listed here.
 * [Live Stock Check](/capabilities/stock-check.md) - Attested computation returning current availability for a SKU.
 * [Order Status Lookup](/capabilities/order-status.md) - Attested computation returning the status of an order to its owner.
 * [Warranty Claim Status Lookup](/capabilities/warranty-claim-status.md) - Attested computation returning the status of a filed warranty claim to its owner.
+* [Store Shelf Stock Check](/capabilities/store-stock-check.md) - Attested computation returning whether a SKU is on the shelf at a physical store right now.
 
 ## Evaluations
 

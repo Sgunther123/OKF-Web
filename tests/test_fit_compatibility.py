@@ -100,4 +100,4 @@ def test_example_fit_concept_resolves_and_retrieves(example_bundle):
 
 def test_fit_compatibility_is_an_archetype():
     assert "fit_compatibility" in evaluator.ARCHETYPES
-    assert len(evaluator.ARCHETYPES) == 11
+    assert len(evaluator.ARCHETYPES) == 12

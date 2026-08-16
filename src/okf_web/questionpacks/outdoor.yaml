@@ -36,3 +36,6 @@ questions:
   - {id: pass-1, archetype: compliance, question: "What exactly is this made of, and is any of it recycled?"}
   - {id: pass-2, archetype: compliance, question: "Is your down certified responsibly sourced, and who issued the certificate?"}
   - {id: pass-3, archetype: compliance, question: "Where is this made, and can it be repaired when it wears out?"}
+  - {id: loc-1, archetype: local_availability, question: "Is there a store near me where I can try gear before buying?"}
+  - {id: loc-2, archetype: local_availability, question: "Can I order online and pick it up in the store today?"}
+  - {id: loc-3, archetype: local_availability, question: "Before I drive over — can your store tell me if an item is on the shelf?"}

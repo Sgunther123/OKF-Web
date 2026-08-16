@@ -36,3 +36,6 @@ questions:
   - {id: pass-1, archetype: compliance, question: "What's the repairability score, and is the battery replaceable?"}
   - {id: pass-2, archetype: compliance, question: "Who certifies the safety marks on this, and where is it manufactured?"}
   - {id: pass-3, archetype: compliance, question: "How long will spare parts and security updates be available?"}
+  - {id: loc-1, archetype: local_availability, question: "Do you have a showroom where I can see the display before buying?"}
+  - {id: loc-2, archetype: local_availability, question: "Can I reserve online and collect it in store today?"}
+  - {id: loc-3, archetype: local_availability, question: "Is this model physically in stock at your store right now, or order-only?"}

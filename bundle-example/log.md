@@ -1,9 +1,14 @@
 # Directory Update Log
 
+## 2026-08-17
+
+* **Verify**: [Alpine Peak Outfitters — Denver Flagship](/locations/denver-flagship.md) approved by human:ops-lead@alpinepeakoutfitters.example; posted hours static, open-right-now and shelf stock stay live.
+* **Verify**: [Store Shelf Stock Check](/capabilities/store-stock-check.md) approved by human:platform-lead@alpinepeakoutfitters.example; availability classes only, no shelf counts.
+* **Update**: [Answerability evaluation — 2026-08-17](/evaluations/geo-scorecard.md) refreshed by okf-web-evaluator/claude-sonnet-5 (36 questions across twelve archetypes, coverage 0.944).
+
 ## 2026-08-16
 
 * **Verify**: [Product Passport — Ridgeline 20 Sleeping Bag](/passports/ridgeline-20.md) approved by human:compliance-lead@alpinepeakoutfitters.example; every claim footnoted to a certificate or declaration.
-
 * **Verify**: [Ridgeline 20 — Care, Storage & Warranty Help](/ownership/ridgeline-20-care.md) approved by human:support-lead@alpinepeakoutfitters.example.
 * **Verify**: [Warranty Claim Status Lookup](/capabilities/warranty-claim-status.md) approved by human:platform-lead@alpinepeakoutfitters.example; claim filing stays on the store's pages, lookup only.
 * **Update**: [Answerability evaluation — 2026-08-16](/evaluations/geo-scorecard.md) refreshed by okf-web-evaluator/claude-sonnet-5 (30 questions across ten archetypes, coverage 0.933).

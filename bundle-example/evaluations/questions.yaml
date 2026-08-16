@@ -102,3 +102,12 @@ questions:
   - id: pass-3
     archetype: compliance
     question: Where is the bag manufactured, and can it be repaired instead of replaced?
+  - id: loc-1
+    archetype: local_availability
+    question: Do you have an actual store I can visit, and when is it open?
+  - id: loc-2
+    archetype: local_availability
+    question: Can I order online and pick it up in the store today?
+  - id: loc-3
+    archetype: local_availability
+    question: Before I drive over — is the Alpine 2 tent on the shelf at your Denver store right now?

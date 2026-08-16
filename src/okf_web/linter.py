@@ -282,6 +282,47 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                 )
             )
 
+    if concept.type == "Store Location":
+        # The contract: an entity id other concepts and stock
+        # capabilities can reference, and a real-world address — a
+        # location an agent cannot name or place answers nothing.
+        missing = []
+        if not concept.entity:
+            missing.append("`x_geo.entity` (a stable `loc:` id)")
+        if not concept.location.get("address"):
+            missing.append("`x_geo.location.address`")
+        if missing:
+            if concept.status == "stable":
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "E018",
+                        rel,
+                        "stable Store Location is missing " + ", ".join(missing),
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W032",
+                        rel,
+                        "Store Location draft is missing "
+                        + ", ".join(missing)
+                        + "; a reviewer must complete it before it can go stable",
+                    )
+                )
+        if concept.risk == "c":
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W033",
+                    rel,
+                    "Store Location classified risk `c`; a wrong address or "
+                    "wrong hours sends someone to a closed door — classify `b`",
+                )
+            )
+
     if concept.type == "Product" and not concept.resource:
         findings.append(
             Finding(

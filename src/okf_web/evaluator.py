@@ -53,6 +53,7 @@ ARCHETYPES = [
     "fit_compatibility",  # will it fit me / work with what I own
     "ownership",      # I own it: setup, care, troubleshooting, warranty process
     "compliance",     # materials, origin, certifications, repairability — passport facts
+    "local_availability",  # stores near me, hours, pickup today, on the shelf now
 ]
 
 _WORD_RE = re.compile(r"[a-z0-9]+")

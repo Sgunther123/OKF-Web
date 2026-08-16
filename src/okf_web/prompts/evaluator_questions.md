@@ -44,6 +44,10 @@ description.
   can be repaired and for how long parts exist. Phrase as a shopper
   who wants proof, not vocabulary: "can you prove the down is
   responsibly sourced?", not "show me the product passport".
+- **local_availability** — physical presence and getting it today:
+  is there a store, where, open when, can I pick up an online order,
+  is the item on the shelf right now. Phrase as a shopper with car
+  keys in hand ("before I drive over…"), not as "omnichannel".
 
 # Rules
 

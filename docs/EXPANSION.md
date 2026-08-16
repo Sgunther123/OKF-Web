@@ -99,9 +99,22 @@ manifest already carrying the tamper-evidence chain they build on.
 | Hosted | Jurisdiction schema packs (ESPR category mappings, per-market field requirements as they finalize); compliance reporting and audit exports; third-party auditor countersignatures over the same manifest |
 | Why it matters | It flips the adoption argument: the bundle stops being a marketing artifact and becomes infrastructure the merchant must have anyway — GEO becomes the side effect |
 
-## Phase D — Omnichannel availability
+## Phase D — Omnichannel availability (shipped, profile 1.7)
 
 *"Can I pick it up today near me?"*
+
+Shipped with the "why later" caveat resolved by splitting the layers:
+the **static layer** — `Store Location` concepts with `x_geo.entity`
+(`loc:` ids), address/hours/services, and the BOPIS process described
+with mutating steps on the store's pages — needs no API and is most
+of the value; the **live layer** — a per-location stock capability
+(`sku` + `location` parameters, availability classes, not counts) —
+is the upgrade whenever the store's API exists (live in the
+reference bundle: `locations/denver-flagship.md` +
+`capabilities/store-stock-check.md`). The live-values rule now
+explicitly covers open-right-now and shelf stock. `local_availability`
+archetype everywhere questions live; measured at 36 questions, hit
+rate 1.0, coverage 0.944. The hosted-side levers below remain open.
 
 | | |
 | --- | --- |

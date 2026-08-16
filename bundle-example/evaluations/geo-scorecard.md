@@ -1,23 +1,23 @@
 ---
 type: GEO Scorecard
-title: Answerability evaluation — 2026-08-16
+title: Answerability evaluation — 2026-08-17
 description: Machine-generated answerability scorecard for this bundle; see x_geo.metrics for the numbers.
 tags: [evaluation, geo]
 status: stable
-stale_after: 2026-09-15
+stale_after: 2026-09-16
 generated:
   by: okf-web-evaluator/claude-sonnet-5
-  at: 2026-08-16T21:40:19Z
+  at: 2026-08-17T00:20:44Z
 x_geo:
-  profile: ecommerce-geo/1.6
+  profile: ecommerce-geo/1.7
   risk: c
   metrics:
-    questions: 33
+    questions: 36
     retrieval_hit_rate: 1.0
-    context_tokens_mean: 2310
-    coverage: 0.939
-    groundedness: 0.939
-    citability: 0.909
+    context_tokens_mean: 2312
+    coverage: 0.944
+    groundedness: 0.944
+    citability: 0.917
     freshness: 1.0
     by_archetype:
       discovery: { questions: 3, answered: 3 }
@@ -31,10 +31,11 @@ x_geo:
       fit_compatibility: { questions: 3, answered: 3 }
       ownership: { questions: 3, answered: 3 }
       compliance: { questions: 3, answered: 3 }
+      local_availability: { questions: 3, answered: 3 }
   baseline:
-    condition: raw site HTML (16 pages, same questions)
+    condition: raw site HTML (17 pages, same questions)
     context_tokens_mean: 41780
-    coverage: 0.606
+    coverage: 0.611
 ---
 
 # Results
@@ -74,6 +75,9 @@ x_geo:
 | pass-1 | compliance | 4 | yes | /passports/ridgeline-20.md |
 | pass-2 | compliance | 4 | yes | /passports/ridgeline-20.md |
 | pass-3 | compliance | 4 | yes | /passports/ridgeline-20.md, /ownership/ridgeline-20-care.md |
+| loc-1 | local_availability | 4 | yes | /locations/denver-flagship.md |
+| loc-2 | local_availability | 4 | yes | /locations/denver-flagship.md |
+| loc-3 | local_availability | 4 | yes | /locations/denver-flagship.md, /capabilities/store-stock-check.md |
 
 Note on disc-3: the bundle answers correctly that the store does
 *not* sell four-season tents — an explicit negative sourced from
@@ -91,12 +95,14 @@ Note on disc-3: the bundle answers correctly that the store does
 
 # Baseline comparison
 
-Answering the same 33 questions from raw site HTML consumed a mean of
-41,780 context tokens per question versus 2,310 from this bundle
-(18× reduction) and covered 20/33 questions versus 31/33. The largest
+Answering the same 36 questions from raw site HTML consumed a mean of
+41,780 context tokens per question versus 2,312 from this bundle
+(18× reduction) and covered 22/36 questions versus 34/36. The largest
 raw-HTML failures were capability questions (no API surface is
 described in page HTML), policy edge cases buried in accordion UI,
 fit questions needing facts joined across a PDF spec sheet and the
 size guide, and compliance proof: materials appear on the product
 page (pass-1), but certification evidence and origin live in linked
-PDFs no page states directly (pass-2/pass-3 — bundle-only).
+PDFs no page states directly (pass-2/pass-3 — bundle-only). The
+store page answers address/hours and pickup (loc-1/loc-2) in both
+conditions; shelf-level availability (loc-3) is capability-only.

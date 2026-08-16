@@ -230,6 +230,14 @@ class Concept:
         value = self.x_geo.get("covers")
         return [str(v) for v in value] if isinstance(value, list) else []
 
+    # -- omnichannel availability (profile 1.7) ----------------------------
+    @property
+    def location(self) -> dict[str, Any]:
+        """Structured location data for Store Location concepts:
+        address, hours, phone, services (extra keys legal)."""
+        value = self.x_geo.get("location")
+        return value if isinstance(value, dict) else {}
+
     # -- compliance / product passports (profile 1.6) ----------------------
     @property
     def passport_for(self) -> str | None:
