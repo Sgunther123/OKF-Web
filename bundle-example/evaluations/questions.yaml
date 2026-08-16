@@ -93,3 +93,12 @@ questions:
   - id: own-3
     archetype: ownership
     question: I filed a warranty claim last week — how do I check where it stands?
+  - id: pass-1
+    archetype: compliance
+    question: What is the Ridgeline sleeping bag actually made of, and is any of it recycled?
+  - id: pass-2
+    archetype: compliance
+    question: Is the down in your sleeping bags responsibly sourced — can you prove it?
+  - id: pass-3
+    archetype: compliance
+    question: Where is the bag manufactured, and can it be repaired instead of replaced?

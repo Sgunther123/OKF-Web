@@ -3,7 +3,7 @@ okf_version: "0.2"
 title: Alpine Peak Outfitters — Knowledge Bundle
 description: Curated, provenance-tracked knowledge about the Alpine Peak Outfitters store, published as an OKF companion to the live site.
 x_geo:
-  profile: ecommerce-geo/1.5
+  profile: ecommerce-geo/1.6
   site: https://www.alpinepeakoutfitters.example
 ---
 
@@ -39,6 +39,10 @@ price or stock claim. Only `stable` concepts are listed here.
 ## Ownership
 
 * [Ridgeline 20 — Care, Storage & Warranty Help](/ownership/ridgeline-20-care.md) - How to wash, dry, store, and get warranty help for the bag you already own.
+
+## Product Passports
+
+* [Product Passport — Ridgeline 20 Sleeping Bag](/passports/ridgeline-20.md) - Materials, origin, certifications, and repairability, each claim linked to its certificate.
 
 ## Promotions
 

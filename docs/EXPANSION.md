@@ -75,10 +75,22 @@ coverage 0.933. The hosted-side levers below remain open.
 | Hosted | Deflection analytics (which concepts answer which ticket categories); helpdesk integrations that mine ticket logs for knowledge gaps and feed the survey queue |
 | Why second | Real lever, near-zero spec cost — mostly survey-prompt coverage and archetype questions — but smaller per-interaction value than a prevented return |
 
-## Phase C — Compliance and product passports (the strategic bet)
+## Phase C — Compliance and product passports (shipped, profile 1.6)
 
 *Materials, origin, certifications, repairability — machine-readable
 and provable.*
+
+Shipped as designed: the `Product Passport` type with structured
+`x_geo.passport` data bound to one entity via `passport_for`; the
+effective-risk rule making passports risk `a` by definition across
+the linter (E010/E013/E017), the publisher, and batch approval —
+declared risk cannot dodge compliance sign-off; the `compliance`
+archetype everywhere questions live; and reference-bundle coverage
+(`passports/ridgeline-20.md`, every claim footnoted to a certificate
+document). Measured at 33 questions, hit rate 1.0, coverage 0.939.
+The hosted-side levers below — jurisdiction schema packs, audit
+exports, auditor countersignatures — remain open, with the signed
+manifest already carrying the tamper-evidence chain they build on.
 
 | | |
 | --- | --- |

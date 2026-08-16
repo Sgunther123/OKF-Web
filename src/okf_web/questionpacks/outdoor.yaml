@@ -33,3 +33,6 @@ questions:
   - {id: own-1, archetype: ownership, question: "How should I store my down bag between trips so it stays warm?"}
   - {id: own-2, archetype: ownership, question: "My tent zipper is sticking — can you fix it or do I need a new one?"}
   - {id: own-3, archetype: ownership, question: "I filed a warranty claim — how do I check where it stands?"}
+  - {id: pass-1, archetype: compliance, question: "What exactly is this made of, and is any of it recycled?"}
+  - {id: pass-2, archetype: compliance, question: "Is your down certified responsibly sourced, and who issued the certificate?"}
+  - {id: pass-3, archetype: compliance, question: "Where is this made, and can it be repaired when it wears out?"}

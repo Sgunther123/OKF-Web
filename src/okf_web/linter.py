@@ -58,14 +58,17 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
         return findings  # nothing profile-shaped to check without a type
 
     # -- profile: human-in-the-loop gate -----------------------------------
-    if concept.risk == RISK_HIGH:
+    # Keyed on the *effective* classification: declared risk `a`, plus
+    # types that are high-risk by definition (Product Passports carry
+    # compliance claims regardless of what their frontmatter declares).
+    if concept.is_high_risk:
         if concept.status == "stable" and concept.trust_tier != TRUST_HUMAN:
             findings.append(
                 Finding(
                     ERROR,
                     "E010",
                     rel,
-                    "high-risk concept (x_geo.risk: a) is `stable` but has no "
+                    "high-risk concept is `stable` but has no "
                     "`human:` verifier; it must stay `draft` until a human "
                     "approves it",
                 )
@@ -230,6 +233,52 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                     "warranty-process claims damage products and void "
                     "warranties — classify `b` (or `a` when care is "
                     "safety-relevant)",
+                )
+            )
+
+    if concept.type == "Product Passport":
+        # The contract: one product bound by passport_for, and passport
+        # data that actually says something — materials and origin at
+        # minimum. A vacuous passport is worse than none: it signals
+        # compliance without carrying it.
+        missing = []
+        if not concept.passport_for:
+            missing.append("`x_geo.passport_for`")
+        if not concept.passport.get("materials"):
+            missing.append("`x_geo.passport.materials`")
+        if not concept.passport.get("origin"):
+            missing.append("`x_geo.passport.origin`")
+        if missing:
+            if concept.status == "stable":
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "E017",
+                        rel,
+                        "stable Product Passport is missing "
+                        + ", ".join(missing),
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W032",
+                        rel,
+                        "Product Passport draft is missing "
+                        + ", ".join(missing)
+                        + "; a reviewer must complete it before it can go stable",
+                    )
+                )
+        if concept.risk != RISK_HIGH:
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W033",
+                    rel,
+                    f"Product Passport declares risk `{concept.risk}`, but "
+                    "passports are compliance claims and are gated as risk "
+                    "`a` regardless — declare `a` explicitly",
                 )
             )
 

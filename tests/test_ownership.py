@@ -122,4 +122,4 @@ def test_claim_status_capability_is_exposed_but_get_only(example_bundle):
 
 def test_ownership_is_an_archetype():
     assert "ownership" in evaluator.ARCHETYPES
-    assert len(evaluator.ARCHETYPES) == 10
+    assert len(evaluator.ARCHETYPES) == 11

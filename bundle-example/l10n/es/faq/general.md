@@ -18,10 +18,10 @@ sources:
     title: FAQ page
     last_modified: 2026-06-28
 x_geo:
-  profile: ecommerce-geo/1.5
+  profile: ecommerce-geo/1.6
   risk: b
   intents: [trust, policy, fulfillment]
-  l10n_source_hash: sha256:9af5aefbcae2b0f3c462ebd3381b2f50b2a69f1ef329a656d33d1a6b3b14afec
+  l10n_source_hash: sha256:98b946450ce8850e303c7b30ee5444af78cdcc1781021c5f819b26d9e3e77c74
 ---
 
 # Pagos

@@ -33,3 +33,6 @@ questions:
   - {id: own-1, archetype: ownership, question: "How do I wash this without wrecking the waterproofing?"}
   - {id: own-2, archetype: ownership, question: "A button came off after two months — what are my options?"}
   - {id: own-3, archetype: ownership, question: "Do you repair or re-hem items you sold, and what does it cost?"}
+  - {id: pass-1, archetype: compliance, question: "What's the exact fiber composition, and where was it made?"}
+  - {id: pass-2, archetype: compliance, question: "Which certifications back your sustainability claims — can I see them?"}
+  - {id: pass-3, archetype: compliance, question: "Is this recyclable at end of life, or does it go to landfill?"}

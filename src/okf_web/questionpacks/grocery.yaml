@@ -33,3 +33,6 @@ questions:
   - {id: own-1, archetype: ownership, question: "How long does this keep after opening, and does it need refrigerating?"}
   - {id: own-2, archetype: ownership, question: "Can I freeze the portions I don't use this week?"}
   - {id: own-3, archetype: ownership, question: "My subscription delivery arrived damaged — how do I get it replaced?"}
+  - {id: pass-1, archetype: compliance, question: "Where do the main ingredients in this actually come from?"}
+  - {id: pass-2, archetype: compliance, question: "Is the organic claim certified, and by whom?"}
+  - {id: pass-3, archetype: compliance, question: "Is the packaging recyclable or compostable where I live?"}

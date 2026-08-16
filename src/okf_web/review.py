@@ -127,6 +127,11 @@ def batch_approve(
         concept = item.concept
         if concept.status != "draft" or concept.risk not in risks:
             continue
+        # Declared risk is not the last word: types that are high-risk
+        # by definition (Product Passports) never batch, whatever
+        # their frontmatter claims.
+        if concept.is_high_risk:
+            continue
         if only_machine_confirmed and concept.trust_tier != TRUST_MACHINE:
             continue
         approved.append(approve(bundle, concept.rel_path, reviewer))

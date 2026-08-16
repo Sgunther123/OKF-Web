@@ -230,10 +230,39 @@ class Concept:
         value = self.x_geo.get("covers")
         return [str(v) for v in value] if isinstance(value, list) else []
 
+    # -- compliance / product passports (profile 1.6) ----------------------
+    @property
+    def passport_for(self) -> str | None:
+        """The single entity this Product Passport describes."""
+        value = self.x_geo.get("passport_for")
+        return str(value) if value else None
+
+    @property
+    def passport(self) -> dict[str, Any]:
+        """Structured passport data: materials, origin, certifications,
+        repairability (extra keys legal; consumers ignore unknowns)."""
+        value = self.x_geo.get("passport")
+        return value if isinstance(value, dict) else {}
+
+    @property
+    def is_high_risk(self) -> bool:
+        """The gate classification the tooling enforces.
+
+        Declared ``x_geo.risk`` — except that Product Passports are
+        compliance claims and therefore high-risk *by definition*: a
+        passport declaring ``b`` must not dodge the human-verifier
+        gate, the publisher's draft withholding, or batch approval
+        exclusion.
+        """
+        return self.risk == RISK_HIGH or self.type == "Product Passport"
+
     @property
     def entity_refs(self) -> list[str]:
         """All outgoing entity references, whatever key they ride on."""
-        return self.fits + self.works_with + self.covers
+        refs = self.fits + self.works_with + self.covers
+        if self.passport_for:
+            refs.append(self.passport_for)
+        return refs
 
     # -- promotion time bounds (type: Promotion) ---------------------------
     @property

@@ -7,7 +7,7 @@ varies the knowledge.
 
 ## 1. Question set
 
-Questions simulate what shoppers ask AI assistants, across ten
+Questions simulate what shoppers ask AI assistants, across eleven
 archetypes (one axis of coverage each):
 
 | Archetype | Probes | Example |
@@ -22,6 +22,7 @@ archetypes (one axis of coverage each):
 | `promotion` | Current sales, codes, when deals end | "Is there a sale on right now?" |
 | `fit_compatibility` | Will it fit me / work with mine? | "I'm 6'4" — which bag length?" |
 | `ownership` | Owners: care, repair, warranty process | "Can I machine-wash it?" |
+| `compliance` | Materials, origin, certifications, proof | "Is the down certified — can you prove it?" |
 
 Sets are LLM-generated from the bundle outline
 ([prompt](../src/okf_web/prompts/evaluator_questions.md)), then
@@ -89,7 +90,7 @@ With `N` questions, `R_q` the result for question `q`:
 
 **GEO lift** = bundle coverage − baseline coverage, and the token
 ratio `baseline.context_tokens_mean / context_tokens_mean`. The
-reference bundle reports 0.633 → 0.933 coverage and a 19× token
+reference bundle reports 0.606 → 0.939 coverage and an 18× token
 reduction.
 
 ## 4. Scorecard

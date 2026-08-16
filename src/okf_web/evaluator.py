@@ -52,6 +52,7 @@ ARCHETYPES = [
     "promotion",      # current sales, discount codes, when a deal ends
     "fit_compatibility",  # will it fit me / work with what I own
     "ownership",      # I own it: setup, care, troubleshooting, warranty process
+    "compliance",     # materials, origin, certifications, repairability — passport facts
 ]
 
 _WORD_RE = re.compile(r"[a-z0-9]+")

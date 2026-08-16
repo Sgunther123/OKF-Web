@@ -9,15 +9,15 @@ generated:
   by: okf-web-evaluator/claude-sonnet-5
   at: 2026-08-16T21:40:19Z
 x_geo:
-  profile: ecommerce-geo/1.5
+  profile: ecommerce-geo/1.6
   risk: c
   metrics:
-    questions: 30
+    questions: 33
     retrieval_hit_rate: 1.0
-    context_tokens_mean: 2162
-    coverage: 0.933
-    groundedness: 0.933
-    citability: 0.9
+    context_tokens_mean: 2310
+    coverage: 0.939
+    groundedness: 0.939
+    citability: 0.909
     freshness: 1.0
     by_archetype:
       discovery: { questions: 3, answered: 3 }
@@ -30,10 +30,11 @@ x_geo:
       promotion: { questions: 3, answered: 3 }
       fit_compatibility: { questions: 3, answered: 3 }
       ownership: { questions: 3, answered: 3 }
+      compliance: { questions: 3, answered: 3 }
   baseline:
-    condition: raw site HTML (15 pages, same questions)
+    condition: raw site HTML (16 pages, same questions)
     context_tokens_mean: 41780
-    coverage: 0.633
+    coverage: 0.606
 ---
 
 # Results
@@ -70,6 +71,9 @@ x_geo:
 | own-1 | ownership | 4 | yes | /ownership/ridgeline-20-care.md |
 | own-2 | ownership | 4 | yes | /ownership/ridgeline-20-care.md |
 | own-3 | ownership | 4 | yes | /ownership/ridgeline-20-care.md, /capabilities/warranty-claim-status.md |
+| pass-1 | compliance | 4 | yes | /passports/ridgeline-20.md |
+| pass-2 | compliance | 4 | yes | /passports/ridgeline-20.md |
+| pass-3 | compliance | 4 | yes | /passports/ridgeline-20.md, /ownership/ridgeline-20-care.md |
 
 Note on disc-3: the bundle answers correctly that the store does
 *not* sell four-season tents — an explicit negative sourced from
@@ -87,12 +91,12 @@ Note on disc-3: the bundle answers correctly that the store does
 
 # Baseline comparison
 
-Answering the same 30 questions from raw site HTML consumed a mean of
-41,780 context tokens per question versus 2,162 from this bundle
-(19× reduction) and covered 19/30 questions versus 28/30. The largest
+Answering the same 33 questions from raw site HTML consumed a mean of
+41,780 context tokens per question versus 2,310 from this bundle
+(18× reduction) and covered 20/33 questions versus 31/33. The largest
 raw-HTML failures were capability questions (no API surface is
 described in page HTML), policy edge cases buried in accordion UI,
-and fit questions needing facts joined across a PDF spec sheet and
-the size guide. Care questions (own-1/own-2) were answerable from
-the care page in both conditions; the claim-status lookup (own-3)
-only from the bundle.
+fit questions needing facts joined across a PDF spec sheet and the
+size guide, and compliance proof: materials appear on the product
+page (pass-1), but certification evidence and origin live in linked
+PDFs no page states directly (pass-2/pass-3 — bundle-only).

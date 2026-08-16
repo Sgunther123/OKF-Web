@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.5` Profile for OKF v0.2
+# The `ecommerce-geo/1.6` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.5`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.6`.
 
 ## 1. Concept types
 
@@ -27,6 +27,7 @@ tooling and engines can dispatch on them.
 | `Promotion` | A time-bounded offer: sales, discount codes (added in 1.1) | `a` |
 | `Compatibility` | Fit charts, works-with matrices, part fitment (added in 1.4) | `b` |
 | `Ownership Guide` | Care, setup, troubleshooting, warranty process for owners (added in 1.5) | `b` |
+| `Product Passport` | Materials, origin, certifications, repairability (added in 1.6) | `a` (always) |
 | `GEO Scorecard` | Machine-generated answerability evaluation | `c` |
 
 ### Per-type requirements (beyond OKF's required `type`)
@@ -74,6 +75,21 @@ tooling and engines can dispatch on them.
   described in the body with links to the store's pages; mutating
   flows (registration, claim filing) are never exposed as executable
   capabilities (§5) — the read-only status lookup is.
+- **`Product Passport`:** compliance claims, so the gates are the
+  strictest in the profile. `x_geo.passport_for` binds the passport
+  to exactly one entity (resolution per W032), and `x_geo.passport`
+  MUST carry at least `materials` and `origin` before `stable`
+  (E017; `certifications` and `repairability` as stated). **The type
+  is risk `a` by definition**: tooling gates on the effective
+  classification — E010 (human verifier before stable), E013
+  (sources), W024 (footnotes), publisher draft-withholding, and
+  batch-approve exclusion all apply even if the frontmatter declares
+  a lower risk (W033 flags the mismatch). Every certification claim
+  cites its certificate document, not just a marketing page. The
+  signed manifest (§7) covers the passport file's hash — bundle
+  signature verification is the tamper-evidence chain, and a
+  third-party auditor countersignature over the same manifest is the
+  designed extension point.
 - **`GEO Scorecard`:** `generated` required; metrics live under
   `x_geo.metrics` (schema in [EVALUATION.md](EVALUATION.md)).
 
@@ -84,13 +100,15 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.5` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.6` (opt-in marker) |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
-| `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership` — retrieval hint for engines |
+| `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership`, `compliance` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
 | `entity` | string | Stable store-local id, e.g. `sku:APO-TENT-A2`, `org:acme` |
 | `fits` / `works_with` | list | Compatibility concepts (and products declaring interop): entity ids this concept gives fit guidance for / declares interoperable — every id must resolve to a concept's `entity` (W032) |
 | `covers` | list | Ownership Guide concepts: entity ids this is post-purchase guidance for — same resolution rule (W032) |
+| `passport_for` | string | Product Passport concepts: the single entity described — same resolution rule (W032) |
+| `passport` | mapping | Product Passport concepts: `materials` (list), `origin`, `certifications` (list of name/issuer/resource), `repairability` — extra keys legal |
 | `brand` | string | Product brand |
 | `source_hash` | string | `sha256:<hex>` of the normalized source text at survey time — powers incremental re-survey |
 | `source_fetched_at` | date | When the source was fetched |
@@ -253,7 +271,7 @@ path position is the binding.
 | E001 | error | Frontmatter missing/unparseable (OKF conformance) |
 | E002 | error | Missing/empty `type` (OKF conformance) |
 | E003 | error | Root `okf_version` present but not `0.2` |
-| E010 | error | Risk-`a` concept `stable` without `human:` verifier |
+| E010 | error | High-risk concept `stable` without `human:` verifier (declared risk `a`, or a type that is high-risk by definition) |
 | E011 | error | `Attested Computation` without `runtime` |
 | E012 | error | `Product` without `resource` |
 | E013 | error | Risk-`a` concept without `sources` |
@@ -269,14 +287,22 @@ path position is the binding.
 | W031 | warn | Translation unpinned or out of date vs its source (`x_geo.l10n_source_hash`) |
 | E015 | error | Stable `Compatibility` without `x_geo.fits`/`works_with` |
 | E016 | error | Stable `Ownership Guide` without `x_geo.covers` |
-| W032 | warn | Compatibility/Ownership Guide draft missing entity refs, or a `fits`/`works_with`/`covers` id that resolves to no concept's `entity` |
-| W033 | warn | `Compatibility`/`Ownership Guide` classified risk `c` — fit claims drive returns, care claims damage products; use `b`/`a` |
+| E017 | error | Stable `Product Passport` missing `passport_for` or `passport.materials`/`origin` |
+| W032 | warn | Compatibility/Ownership Guide/Passport draft missing its refs, or a `fits`/`works_with`/`covers`/`passport_for` id that resolves to no concept's `entity` |
+| W033 | warn | `Compatibility`/`Ownership Guide` classified risk `c`, or `Product Passport` declaring anything but `a` (it is gated as `a` regardless) |
 
 Errors block publishing; `--strict` promotes warnings for CI.
 
 ## 10. Versioning
 
-**1.5** (current) adds the `Ownership Guide` type, the `covers` key,
+**1.6** (current) adds the `Product Passport` type, the
+`passport_for`/`passport` keys, the `compliance` intent, lint code
+E017, and the effective-risk rule (passports gate as `a` regardless
+of declared risk, enforced across linter, publisher, and batch
+approval) — additive; concepts declaring earlier minors remain fully
+valid.
+
+**1.5** adds the `Ownership Guide` type, the `covers` key,
 the `ownership` intent, lint code E016 (with W032/W033 extended to
 the new type), and the mutating-flows rule in §5 — additive; concepts
 declaring earlier minors remain fully valid.

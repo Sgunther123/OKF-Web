@@ -37,7 +37,7 @@ from urllib.robotparser import RobotFileParser
 
 from . import OKF_VERSION, PROFILE
 from .linter import has_errors, lint_bundle
-from .model import Bundle, INTERNAL_DIRS, RISK_HIGH, load_bundle
+from .model import Bundle, INTERNAL_DIRS, load_bundle
 
 
 @dataclass
@@ -81,7 +81,7 @@ def select_publishable(
             withheld.append(rel)
         elif concept.status == "stable":
             include.add(rel)
-        elif include_machine_confirmed and concept.risk != RISK_HIGH:
+        elif include_machine_confirmed and not concept.is_high_risk:
             include.add(rel)
         else:
             withheld.append(rel)

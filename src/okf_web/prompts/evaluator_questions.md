@@ -39,6 +39,11 @@ description.
   warranty/repair process works. Phrase as an owner would ("Can I
   machine-wash…", "mine stopped working — now what?"), not as a
   shopper.
+- **compliance** — what it's made of, where it's made, which
+  certifications back the claims (and who issued them), whether it
+  can be repaired and for how long parts exist. Phrase as a shopper
+  who wants proof, not vocabulary: "can you prove the down is
+  responsibly sourced?", not "show me the product passport".
 
 # Rules
 

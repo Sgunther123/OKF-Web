@@ -33,3 +33,6 @@ questions:
   - {id: own-1, archetype: ownership, question: "My device stopped charging — what should I try before sending it in?"}
   - {id: own-2, archetype: ownership, question: "How do I claim the warranty, and how long do repairs usually take?"}
   - {id: own-3, archetype: ownership, question: "Where can I get spare parts or accessories for a model you no longer sell?"}
+  - {id: pass-1, archetype: compliance, question: "What's the repairability score, and is the battery replaceable?"}
+  - {id: pass-2, archetype: compliance, question: "Who certifies the safety marks on this, and where is it manufactured?"}
+  - {id: pass-3, archetype: compliance, question: "How long will spare parts and security updates be available?"}

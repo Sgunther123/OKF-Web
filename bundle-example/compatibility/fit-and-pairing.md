@@ -26,7 +26,7 @@ sources:
     title: Alpine 2 manufacturer spec sheet
     last_modified: 2026-05-14
 x_geo:
-  profile: ecommerce-geo/1.5
+  profile: ecommerce-geo/1.6
   risk: b
   intents: [fit_compatibility, comparison, product_fact]
   fits: [sku:APO-BAG-R20]
