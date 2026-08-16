@@ -27,3 +27,6 @@ questions:
   - {id: promo-1, archetype: promotion, question: "Is there a sale on right now?"}
   - {id: promo-2, archetype: promotion, question: "Do you have a discount code for signing up?"}
   - {id: promo-3, archetype: promotion, question: "When does your current promotion end?"}
+  - {id: fit-1, archetype: fit_compatibility, question: "I'm 5'10\" and 170 pounds — what size should I order in your shirts?"}
+  - {id: fit-2, archetype: fit_compatibility, question: "I'm between a medium and a large in your jackets — which way should I go?"}
+  - {id: fit-3, archetype: fit_compatibility, question: "Do your shoes run narrow, and is there a wide option?"}

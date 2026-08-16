@@ -27,3 +27,6 @@ questions:
   - {id: promo-1, archetype: promotion, question: "Is there a sale on right now?"}
   - {id: promo-2, archetype: promotion, question: "Do you have bundle deals or a trade-in program running?"}
   - {id: promo-3, archetype: promotion, question: "When does your current promotion end?"}
+  - {id: fit-1, archetype: fit_compatibility, question: "Will this charger fast-charge my specific laptop model?"}
+  - {id: fit-2, archetype: fit_compatibility, question: "Is this monitor arm going to fit my monitor's mounting holes?"}
+  - {id: fit-3, archetype: fit_compatibility, question: "Which memory cards actually work with your flagship camera?"}

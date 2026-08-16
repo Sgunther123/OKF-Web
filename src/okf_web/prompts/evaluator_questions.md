@@ -30,6 +30,10 @@ description.
   price/stock, order status) and how.
 - **promotion** — current sales and discount codes, what they apply
   to, and when a deal ends.
+- **fit_compatibility** — will it fit *me* (height, size, body) or
+  work with what the shopper already owns (other gear, devices,
+  parts). Phrase these the way shoppers do: "I'm 6'3\"…", "will it
+  work with my…" — not "compatibility".
 
 # Rules
 

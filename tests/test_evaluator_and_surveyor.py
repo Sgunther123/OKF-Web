@@ -17,10 +17,10 @@ def test_dry_run_evaluation_covers_example_questions(example_bundle):
     questions = evaluator.load_questions(
         example_bundle / "evaluations" / "questions.yaml"
     )
-    assert len(questions) == 24
+    assert len(questions) == 27
     report = evaluator.evaluate(bundle, questions, llm=None)
     metrics = report.metrics(bundle)
-    assert metrics["questions"] == 24
+    assert metrics["questions"] == 27
     assert metrics["retrieval_hit_rate"] == 1.0
     assert metrics["context_tokens_mean"] > 0
     assert report.dry_run
@@ -34,7 +34,7 @@ def test_scorecard_writer_emits_conformant_concept(bundle_copy):
     assert out.exists()
     reloaded = load_bundle(bundle_copy).get("evaluations/test-scorecard.md")
     assert reloaded.type == "GEO Scorecard"
-    assert reloaded.x_geo["metrics"]["questions"] == 24
+    assert reloaded.x_geo["metrics"]["questions"] == 27
 
 
 def test_llm_judged_evaluation_with_static_client(example_bundle):
@@ -71,7 +71,7 @@ def test_surveyor_parses_and_gates_llm_output(tmp_path):
         "    resource: https://shop.example/faq\n"
         "    title: FAQ page\n"
         "x_geo:\n"
-        "  profile: ecommerce-geo/1.3\n"
+        "  profile: ecommerce-geo/1.4\n"
         "  risk: b\n"
         "  intents: [trust]\n"
         "---\n"

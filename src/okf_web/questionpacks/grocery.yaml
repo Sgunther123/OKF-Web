@@ -27,3 +27,6 @@ questions:
   - {id: promo-1, archetype: promotion, question: "Is there a sale on right now?"}
   - {id: promo-2, archetype: promotion, question: "Do you have a discount for first orders or referrals?"}
   - {id: promo-3, archetype: promotion, question: "When does your current promotion end?"}
+  - {id: fit-1, archetype: fit_compatibility, question: "Do your coffee pod refills fit machines from other brands?"}
+  - {id: fit-2, archetype: fit_compatibility, question: "Which of your sauces can I use in a strictly nut-free kitchen?"}
+  - {id: fit-3, archetype: fit_compatibility, question: "Will your meal kit portions actually feed a family of four?"}

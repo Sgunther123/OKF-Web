@@ -203,6 +203,25 @@ class Concept:
         value = self.x_geo.get("source_hash")
         return str(value) if value else None
 
+    @property
+    def entity(self) -> str | None:
+        """Stable store-local id (``sku:…``) other concepts can reference."""
+        value = self.x_geo.get("entity")
+        return str(value) if value else None
+
+    # -- fit & compatibility (profile 1.4) ---------------------------------
+    @property
+    def fits(self) -> list[str]:
+        """Entities this concept gives fit/sizing guidance for."""
+        value = self.x_geo.get("fits")
+        return [str(v) for v in value] if isinstance(value, list) else []
+
+    @property
+    def works_with(self) -> list[str]:
+        """Entities this concept declares interoperability with."""
+        value = self.x_geo.get("works_with")
+        return [str(v) for v in value] if isinstance(value, list) else []
+
     # -- promotion time bounds (type: Promotion) ---------------------------
     @property
     def promo_starts(self) -> _dt.date | None:
@@ -303,6 +322,14 @@ class Bundle:
     def all_documents(self) -> Iterator[Concept]:
         yield from self.indexes.values()
         yield from self.concepts.values()
+
+    def entities(self) -> dict[str, str]:
+        """``x_geo.entity`` id → rel_path, for resolving fit/compat references."""
+        return {
+            c.entity: rel
+            for rel, c in self.concepts.items()
+            if c.entity and split_l10n(rel) is None
+        }
 
 
 def split_l10n(rel_path: str) -> tuple[str, str] | None:

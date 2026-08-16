@@ -156,6 +156,44 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                     )
                 )
 
+    if concept.type == "Compatibility":
+        # The machine-resolvable applicability is the type's whole point:
+        # a fit chart that names no entities cannot be targeted by an
+        # agent asking "will this fit mine?".
+        if not concept.fits and not concept.works_with:
+            if concept.status == "stable":
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "E015",
+                        rel,
+                        "stable Compatibility concept references no entities — "
+                        "set `x_geo.fits` and/or `x_geo.works_with`",
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W032",
+                        rel,
+                        "Compatibility draft references no entities yet; a "
+                        "reviewer must add `x_geo.fits`/`works_with` before "
+                        "it can go stable",
+                    )
+                )
+        if concept.risk == "c":
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W033",
+                    rel,
+                    "Compatibility concept classified risk `c`; wrong fit "
+                    "claims drive returns — classify `b` (or `a` for "
+                    "safety-relevant fitment)",
+                )
+            )
+
     if concept.type == "Product" and not concept.resource:
         findings.append(
             Finding(
@@ -212,6 +250,26 @@ def lint_bundle(
 
     for concept in bundle.concepts.values():
         findings.extend(lint_concept(concept, today=today))
+
+    # Fit/compat entity references must resolve: an agent follows
+    # `fits: [sku:X]` by looking up the concept whose x_geo.entity is
+    # sku:X — a dangling reference is guidance no engine can attach to
+    # a product.
+    entities = bundle.entities()
+    for rel, concept in sorted(bundle.concepts.items()):
+        if split_l10n(rel) is not None:
+            continue
+        for ref in concept.fits + concept.works_with:
+            if ref not in entities:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W032",
+                        rel,
+                        f"entity reference {ref!r} does not resolve to any "
+                        "concept's `x_geo.entity` in this bundle",
+                    )
+                )
 
     # Translation parity: l10n/<lang>/<rel> mirrors <rel>. A translation
     # is knowledge too — but one whose source moved on is worse than

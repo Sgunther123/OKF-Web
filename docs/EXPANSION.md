@@ -35,9 +35,18 @@ reporting — belongs to the
 merchant with a text editor must always be able to author every
 concept class by hand and lint it for free.
 
-## Phase A — Fit and compatibility (first: the returns lever)
+## Phase A — Fit and compatibility (shipped, profile 1.4)
 
 *"Will this fit me / my device / my other gear?"*
+
+Shipped as designed: the `Compatibility` type with
+`x_geo.fits`/`works_with` entity references (lint E015/W032/W033
+enforce the applicability contract and the risk floor), the
+`fit_compatibility` archetype in the evaluator, prompts, and all
+four starter packs, and reference-bundle coverage
+(`compatibility/fit-and-pairing.md`) — measured at 27 questions,
+hit rate 1.0, coverage 0.926. The hosted-side levers below remain
+open.
 
 | | |
 | --- | --- |

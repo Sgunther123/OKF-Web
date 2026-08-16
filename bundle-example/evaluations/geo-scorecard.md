@@ -1,23 +1,23 @@
 ---
 type: GEO Scorecard
-title: Answerability evaluation — 2026-08-05
+title: Answerability evaluation — 2026-08-15
 description: Machine-generated answerability scorecard for this bundle; see x_geo.metrics for the numbers.
 tags: [evaluation, geo]
 status: stable
-stale_after: 2026-09-04
+stale_after: 2026-09-14
 generated:
   by: okf-web-evaluator/claude-sonnet-5
-  at: 2026-08-05T16:05:33Z
+  at: 2026-08-15T11:20:08Z
 x_geo:
-  profile: ecommerce-geo/1.3
+  profile: ecommerce-geo/1.4
   risk: c
   metrics:
-    questions: 24
+    questions: 27
     retrieval_hit_rate: 1.0
-    context_tokens_mean: 1875
-    coverage: 0.917
-    groundedness: 0.917
-    citability: 0.875
+    context_tokens_mean: 2044
+    coverage: 0.926
+    groundedness: 0.926
+    citability: 0.889
     freshness: 1.0
     by_archetype:
       discovery: { questions: 3, answered: 3 }
@@ -28,10 +28,11 @@ x_geo:
       trust: { questions: 3, answered: 3 }
       capability: { questions: 3, answered: 2 }
       promotion: { questions: 3, answered: 3 }
+      fit_compatibility: { questions: 3, answered: 3 }
   baseline:
-    condition: raw site HTML (13 pages, same questions)
+    condition: raw site HTML (14 pages, same questions)
     context_tokens_mean: 41780
-    coverage: 0.667
+    coverage: 0.63
 ---
 
 # Results
@@ -62,6 +63,9 @@ x_geo:
 | promo-1 | promotion | 4 | yes | /promotions/fall-clearance.md |
 | promo-2 | promotion | 4 | yes | /promotions/fall-clearance.md |
 | promo-3 | promotion | 4 | yes | /promotions/fall-clearance.md |
+| fit-1 | fit_compatibility | 4 | yes | /compatibility/fit-and-pairing.md |
+| fit-2 | fit_compatibility | 4 | yes | /compatibility/fit-and-pairing.md, /catalog/products/alpine-2-tent.md |
+| fit-3 | fit_compatibility | 4 | yes | /compatibility/fit-and-pairing.md |
 
 Note on disc-3: the bundle answers correctly that the store does
 *not* sell four-season tents — an explicit negative sourced from
@@ -79,8 +83,10 @@ Note on disc-3: the bundle answers correctly that the store does
 
 # Baseline comparison
 
-Answering the same 24 questions from raw site HTML consumed a mean of
-41,780 context tokens per question versus 1,875 from this bundle
-(22× reduction) and covered 16/24 questions versus 22/24. The largest
+Answering the same 27 questions from raw site HTML consumed a mean of
+41,780 context tokens per question versus 2,044 from this bundle
+(20× reduction) and covered 17/27 questions versus 25/27. The largest
 raw-HTML failures were capability questions (no API surface is
-described in page HTML) and policy edge cases buried in accordion UI.
+described in page HTML), policy edge cases buried in accordion UI,
+and fit questions needing facts joined across a PDF spec sheet and
+the size guide (fit-1 alone was answerable from the size-guide page).

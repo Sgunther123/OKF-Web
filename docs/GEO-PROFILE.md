@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.3` Profile for OKF v0.2
+# The `ecommerce-geo/1.4` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.3`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.4`.
 
 ## 1. Concept types
 
@@ -25,6 +25,7 @@ tooling and engines can dispatch on them.
 | `Buying Guide` | Comparative/selection guidance across products | `b` |
 | `Attested Computation` | An executable capability of the store (OKF core type) | `a` |
 | `Promotion` | A time-bounded offer: sales, discount codes (added in 1.1) | `a` |
+| `Compatibility` | Fit charts, works-with matrices, part fitment (added in 1.4) | `b` |
 | `GEO Scorecard` | Machine-generated answerability evaluation | `c` |
 
 ### Per-type requirements (beyond OKF's required `type`)
@@ -50,6 +51,18 @@ tooling and engines can dispatch on them.
   machine-readable, so this is the one content class with unambiguous
   auto-retirement: a publish after the end date cannot ship a dead
   sale (W028 reminds the producer to retire the file).
+- **`Compatibility`:** the machine-resolvable applicability is the
+  contract. `x_geo.fits` (entities this gives sizing/fit guidance
+  for) and/or `x_geo.works_with` (entities declared interoperable)
+  required before `stable` (lint E015; W032 flags drafts still
+  missing them) — a fit chart that names no entities cannot be
+  targeted by an agent asking "will this fit mine?". Every reference
+  must resolve to some concept's `x_geo.entity` in the bundle
+  (W032). Risk is `b` at minimum — wrong fit claims drive returns —
+  and `a` when fitment is safety-relevant (W033 flags `c`). The
+  chart or matrix itself lives in the body as a markdown table with
+  footnotes; the live-values rule (§4) still applies — no prices in
+  fit charts.
 - **`GEO Scorecard`:** `generated` required; metrics live under
   `x_geo.metrics` (schema in [EVALUATION.md](EVALUATION.md)).
 
@@ -60,11 +73,12 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.3` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.4` (opt-in marker) |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
-| `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion` — retrieval hint for engines |
+| `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
 | `entity` | string | Stable store-local id, e.g. `sku:APO-TENT-A2`, `org:acme` |
+| `fits` / `works_with` | list | Compatibility concepts (and products declaring interop): entity ids this concept gives fit guidance for / declares interoperable — every id must resolve to a concept's `entity` (W032) |
 | `brand` | string | Product brand |
 | `source_hash` | string | `sha256:<hex>` of the normalized source text at survey time — powers incremental re-survey |
 | `source_fetched_at` | date | When the source was fetched |
@@ -232,12 +246,20 @@ path position is the binding.
 | W026 | warn | Attested Computation without `executor.resource` |
 | W030 | warn | Translation with no source concept at the mirrored path |
 | W031 | warn | Translation unpinned or out of date vs its source (`x_geo.l10n_source_hash`) |
+| E015 | error | Stable `Compatibility` without `x_geo.fits`/`works_with` |
+| W032 | warn | Compatibility draft missing entity refs, or a `fits`/`works_with` id that resolves to no concept's `entity` |
+| W033 | warn | `Compatibility` classified risk `c` — fit claims drive returns; use `b`/`a` |
 
 Errors block publishing; `--strict` promotes warnings for CI.
 
 ## 10. Versioning
 
-**1.3** (current) adds the `l10n/<lang>/` translation convention
+**1.4** (current) adds the `Compatibility` type, the
+`fits`/`works_with` keys, the `fit_compatibility` intent, and lint
+codes E015/W032/W033 — additive; concepts declaring earlier minors
+remain fully valid.
+
+**1.3** adds the `l10n/<lang>/` translation convention
 (§7), the `l10n_source_hash` key, and lint codes W030/W031 —
 additive; concepts declaring earlier minors remain fully valid.
 

@@ -27,3 +27,6 @@ questions:
   - {id: promo-1, archetype: promotion, question: "Is there a sale on right now?"}
   - {id: promo-2, archetype: promotion, question: "Do you have a discount code for first-time orders?"}
   - {id: promo-3, archetype: promotion, question: "When does your current promotion end?"}
+  - {id: fit-1, archetype: fit_compatibility, question: "I'm 6 foot 4 — which length sleeping bag do I need?"}
+  - {id: fit-2, archetype: fit_compatibility, question: "Will two wide sleeping pads fit side by side in your two-person tent?"}
+  - {id: fit-3, archetype: fit_compatibility, question: "Does your rainfly work with the tent I bought from you last year?"}

@@ -3,7 +3,7 @@ okf_version: "0.2"
 title: Alpine Peak Outfitters — Knowledge Bundle
 description: Curated, provenance-tracked knowledge about the Alpine Peak Outfitters store, published as an OKF companion to the live site.
 x_geo:
-  profile: ecommerce-geo/1.3
+  profile: ecommerce-geo/1.4
   site: https://www.alpinepeakoutfitters.example
 ---
 
@@ -31,6 +31,10 @@ price or stock claim. Only `stable` concepts are listed here.
 
 * [Tent Buying Guide](/guides/tent-buying-guide.md) - How to choose between the store's tents by season, capacity, and weight.
 * [General FAQ](/faq/general.md) - Payment methods, contacting support, sizing help, and gift cards.
+
+## Fit & Compatibility
+
+* [Fit Guide — Sleeping Bag Length & Tent Pairing](/compatibility/fit-and-pairing.md) - Which Ridgeline 20 length fits your height, and what fits side by side inside the Alpine 2.
 
 ## Promotions
 

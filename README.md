@@ -43,7 +43,7 @@ lock-in; any engine that reads files can consume it.
 | --- | --- |
 | [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) | Plain-English guide for store owners — walkthrough and FAQs, no programming background needed |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | The system design — architecture, novelty, threat model, efficiency budget |
-| [`docs/GEO-PROFILE.md`](docs/GEO-PROFILE.md) | The `ecommerce-geo/1.3` profile: concept types, `x_geo` namespace, risk tiers, `http` runtime |
+| [`docs/GEO-PROFILE.md`](docs/GEO-PROFILE.md) | The `ecommerce-geo/1.4` profile: concept types, `x_geo` namespace, risk tiers, `http` runtime |
 | [`docs/EVALUATION.md`](docs/EVALUATION.md) | The answerability rubric: archetypes, metrics, gating |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phased tooling roadmap, ranked by adoption leverage |
 | [`docs/EXPANSION.md`](docs/EXPANSION.md) | Value expansion plan: fit, ownership, passports, omnichannel, B2B |

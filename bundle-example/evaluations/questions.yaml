@@ -75,3 +75,12 @@ questions:
   - id: promo-3
     archetype: promotion
     question: When does the current promotion end?
+  - id: fit-1
+    archetype: fit_compatibility
+    question: I'm 6 foot 4 — which length of your sleeping bag do I need?
+  - id: fit-2
+    archetype: fit_compatibility
+    question: We both sleep on wide 25-inch pads — will two of them fit side by side in your two-person tent?
+  - id: fit-3
+    archetype: fit_compatibility
+    question: My partner and I both use Ridgeline bags — can we sleep side by side in the Alpine 2?

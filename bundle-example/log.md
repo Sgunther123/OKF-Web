@@ -1,5 +1,10 @@
 # Directory Update Log
 
+## 2026-08-15
+
+* **Verify**: [Fit Guide — Sleeping Bag Length & Tent Pairing](/compatibility/fit-and-pairing.md) approved by human:merch-lead@alpinepeakoutfitters.example; entity references resolve to both catalog products.
+* **Update**: [Answerability evaluation — 2026-08-15](/evaluations/geo-scorecard.md) refreshed by okf-web-evaluator/claude-sonnet-5 (27 questions across nine archetypes, coverage 0.926).
+
 ## 2026-08-05
 
 * **Verify**: [Alpine Peak Outfitters](/store.md) approved by human:merch-lead@alpinepeakoutfitters.example.
