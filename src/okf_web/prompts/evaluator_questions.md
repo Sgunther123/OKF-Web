@@ -34,6 +34,11 @@ description.
   work with what the shopper already owns (other gear, devices,
   parts). Phrase these the way shoppers do: "I'm 6'3\"…", "will it
   work with my…" — not "compatibility".
+- **ownership** — the asker already owns it: setup, care and
+  cleaning, storage, troubleshooting, spare parts, and how the
+  warranty/repair process works. Phrase as an owner would ("Can I
+  machine-wash…", "mine stopped working — now what?"), not as a
+  shopper.
 
 # Rules
 

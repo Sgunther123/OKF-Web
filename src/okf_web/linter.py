@@ -194,6 +194,45 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                 )
             )
 
+    if concept.type == "Ownership Guide":
+        # Same applicability contract as Compatibility: ownership
+        # guidance an agent cannot attach to an owned product is
+        # unreachable exactly when the owner asks about it.
+        if not concept.covers:
+            if concept.status == "stable":
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "E016",
+                        rel,
+                        "stable Ownership Guide covers no entities — set "
+                        "`x_geo.covers` to the product(s) it is guidance for",
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W032",
+                        rel,
+                        "Ownership Guide draft covers no entities yet; a "
+                        "reviewer must add `x_geo.covers` before it can go "
+                        "stable",
+                    )
+                )
+        if concept.risk == "c":
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W033",
+                    rel,
+                    "Ownership Guide classified risk `c`; wrong care or "
+                    "warranty-process claims damage products and void "
+                    "warranties — classify `b` (or `a` when care is "
+                    "safety-relevant)",
+                )
+            )
+
     if concept.type == "Product" and not concept.resource:
         findings.append(
             Finding(
@@ -251,15 +290,15 @@ def lint_bundle(
     for concept in bundle.concepts.values():
         findings.extend(lint_concept(concept, today=today))
 
-    # Fit/compat entity references must resolve: an agent follows
-    # `fits: [sku:X]` by looking up the concept whose x_geo.entity is
-    # sku:X — a dangling reference is guidance no engine can attach to
-    # a product.
+    # Entity references must resolve: an agent follows `fits: [sku:X]`
+    # (or `works_with`/`covers`) by looking up the concept whose
+    # x_geo.entity is sku:X — a dangling reference is guidance no
+    # engine can attach to a product.
     entities = bundle.entities()
     for rel, concept in sorted(bundle.concepts.items()):
         if split_l10n(rel) is not None:
             continue
-        for ref in concept.fits + concept.works_with:
+        for ref in concept.entity_refs:
             if ref not in entities:
                 findings.append(
                     Finding(

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import math
+import zlib
 import re
 from pathlib import Path
 from typing import Protocol
@@ -65,10 +66,19 @@ class HashingEmbedder:
     """Deterministic feature-hashing embedder (no dependencies, no
     network). Tokens hash into a fixed-dimension count vector that is
     then L2-normalized — cosine similarity over these is essentially
-    smoothed lexical overlap."""
+    smoothed lexical overlap.
+
+    Tokens are bucketed with crc32, NOT Python's ``hash()``: the
+    builtin is salted per process (PYTHONHASHSEED), which would make
+    vectors differ between runs — rankings would wobble and the
+    on-disk cache would silently disagree with fresh query vectors.
+    Determinism here means across processes, not just within one.
+    """
 
     def __init__(self, dim: int = 512):
-        self.model = f"hashing-{dim}"
+        # crc32 in the model id: caches written by the old salted
+        # implementation key differently and rebuild automatically.
+        self.model = f"hashing-crc32-{dim}"
         self._dim = dim
 
     def embed(self, texts: list[str], input_type: str = "document") -> list[list[float]]:
@@ -76,7 +86,7 @@ class HashingEmbedder:
         for text in texts:
             vec = [0.0] * self._dim
             for token in _WORD_RE.findall(text.lower()):
-                vec[hash(("okf", token)) % self._dim] += 1.0
+                vec[zlib.crc32(token.encode("utf-8")) % self._dim] += 1.0
             norm = math.sqrt(sum(v * v for v in vec))
             if norm:
                 vec = [v / norm for v in vec]

@@ -3,7 +3,7 @@ okf_version: "0.2"
 title: Alpine Peak Outfitters — Knowledge Bundle
 description: Curated, provenance-tracked knowledge about the Alpine Peak Outfitters store, published as an OKF companion to the live site.
 x_geo:
-  profile: ecommerce-geo/1.4
+  profile: ecommerce-geo/1.5
   site: https://www.alpinepeakoutfitters.example
 ---
 
@@ -36,6 +36,10 @@ price or stock claim. Only `stable` concepts are listed here.
 
 * [Fit Guide — Sleeping Bag Length & Tent Pairing](/compatibility/fit-and-pairing.md) - Which Ridgeline 20 length fits your height, and what fits side by side inside the Alpine 2.
 
+## Ownership
+
+* [Ridgeline 20 — Care, Storage & Warranty Help](/ownership/ridgeline-20-care.md) - How to wash, dry, store, and get warranty help for the bag you already own.
+
 ## Promotions
 
 * [Fall Clearance — 15% Off Sleeping Bags](/promotions/fall-clearance.md) - 15% off all sleeping bags with code FALL15 through December 31, 2026.
@@ -45,6 +49,7 @@ price or stock claim. Only `stable` concepts are listed here.
 * [Live Price Check](/capabilities/price-check.md) - Attested computation returning the current price and promotions for a SKU.
 * [Live Stock Check](/capabilities/stock-check.md) - Attested computation returning current availability for a SKU.
 * [Order Status Lookup](/capabilities/order-status.md) - Attested computation returning the status of an order to its owner.
+* [Warranty Claim Status Lookup](/capabilities/warranty-claim-status.md) - Attested computation returning the status of a filed warranty claim to its owner.
 
 ## Evaluations
 

@@ -178,7 +178,7 @@ def test_evaluate_accepts_pluggable_retriever(example_bundle):
         bundle, questions, llm=None, retriever=EmbeddingIndex(HashingEmbedder())
     )
     metrics = report.metrics(bundle)
-    assert metrics["questions"] == 27
+    assert metrics["questions"] == 30
     assert metrics["retrieval_hit_rate"] == 1.0
 
 

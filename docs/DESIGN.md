@@ -2,7 +2,7 @@
 
 **Status:** v1 design · **Format:** Open Knowledge Format (OKF) v0.2
 ([spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf))
-· **Profile:** `ecommerce-geo/1.4`
+· **Profile:** `ecommerce-geo/1.5`
 
 ## 1. Problem
 
@@ -107,7 +107,7 @@ history is the audit trail.
    while low-risk descriptive facts flow through at machine speed.
 3. **Answerability evaluation as the GEO metric.** Instead of proxy
    advice ("add FAQ schema"), the evaluator role-plays the consumer:
-   it generates shopper questions across nine intent archetypes,
+   it generates shopper questions across ten intent archetypes,
    answers them *only* from the bundle, judges the answers strictly,
    and publishes the result **into the bundle** as a `GEO Scorecard`
    concept. Coverage, groundedness, citability, freshness, and token
@@ -127,7 +127,7 @@ history is the audit trail.
    unchanged pages cost zero LLM tokens; consuming agents use
    progressive disclosure (`index.md` → section → concept) and
    `manifest.json` sha256s for delta sync; the scorecard reports
-   context-tokens-per-answer against a raw-HTML baseline (20× cheaper
+   context-tokens-per-answer against a raw-HTML baseline (19× cheaper
    in the reference bundle).
 
 ## 4. The companion bundle
@@ -359,8 +359,8 @@ A 500-product store, ~50 KB of extractable text per page:
 | Weekly upkeep, ~3% pages changed | full re-crawl per engine, per question | ~15 re-extractions total |
 | Freshness check | re-crawl | 1 GET of `manifest.json` |
 
-The reference scorecard measures 41,780 → 2,044 mean context tokens
-per answered question (20×) with coverage rising from 0.630 to 0.926.
+The reference scorecard measures 41,780 → 2,162 mean context tokens
+per answered question (19×) with coverage rising from 0.633 to 0.933.
 The asymmetry is the point: the merchant pays extraction **once**;
 every engine, every question, every day inherits the savings — and
 the citations.

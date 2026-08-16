@@ -30,3 +30,6 @@ questions:
   - {id: fit-1, archetype: fit_compatibility, question: "Do your coffee pod refills fit machines from other brands?"}
   - {id: fit-2, archetype: fit_compatibility, question: "Which of your sauces can I use in a strictly nut-free kitchen?"}
   - {id: fit-3, archetype: fit_compatibility, question: "Will your meal kit portions actually feed a family of four?"}
+  - {id: own-1, archetype: ownership, question: "How long does this keep after opening, and does it need refrigerating?"}
+  - {id: own-2, archetype: ownership, question: "Can I freeze the portions I don't use this week?"}
+  - {id: own-3, archetype: ownership, question: "My subscription delivery arrived damaged — how do I get it replaced?"}

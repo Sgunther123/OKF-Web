@@ -52,7 +52,7 @@ def test_info_reports_store_and_scorecard(example_bundle):
     payload = json.loads(text)
     assert payload["store"]["path"] == "store.md"
     assert payload["concepts_by_type"]["Product"] == 2
-    assert payload["scorecard_metrics"]["questions"] == 27
+    assert payload["scorecard_metrics"]["questions"] == 30
 
 
 def test_search_returns_trust_annotated_hits(example_bundle):

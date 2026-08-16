@@ -1,5 +1,11 @@
 # Directory Update Log
 
+## 2026-08-16
+
+* **Verify**: [Ridgeline 20 — Care, Storage & Warranty Help](/ownership/ridgeline-20-care.md) approved by human:support-lead@alpinepeakoutfitters.example.
+* **Verify**: [Warranty Claim Status Lookup](/capabilities/warranty-claim-status.md) approved by human:platform-lead@alpinepeakoutfitters.example; claim filing stays on the store's pages, lookup only.
+* **Update**: [Answerability evaluation — 2026-08-16](/evaluations/geo-scorecard.md) refreshed by okf-web-evaluator/claude-sonnet-5 (30 questions across ten archetypes, coverage 0.933).
+
 ## 2026-08-15
 
 * **Verify**: [Fit Guide — Sleeping Bag Length & Tent Pairing](/compatibility/fit-and-pairing.md) approved by human:merch-lead@alpinepeakoutfitters.example; entity references resolve to both catalog products.

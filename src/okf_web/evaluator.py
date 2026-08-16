@@ -51,6 +51,7 @@ ARCHETYPES = [
     "capability",     # what can an agent *do* against the store (live price/stock)
     "promotion",      # current sales, discount codes, when a deal ends
     "fit_compatibility",  # will it fit me / work with what I own
+    "ownership",      # I own it: setup, care, troubleshooting, warranty process
 ]
 
 _WORD_RE = re.compile(r"[a-z0-9]+")

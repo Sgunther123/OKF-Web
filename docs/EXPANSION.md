@@ -55,9 +55,18 @@ open.
 | Hosted | Fitment-data ingestion from PIM/ERP exports; returns-correlation reporting (which fit gaps drive which return codes) |
 | Why first | Cleanest lever, risk-`b` data (asynchronous review — cheap), and a canonical agent question raw HTML answers terribly |
 
-## Phase B — Post-purchase ownership (the deflection lever)
+## Phase B — Post-purchase ownership (shipped, profile 1.5)
 
 *"How do I set it up / wash it / fix it / claim the warranty?"*
+
+Shipped as designed: the `Ownership Guide` type bound to owned
+products via `x_geo.covers` (E016 and the extended W032/W033 enforce
+the contract and risk floor), the `ownership` archetype everywhere
+questions live, and the warranty pattern in the profile — mutating
+flows stay on the store's pages, read-only token-scoped status
+lookups are capabilities (`capabilities/warranty-claim-status.md` in
+the reference bundle). Measured at 30 questions, hit rate 1.0,
+coverage 0.933. The hosted-side levers below remain open.
 
 | | |
 | --- | --- |

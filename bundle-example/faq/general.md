@@ -18,7 +18,7 @@ sources:
     title: FAQ page
     last_modified: 2026-06-28
 x_geo:
-  profile: ecommerce-geo/1.4
+  profile: ecommerce-geo/1.5
   risk: b
   intents: [trust, policy, fulfillment]
   source_hash: sha256:4c6e8f0b2d4a6c8e0f2b4d6a8c0e2f4b6d8a0c2e4f6b8d0a2c4e6f8b0d2a4c6e

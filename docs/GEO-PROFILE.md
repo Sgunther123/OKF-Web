@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.4` Profile for OKF v0.2
+# The `ecommerce-geo/1.5` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.4`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.5`.
 
 ## 1. Concept types
 
@@ -26,6 +26,7 @@ tooling and engines can dispatch on them.
 | `Attested Computation` | An executable capability of the store (OKF core type) | `a` |
 | `Promotion` | A time-bounded offer: sales, discount codes (added in 1.1) | `a` |
 | `Compatibility` | Fit charts, works-with matrices, part fitment (added in 1.4) | `b` |
+| `Ownership Guide` | Care, setup, troubleshooting, warranty process for owners (added in 1.5) | `b` |
 | `GEO Scorecard` | Machine-generated answerability evaluation | `c` |
 
 ### Per-type requirements (beyond OKF's required `type`)
@@ -63,6 +64,16 @@ tooling and engines can dispatch on them.
   chart or matrix itself lives in the body as a markdown table with
   footnotes; the live-values rule (§4) still applies — no prices in
   fit charts.
+- **`Ownership Guide`:** same applicability contract as
+  Compatibility, for the post-purchase audience: `x_geo.covers` names
+  the entities the guidance is for, required before `stable` (lint
+  E016; W032 flags drafts still missing it), every id resolving to a
+  concept's `entity` (W032). Risk `b` at minimum — wrong care advice
+  damages products and voids warranties — and `a` when care is
+  safety-relevant (W033 flags `c`). Warranty *processes* are
+  described in the body with links to the store's pages; mutating
+  flows (registration, claim filing) are never exposed as executable
+  capabilities (§5) — the read-only status lookup is.
 - **`GEO Scorecard`:** `generated` required; metrics live under
   `x_geo.metrics` (schema in [EVALUATION.md](EVALUATION.md)).
 
@@ -73,12 +84,13 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.4` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.5` (opt-in marker) |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
-| `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility` — retrieval hint for engines |
+| `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
 | `entity` | string | Stable store-local id, e.g. `sku:APO-TENT-A2`, `org:acme` |
 | `fits` / `works_with` | list | Compatibility concepts (and products declaring interop): entity ids this concept gives fit guidance for / declares interoperable — every id must resolve to a concept's `entity` (W032) |
+| `covers` | list | Ownership Guide concepts: entity ids this is post-purchase guidance for — same resolution rule (W032) |
 | `brand` | string | Product brand |
 | `source_hash` | string | `sha256:<hex>` of the normalized source text at survey time — powers incremental re-survey |
 | `source_fetched_at` | date | When the source was fetched |
@@ -146,6 +158,15 @@ for public storefront endpoints:
 - Etiquette in `x_geo`: `rate_limit`, `auth`. Endpoints exposed here
   MUST be safe for anonymous automated callers: read-only, no PII
   beyond token-gated fulfillment state, rate-limited server-side.
+- **Mutating flows are never capabilities.** Registration, claim
+  filing, ordering — anything that changes state — is described in
+  concept bodies with links to the store's own pages, not exposed as
+  an executable. This keeps every declared capability safe for an
+  anonymous agent to execute (the MCP bridge enforces GET-only), and
+  keeps the human owner in the loop for every state change. The
+  read-only *status lookup* for such a flow is a fine capability —
+  see the warranty pattern: file on the store's page, check by
+  token-scoped lookup.
 
 This section is what makes the bundle a companion to site
 *functionality*: the store's API surface becomes discoverable,
@@ -247,14 +268,20 @@ path position is the binding.
 | W030 | warn | Translation with no source concept at the mirrored path |
 | W031 | warn | Translation unpinned or out of date vs its source (`x_geo.l10n_source_hash`) |
 | E015 | error | Stable `Compatibility` without `x_geo.fits`/`works_with` |
-| W032 | warn | Compatibility draft missing entity refs, or a `fits`/`works_with` id that resolves to no concept's `entity` |
-| W033 | warn | `Compatibility` classified risk `c` — fit claims drive returns; use `b`/`a` |
+| E016 | error | Stable `Ownership Guide` without `x_geo.covers` |
+| W032 | warn | Compatibility/Ownership Guide draft missing entity refs, or a `fits`/`works_with`/`covers` id that resolves to no concept's `entity` |
+| W033 | warn | `Compatibility`/`Ownership Guide` classified risk `c` — fit claims drive returns, care claims damage products; use `b`/`a` |
 
 Errors block publishing; `--strict` promotes warnings for CI.
 
 ## 10. Versioning
 
-**1.4** (current) adds the `Compatibility` type, the
+**1.5** (current) adds the `Ownership Guide` type, the `covers` key,
+the `ownership` intent, lint code E016 (with W032/W033 extended to
+the new type), and the mutating-flows rule in §5 — additive; concepts
+declaring earlier minors remain fully valid.
+
+**1.4** adds the `Compatibility` type, the
 `fits`/`works_with` keys, the `fit_compatibility` intent, and lint
 codes E015/W032/W033 — additive; concepts declaring earlier minors
 remain fully valid.

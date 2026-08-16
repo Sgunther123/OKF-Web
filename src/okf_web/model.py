@@ -222,6 +222,19 @@ class Concept:
         value = self.x_geo.get("works_with")
         return [str(v) for v in value] if isinstance(value, list) else []
 
+    # -- post-purchase ownership (profile 1.5) -----------------------------
+    @property
+    def covers(self) -> list[str]:
+        """Entities this concept gives ownership guidance for (care,
+        setup, troubleshooting, warranty process)."""
+        value = self.x_geo.get("covers")
+        return [str(v) for v in value] if isinstance(value, list) else []
+
+    @property
+    def entity_refs(self) -> list[str]:
+        """All outgoing entity references, whatever key they ride on."""
+        return self.fits + self.works_with + self.covers
+
     # -- promotion time bounds (type: Promotion) ---------------------------
     @property
     def promo_starts(self) -> _dt.date | None:

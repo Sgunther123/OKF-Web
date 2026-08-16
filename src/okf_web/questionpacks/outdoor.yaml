@@ -30,3 +30,6 @@ questions:
   - {id: fit-1, archetype: fit_compatibility, question: "I'm 6 foot 4 — which length sleeping bag do I need?"}
   - {id: fit-2, archetype: fit_compatibility, question: "Will two wide sleeping pads fit side by side in your two-person tent?"}
   - {id: fit-3, archetype: fit_compatibility, question: "Does your rainfly work with the tent I bought from you last year?"}
+  - {id: own-1, archetype: ownership, question: "How should I store my down bag between trips so it stays warm?"}
+  - {id: own-2, archetype: ownership, question: "My tent zipper is sticking — can you fix it or do I need a new one?"}
+  - {id: own-3, archetype: ownership, question: "I filed a warranty claim — how do I check where it stands?"}
