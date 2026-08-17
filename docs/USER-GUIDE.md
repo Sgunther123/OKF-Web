@@ -433,10 +433,13 @@ person can set up the folder on GitHub so approvals happen through
 its normal review screens.
 
 **Q: I'm on Shopify / BigCommerce — can it read my catalog directly?**
-A: Today the tool reads your public site via its sitemap, which works
-on any platform. Direct catalog connectors (reading your product data
-straight from the platform, syncing automatically) are on the
-roadmap.
+A: Yes, via your product feed: every platform can export one (the
+same file you'd give Google Shopping). Run
+`okf-web survey my-store --feed products.csv` and every product
+becomes a draft fact sheet **with no AI cost at all** — prices and
+stock are deliberately left out (those stay live), and everything
+lands in the same review queue. Connectors that sync continuously
+without an export are a hosted-edition capability.
 
 **Q: My platform won't let me host files at that `/.well-known/` address.**
 A: Common, and solved. Host the folder anywhere you *can* — any
@@ -489,6 +492,7 @@ technical docs live alongside this guide:
 | See if source pages changed (free) | `okf-web drift my-store` |
 | Leave stale sheets out when publishing | `okf-web publish my-store dist --freshness withhold` |
 | Let Claude use your folder today | `okf-web mcp my-store` |
+| Draft products from a feed export (free) | `okf-web survey my-store --feed products.csv` |
 | Start with ready-made questions (free) | `okf-web questions my-store --pack outdoor` |
 | Approve all low-stakes drafts at once | `okf-web review batch-approve my-store --by you@yourstore.com` |
 | See which AI systems fetched your folder | `okf-web logscan access.log` |

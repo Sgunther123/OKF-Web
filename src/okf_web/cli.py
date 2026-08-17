@@ -161,12 +161,29 @@ def cmd_survey(args) -> int:
             for line in Path(args.urls).read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.startswith("#")
         )
-    if not urls:
-        print("no URLs: pass --sitemap BASE_URL and/or --urls FILE", file=sys.stderr)
+    if not urls and not args.feed:
+        print(
+            "no inputs: pass --sitemap BASE_URL, --urls FILE, and/or --feed FILE",
+            file=sys.stderr,
+        )
         return 2
-    if args.limit:
-        urls = urls[: args.limit]
-    result = surveyor.survey(urls, args.bundle, _llm(args))
+
+    result = surveyor.SurveyResult()
+    if args.feed:
+        # Feed ingestion is deterministic — no LLM, no credentials.
+        from . import feed as feed_mod
+
+        feed_result = feed_mod.ingest_feed(args.feed, args.bundle)
+        for attr in ("written", "proposed", "skipped_unchanged",
+                     "quarantined", "collisions", "errors"):
+            getattr(result, attr).extend(getattr(feed_result, attr))
+    if urls:
+        if args.limit:
+            urls = urls[: args.limit]
+        page_result = surveyor.survey(urls, args.bundle, _llm(args))
+        for attr in ("written", "proposed", "skipped_unchanged",
+                     "quarantined", "collisions", "errors"):
+            getattr(result, attr).extend(getattr(page_result, attr))
     print(
         f"written: {len(result.written)}  proposed: {len(result.proposed)}  "
         f"unchanged: {len(result.skipped_unchanged)}  "
@@ -448,17 +465,27 @@ def cmd_mcp(args) -> int:
 def cmd_sign(args) -> int:
     try:
         out = signing.sign_manifest(
-            args.dist, sigstore_bin=args.sigstore_bin, staging=args.staging
+            args.dist,
+            sigstore_bin=args.sigstore_bin,
+            staging=args.staging,
+            label=args.label,
         )
     except signing.SigningError as exc:
         print(f"signing failed: {exc}", file=sys.stderr)
         return 1
     print(f"signed: {out}")
-    print(
-        "consumers verify with: okf-web verify "
-        f"{args.dist} --cert-identity <your-oidc-identity> "
-        "--cert-oidc-issuer <issuer-url>"
-    )
+    if args.label:
+        print(
+            f"countersignature as {args.label!r} — consumers verify with: "
+            f"okf-web verify {args.dist} --countersignature {args.label} "
+            "--cert-identity <attester-identity> --cert-oidc-issuer <issuer-url>"
+        )
+    else:
+        print(
+            "consumers verify with: okf-web verify "
+            f"{args.dist} --cert-identity <your-oidc-identity> "
+            "--cert-oidc-issuer <issuer-url>"
+        )
     return 0
 
 
@@ -472,7 +499,7 @@ def cmd_verify(args) -> int:
         print("integrity: all manifest hashes match")
 
     failed = bool(errors)
-    has_sig = signing.signature_path(args.dist).exists()
+    has_sig = signing.signature_path(args.dist, args.countersignature).exists()
     if args.cert_identity or args.cert_oidc_issuer:
         if not (args.cert_identity and args.cert_oidc_issuer):
             print(
@@ -488,8 +515,14 @@ def cmd_verify(args) -> int:
                 cert_oidc_issuer=args.cert_oidc_issuer,
                 sigstore_bin=args.sigstore_bin,
                 staging=args.staging,
+                label=args.countersignature,
             )
-            print(f"signature: valid for {args.cert_identity} ({args.cert_oidc_issuer})")
+            kind = (
+                f"countersignature ({args.countersignature})"
+                if args.countersignature
+                else "signature"
+            )
+            print(f"{kind}: valid for {args.cert_identity} ({args.cert_oidc_issuer})")
         except signing.SigningError as exc:
             print(f"signature: {exc}", file=sys.stderr)
             failed = True
@@ -539,10 +572,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_review)
 
-    p = sub.add_parser("survey", help="LLM-populate draft concepts from site pages")
+    p = sub.add_parser(
+        "survey",
+        help="populate draft concepts: LLM extraction from site pages, "
+        "and/or a mechanical (LLM-free) product feed import",
+    )
     p.add_argument("bundle")
     p.add_argument("--sitemap", help="site base URL; reads <base>/sitemap.xml")
     p.add_argument("--urls", help="file with one URL per line")
+    p.add_argument(
+        "--feed",
+        help="product feed file (Google Merchant XML/TSV or CSV): each row "
+        "becomes a draft Product concept deterministically — no LLM, no "
+        "credentials; price/availability fields are dropped per the "
+        "live-values rule",
+    )
     p.add_argument("--limit", type=int, default=0)
     _add_llm_args(p)
     p.set_defaults(func=cmd_survey)
@@ -643,6 +687,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("sign", help="sigstore-sign a published bundle's manifest.json")
     p.add_argument("dist", help="published bundle directory (from `okf-web publish`)")
+    p.add_argument(
+        "--as",
+        dest="label",
+        metavar="LABEL",
+        help="write a countersignature (manifest.json.<LABEL>.sigstore.json) "
+        "instead of the primary signature — for third-party attesters "
+        "signing with their own identity (e.g. --as auditor-acme)",
+    )
     p.add_argument("--sigstore-bin", default="sigstore")
     p.add_argument("--staging", action="store_true")
     p.set_defaults(func=cmd_sign)
@@ -713,6 +765,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("dist", help="published bundle directory")
     p.add_argument("--cert-identity", help="expected signer identity (email or CI workflow URI)")
     p.add_argument("--cert-oidc-issuer", help="expected OIDC issuer URL")
+    p.add_argument(
+        "--countersignature",
+        metavar="LABEL",
+        help="verify the countersignature written by `sign --as LABEL` "
+        "(pass the attester's identity/issuer, not the merchant's)",
+    )
     p.add_argument("--sigstore-bin", default="sigstore")
     p.add_argument("--staging", action="store_true")
     p.set_defaults(func=cmd_verify)

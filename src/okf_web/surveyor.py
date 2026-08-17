@@ -284,44 +284,58 @@ def survey_page(
             result.quarantined.append(f"{url} -> {rel}")
             continue
 
-        state = load_bundle(bundle_root)
+        place_draft(bundle_root, url, rel, fm, body, result)
 
-        # Path stability: a URL that already has a concept keeps its
-        # path, even when the model proposes a new name on re-survey —
-        # otherwise a rename would orphan the old file and duplicate
-        # the product.
-        prior = next((c for c in state.concepts.values() if c.resource == url), None)
-        if prior is not None and prior.rel_path != rel:
-            rel = prior.rel_path
 
-        # Collision safety: never let one page's draft silently
-        # overwrite a different page's concept. Disambiguate with a
-        # slug from the URL (hash fallback if the slug also collides).
-        occupant = state.get(rel)
-        if occupant is not None and occupant.resource and occupant.resource != url:
-            stem = rel[: -len(".md")]
-            slug = _url_slug(url) or sha256_text(url)[7:15]
-            candidate = f"{stem}-{slug}.md"
-            squatter = state.get(candidate)
-            if squatter is not None and squatter.resource != url:
-                candidate = f"{stem}-{sha256_text(url)[7:15]}.md"
-            result.collisions.append(
-                f"{rel} already belongs to {occupant.resource}; wrote {candidate} instead"
-            )
-            rel = candidate
+def place_draft(
+    bundle_root: Path,
+    url: str,
+    rel: str,
+    fm: dict,
+    body: str,
+    result: SurveyResult,
+) -> None:
+    """The write-policy gate every draft producer shares (LLM surveyor,
+    feed ingest): path stability, collision safety, and never silently
+    overwriting human-approved knowledge. One policy, one place."""
+    state = load_bundle(bundle_root)
 
-        target = bundle_root / rel
-        current = state.get(rel)
-        if current is not None and current.trust_tier == TRUST_HUMAN:
-            # Never overwrite human-approved knowledge: file a drift proposal.
-            proposal = bundle_root / "_review" / "proposed" / rel
-            proposal.parent.mkdir(parents=True, exist_ok=True)
-            proposal.write_text(render_document(fm, body), encoding="utf-8")
-            result.proposed.append(rel)
-        else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(render_document(fm, body), encoding="utf-8")
-            result.written.append(rel)
+    # Path stability: a URL that already has a concept keeps its
+    # path, even when the producer proposes a new name on re-survey —
+    # otherwise a rename would orphan the old file and duplicate
+    # the product.
+    prior = next((c for c in state.concepts.values() if c.resource == url), None)
+    if prior is not None and prior.rel_path != rel:
+        rel = prior.rel_path
+
+    # Collision safety: never let one page's draft silently
+    # overwrite a different page's concept. Disambiguate with a
+    # slug from the URL (hash fallback if the slug also collides).
+    occupant = state.get(rel)
+    if occupant is not None and occupant.resource and occupant.resource != url:
+        stem = rel[: -len(".md")]
+        slug = _url_slug(url) or sha256_text(url)[7:15]
+        candidate = f"{stem}-{slug}.md"
+        squatter = state.get(candidate)
+        if squatter is not None and squatter.resource != url:
+            candidate = f"{stem}-{sha256_text(url)[7:15]}.md"
+        result.collisions.append(
+            f"{rel} already belongs to {occupant.resource}; wrote {candidate} instead"
+        )
+        rel = candidate
+
+    target = bundle_root / rel
+    current = state.get(rel)
+    if current is not None and current.trust_tier == TRUST_HUMAN:
+        # Never overwrite human-approved knowledge: file a drift proposal.
+        proposal = bundle_root / "_review" / "proposed" / rel
+        proposal.parent.mkdir(parents=True, exist_ok=True)
+        proposal.write_text(render_document(fm, body), encoding="utf-8")
+        result.proposed.append(rel)
+    else:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(render_document(fm, body), encoding="utf-8")
+        result.written.append(rel)
 
 
 def survey(

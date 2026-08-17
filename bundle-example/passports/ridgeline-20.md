@@ -26,7 +26,7 @@ sources:
     title: Supplier material composition declaration
     last_modified: 2026-06-18
 x_geo:
-  profile: ecommerce-geo/1.8
+  profile: ecommerce-geo/1.9
   risk: a
   intents: [compliance, product_fact, trust]
   passport_for: sku:APO-BAG-R20

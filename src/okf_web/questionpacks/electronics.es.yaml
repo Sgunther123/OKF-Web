@@ -1,0 +1,43 @@
+# Pack inicial de preguntas: electrónica de consumo (español).
+# Semilla para evaluations/questions.yaml — adapta los sustantivos a tu
+# catálogo y cúralo añadiendo preguntas negativas.
+questions:
+  - {id: disc-1, archetype: discovery, question: "Necesito auriculares con cancelación de ruido para el transporte diario con presupuesto medio — ¿qué tenéis?"}
+  - {id: disc-2, archetype: discovery, question: "¿Qué tenéis para montar una pequeña oficina en casa?"}
+  - {id: disc-3, archetype: discovery, question: "¿Vendéis unidades reacondicionadas o de caja abierta?"}
+  - {id: fact-1, archetype: product_fact, question: "¿Cuánta batería duran vuestros auriculares insignia contando el estuche?"}
+  - {id: fact-2, archetype: product_fact, question: "¿Qué estándares de carga admite vuestra batería externa y a qué potencia?"}
+  - {id: fact-3, archetype: product_fact, question: "¿Vuestro mejor monitor funciona con un Mac por USB-C?"}
+  - {id: comp-1, archetype: comparison, question: "¿Qué diferencia práctica hay entre vuestros dos portátiles de gama media?"}
+  - {id: comp-2, archetype: comparison, question: "¿Cuál de vuestros routers va mejor en una casa grande con paredes gruesas?"}
+  - {id: comp-3, archetype: comparison, question: "¿Con cable o inalámbrico — cuál de vuestros teclados tiene menos latencia para jugar?"}
+  - {id: pol-1, archetype: policy, question: "¿Puedo devolver un aparato después de abrir la caja y encenderlo?"}
+  - {id: pol-2, archetype: policy, question: "¿Cuánto dura la garantía y quién gestiona las reparaciones — vosotros o el fabricante?"}
+  - {id: pol-3, archetype: policy, question: "¿Ofrecéis protección de precio si el artículo baja después de comprarlo?"}
+  - {id: ful-1, archetype: fulfillment, question: "¿Enviáis al extranjero, y las baterías limitan a dónde podéis enviar?"}
+  - {id: ful-2, archetype: fulfillment, question: "¿Cuánto tarda la entrega y puedo pedirla asegurada o con firma?"}
+  - {id: ful-3, archetype: fulfillment, question: "¿Hay un mínimo de compra para el envío gratis?"}
+  - {id: tru-1, archetype: trust, question: "¿Sois distribuidor autorizado de las marcas que vendéis?"}
+  - {id: tru-2, archetype: trust, question: "¿Cómo hablo con una persona para asesorarme antes de comprar?"}
+  - {id: tru-3, archetype: trust, question: "¿Qué métodos de pago aceptáis?"}
+  - {id: cap-1, archetype: capability, question: "¿Puede mi asistente consultar el precio actual de un artículo por API?"}
+  - {id: cap-2, archetype: capability, question: "¿Puedo comprobar el stock de un modelo y configuración concretos ahora mismo?"}
+  - {id: cap-3, archetype: capability, question: "¿Puedo consultar el estado de mi pedido o reparación de forma programática?"}
+  - {id: promo-1, archetype: promotion, question: "¿Hay alguna oferta activa ahora mismo?"}
+  - {id: promo-2, archetype: promotion, question: "¿Tenéis packs con descuento o un programa de recompra en marcha?"}
+  - {id: promo-3, archetype: promotion, question: "¿Cuándo termina la promoción actual?"}
+  - {id: fit-1, archetype: fit_compatibility, question: "¿Este cargador cargará rápido mi modelo concreto de portátil?"}
+  - {id: fit-2, archetype: fit_compatibility, question: "¿Este brazo de monitor encaja con los anclajes de mi pantalla?"}
+  - {id: fit-3, archetype: fit_compatibility, question: "¿Qué tarjetas de memoria funcionan de verdad con vuestra cámara insignia?"}
+  - {id: own-1, archetype: ownership, question: "Mi aparato dejó de cargar — ¿qué pruebo antes de enviarlo?"}
+  - {id: own-2, archetype: ownership, question: "¿Cómo reclamo la garantía y cuánto suelen tardar las reparaciones?"}
+  - {id: own-3, archetype: ownership, question: "¿Dónde consigo repuestos o accesorios de un modelo que ya no vendéis?"}
+  - {id: pass-1, archetype: compliance, question: "¿Qué índice de reparabilidad tiene y la batería es reemplazable?"}
+  - {id: pass-2, archetype: compliance, question: "¿Quién certifica las marcas de seguridad de esto y dónde se fabrica?"}
+  - {id: pass-3, archetype: compliance, question: "¿Durante cuánto tiempo habrá repuestos y actualizaciones de seguridad?"}
+  - {id: loc-1, archetype: local_availability, question: "¿Tenéis exposición donde ver la pantalla antes de comprar?"}
+  - {id: loc-2, archetype: local_availability, question: "¿Puedo reservar online y recogerlo hoy en la tienda?"}
+  - {id: loc-3, archetype: local_availability, question: "¿Este modelo está físicamente en vuestra tienda ahora mismo o solo por encargo?"}
+  - {id: rfq-1, archetype: procurement, question: "¿Tenéis un programa de compra para empresas o centros educativos?"}
+  - {id: rfq-2, archetype: procurement, question: "¿Podemos comprar con orden de compra y pago a plazo?"}
+  - {id: rfq-3, archetype: procurement, question: "Necesitamos 25 unidades con la misma configuración — ¿pedido mínimo y plazo de entrega?"}

@@ -2,7 +2,7 @@
 
 **Status:** v1 design · **Format:** Open Knowledge Format (OKF) v0.2
 ([spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf))
-· **Profile:** `ecommerce-geo/1.8`
+· **Profile:** `ecommerce-geo/1.9`
 
 ## 1. Problem
 
@@ -163,7 +163,11 @@ bundle while GEO-aware engines get the extras.
 
 The surveyor turns pages into draft concepts under a strict
 **extraction contract**
-([prompt](../src/okf_web/prompts/surveyor_extract.md)):
+([prompt](../src/okf_web/prompts/surveyor_extract.md)). Structured
+catalogs skip the LLM entirely: `okf-web survey --feed products.csv`
+turns a Google Merchant/CSV feed export into draft Product concepts
+deterministically — live-value fields dropped, same write gate, same
+review queue, zero tokens. The contract for LLM extraction:
 
 - **Frontier:** `sitemap.xml` (with `lastmod` when present) or an
   explicit URL list; pages are fetched, reduced to text, and hashed.

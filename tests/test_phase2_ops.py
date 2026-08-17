@@ -92,7 +92,10 @@ def test_cli_batch_approve_requires_by(bundle_copy):
 
 def test_all_packs_load_and_cover_all_archetypes(tmp_path):
     packs = cli_mod._question_packs()
-    assert set(packs) == {"outdoor", "apparel", "electronics", "grocery"}
+    assert set(packs) == {
+        "outdoor", "apparel", "electronics", "grocery",
+        "outdoor.es", "apparel.es", "electronics.es", "grocery.es",
+    }
     for name, text in packs.items():
         path = tmp_path / f"{name}.yaml"
         path.write_text(text)

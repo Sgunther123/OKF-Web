@@ -22,7 +22,7 @@ sources:
     title: Trade program page
     last_modified: 2026-08-05
 x_geo:
-  profile: ecommerce-geo/1.8
+  profile: ecommerce-geo/1.9
   risk: b
   intents: [product_fact, comparison, discovery, procurement]
   entity: sku:APO-BAG-R20

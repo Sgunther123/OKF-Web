@@ -1,0 +1,44 @@
+# Pack inicial de preguntas: equipo de montaña / camping / senderismo (español).
+# Semilla para evaluations/questions.yaml — adapta los sustantivos a tu
+# catálogo y añade preguntas negativas que tu paquete deba responder con
+# un "no" citado. Pensado para paquetes con vista localizada (l10n/es/).
+questions:
+  - {id: disc-1, archetype: discovery, question: "Necesito una tienda de campaña para dos personas para rutas de verano — ¿qué tenéis?"}
+  - {id: disc-2, archetype: discovery, question: "¿Qué saco de dormir me sirve para noches de entretiempo cerca de cero grados?"}
+  - {id: disc-3, archetype: discovery, question: "¿Vendéis tiendas de alta montaña para cuatro estaciones?"}
+  - {id: fact-1, archetype: product_fact, question: "¿Cuánto pesa embalada vuestra tienda de dos personas más ligera?"}
+  - {id: fact-2, archetype: product_fact, question: "¿Qué temperatura de confort tiene vuestro saco más cálido?"}
+  - {id: fact-3, archetype: product_fact, question: "¿De qué tejido y con qué tratamientos está hecha vuestra chaqueta impermeable?"}
+  - {id: comp-1, archetype: comparison, question: "¿Qué diferencia hay entre las tallas regular y larga de vuestros sacos?"}
+  - {id: comp-2, archetype: comparison, question: "¿Cuál de vuestras tiendas aguanta mejor el viento, y por qué?"}
+  - {id: comp-3, archetype: comparison, question: "¿Plumón o fibra — cuál de vuestros sacos me conviene en clima húmedo?"}
+  - {id: pol-1, archetype: policy, question: "¿Puedo devolver una tienda después de montarla una vez en casa?"}
+  - {id: pol-2, archetype: policy, question: "¿Cuánto dura la garantía de cremalleras y costuras?"}
+  - {id: pol-3, archetype: policy, question: "¿Reparáis el equipo cuando ya ha pasado el plazo de devolución?"}
+  - {id: ful-1, archetype: fulfillment, question: "¿Hacéis envíos internacionales y cuánto cuestan?"}
+  - {id: ful-2, archetype: fulfillment, question: "¿Cuánto suele tardar la entrega estándar?"}
+  - {id: ful-3, archetype: fulfillment, question: "¿Hay un pedido mínimo para el envío gratis?"}
+  - {id: tru-1, archetype: trust, question: "¿Cómo hablo con una persona de vuestra tienda?"}
+  - {id: tru-2, archetype: trust, question: "¿Cuánto tiempo lleva operando esta tienda y dónde tiene su sede?"}
+  - {id: tru-3, archetype: trust, question: "¿Qué métodos de pago aceptáis?"}
+  - {id: cap-1, archetype: capability, question: "¿Puede mi asistente consultar el precio actual de un artículo por API?"}
+  - {id: cap-2, archetype: capability, question: "¿Hay forma de comprobar ahora mismo si un artículo está en stock?"}
+  - {id: cap-3, archetype: capability, question: "¿Puedo consultar el estado de mi pedido de forma programática?"}
+  - {id: promo-1, archetype: promotion, question: "¿Hay alguna oferta activa ahora mismo?"}
+  - {id: promo-2, archetype: promotion, question: "¿Tenéis un código de descuento para el primer pedido?"}
+  - {id: promo-3, archetype: promotion, question: "¿Cuándo termina la promoción actual?"}
+  - {id: fit-1, archetype: fit_compatibility, question: "Mido 1,93 — ¿qué largo de saco de dormir necesito?"}
+  - {id: fit-2, archetype: fit_compatibility, question: "¿Caben dos esterillas anchas una al lado de la otra en vuestra tienda de dos plazas?"}
+  - {id: fit-3, archetype: fit_compatibility, question: "¿Vuestro doble techo sirve para la tienda que os compré el año pasado?"}
+  - {id: own-1, archetype: ownership, question: "¿Cómo guardo mi saco de plumón entre salidas para que no pierda calor?"}
+  - {id: own-2, archetype: ownership, question: "La cremallera de mi tienda se atasca — ¿la arregláis o necesito una nueva?"}
+  - {id: own-3, archetype: ownership, question: "Presenté una reclamación de garantía — ¿cómo consulto en qué punto está?"}
+  - {id: pass-1, archetype: compliance, question: "¿De qué está hecho exactamente esto, y algo es reciclado?"}
+  - {id: pass-2, archetype: compliance, question: "¿Vuestro plumón está certificado como de origen responsable, y quién emite el certificado?"}
+  - {id: pass-3, archetype: compliance, question: "¿Dónde se fabrica esto y se puede reparar cuando se desgaste?"}
+  - {id: loc-1, archetype: local_availability, question: "¿Hay una tienda física cerca donde probar el equipo antes de comprar?"}
+  - {id: loc-2, archetype: local_availability, question: "¿Puedo comprar online y recogerlo hoy en la tienda?"}
+  - {id: loc-3, archetype: local_availability, question: "Antes de acercarme — ¿puede vuestra tienda decirme si un artículo está en el estante?"}
+  - {id: rfq-1, archetype: procurement, question: "¿Vendéis al por mayor a empresas de guías o programas de montaña, y quién puede acceder?"}
+  - {id: rfq-2, archetype: procurement, question: "¿Qué condiciones de pago ofrecéis a cuentas de empresa?"}
+  - {id: rfq-3, archetype: procurement, question: "Necesitamos 40 unidades para un programa de verano — ¿pedido mínimo y plazo de entrega?"}

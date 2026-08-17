@@ -22,7 +22,7 @@ sources:
     title: Alpine 2 manufacturer spec sheet
     last_modified: 2026-05-14
 x_geo:
-  profile: ecommerce-geo/1.8
+  profile: ecommerce-geo/1.9
   risk: b
   intents: [product_fact, comparison, discovery]
   entity: sku:APO-TENT-A2

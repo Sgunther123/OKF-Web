@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.8` Profile for OKF v0.2
+# The `ecommerce-geo/1.9` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.8`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.9`.
 
 ## 1. Concept types
 
@@ -129,7 +129,7 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.8` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.9` (opt-in marker) |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
 | `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership`, `compliance`, `local_availability`, `procurement` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
@@ -260,7 +260,15 @@ At publish time, generated artifacts `manifest.json`
 `llms-snippet.txt`, and optionally `manifest.json.sigstore.json` — a
 sigstore signature over the manifest that authenticates the entire
 published bundle (consumers probe this conventional name, verify the
-signer identity, then re-hash files against the manifest).
+signer identity, then re-hash files against the manifest). Third
+parties MAY **countersign the same manifest** at
+`manifest.json.<label>.sigstore.json` (label: lowercase letters,
+digits, hyphens — e.g. `manifest.json.auditor-acme.sigstore.json`,
+written by `okf-web sign --as auditor-acme` with the attester's own
+OIDC identity). The merchant signature says who published; each
+countersignature says who vouched. Consumers verify a
+countersignature exactly like the primary, expecting the attester's
+identity (`okf-web verify --countersignature <label>`).
 
 ## 8. Discovery and delegation
 
@@ -335,7 +343,13 @@ Errors block publishing; `--strict` promotes warnings for CI.
 
 ## 10. Versioning
 
-**1.8** (current) adds the `Trade Program` type, the
+**1.9** (current) adds the countersignature convention (§7) —
+bundle-level only: third parties attest a published bundle by
+signing the same manifest under their own identity. No concept
+frontmatter changes; concepts declaring earlier minors remain fully
+valid.
+
+**1.8** adds the `Trade Program` type, the
 `trade`/`procurement` mappings, the `procurement` intent, lint code
 E019, the extension of the effective-risk rule to trade programs,
 and the quoted-prices live-values clarification — additive; concepts

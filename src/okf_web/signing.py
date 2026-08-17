@@ -21,8 +21,13 @@ Consumer verification is two independent layers:
   workflow URI) under the expected OIDC issuer.
 
 A bundle passing both is byte-authentic to what the named identity
-published. This is also the substrate third-party attestation stands
-on later: an auditor countersigns the same manifest.
+published. Third-party attestation stands on the same substrate: an
+auditor **countersigns the same manifest** with their own identity,
+written to the conventional name
+``manifest.json.<label>.sigstore.json`` (``okf-web sign --as
+<label>``). Consumers verify a countersignature exactly like the
+primary signature, expecting the *auditor's* identity — the merchant
+signature says who published; each countersignature says who vouched.
 
 The heavy lifting shells out to the ``sigstore`` CLI (installed by
 ``pip install okf-web[sign]``), which keeps this module stable across
@@ -39,6 +44,8 @@ from pathlib import Path
 
 SIGNATURE_NAME = "manifest.json.sigstore.json"
 
+_LABEL_RE = __import__("re").compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
+
 # Publisher-generated artifacts expected in a dist without appearing in
 # the manifest (the manifest cannot list itself or its own signature).
 _EXPECTED_EXTRAS = {"manifest.json", SIGNATURE_NAME, "linkmap.json", "llms-snippet.txt"}
@@ -48,8 +55,17 @@ class SigningError(RuntimeError):
     pass
 
 
-def signature_path(dist: Path | str) -> Path:
-    return Path(dist) / SIGNATURE_NAME
+def signature_path(dist: Path | str, label: str | None = None) -> Path:
+    """Primary signature path, or a countersignature's when
+    ``label`` names the attester (e.g. ``auditor-acme``)."""
+    if label is None:
+        return Path(dist) / SIGNATURE_NAME
+    if not _LABEL_RE.match(label):
+        raise SigningError(
+            f"invalid countersignature label {label!r}: lowercase letters, "
+            "digits, and hyphens only"
+        )
+    return Path(dist) / f"manifest.json.{label}.sigstore.json"
 
 
 def _run(command: list[str], timeout: float) -> subprocess.CompletedProcess:
@@ -69,6 +85,7 @@ def sign_manifest(
     sigstore_bin: str = "sigstore",
     staging: bool = False,
     timeout: float = 600.0,
+    label: str | None = None,
 ) -> Path:
     """Sign ``dist/manifest.json``; returns the signature bundle path.
 
@@ -81,7 +98,7 @@ def sign_manifest(
     manifest = dist / "manifest.json"
     if not manifest.exists():
         raise SigningError(f"no manifest.json in {dist}; run `okf-web publish` first")
-    out = signature_path(dist)
+    out = signature_path(dist, label)
     command = [sigstore_bin]
     if staging:
         command.append("--staging")
@@ -102,6 +119,7 @@ def verify_signature(
     sigstore_bin: str = "sigstore",
     staging: bool = False,
     timeout: float = 300.0,
+    label: str | None = None,
 ) -> None:
     """Verify the manifest signature against an expected identity.
 
@@ -111,8 +129,12 @@ def verify_signature(
     """
     dist = Path(dist)
     manifest = dist / "manifest.json"
-    sig = signature_path(dist)
+    sig = signature_path(dist, label)
     if not sig.exists():
+        if label:
+            raise SigningError(
+                f"no countersignature {sig.name} in {dist}; nothing to verify"
+            )
         raise SigningError(f"no {SIGNATURE_NAME} in {dist}; bundle is unsigned")
     command = [sigstore_bin]
     if staging:

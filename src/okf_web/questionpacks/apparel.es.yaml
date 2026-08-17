@@ -1,0 +1,43 @@
+# Pack inicial de preguntas: moda / ropa (español).
+# Semilla para evaluations/questions.yaml — adapta los sustantivos a tu
+# catálogo y cúralo añadiendo preguntas negativas.
+questions:
+  - {id: disc-1, archetype: discovery, question: "Busco un vestido que sirva para la oficina y también para una cena — ¿qué tenéis?"}
+  - {id: disc-2, archetype: discovery, question: "¿Qué tenéis en tejidos sostenibles u orgánicos?"}
+  - {id: disc-3, archetype: discovery, question: "¿Tenéis tallas grandes o extendidas?"}
+  - {id: fact-1, archetype: product_fact, question: "¿De qué material está hecha vuestra chaqueta más vendida y cómo se lava?"}
+  - {id: fact-2, archetype: product_fact, question: "¿Esta marca talla pequeño, normal o grande?"}
+  - {id: fact-3, archetype: product_fact, question: "¿En qué largos de pierna vienen vuestros pantalones?"}
+  - {id: comp-1, archetype: comparison, question: "¿Qué diferencia hay entre vuestros cortes slim y tailored?"}
+  - {id: comp-2, archetype: comparison, question: "¿Cuál de vuestros abrigos abriga más para un invierno de verdad?"}
+  - {id: comp-3, archetype: comparison, question: "¿Algodón o merino — cuál de vuestras primeras capas dura más?"}
+  - {id: pol-1, archetype: policy, question: "¿Puedo devolver algo sin etiquetas si no me queda bien?"}
+  - {id: pol-2, archetype: policy, question: "¿Cómo funcionan los cambios de talla?"}
+  - {id: pol-3, archetype: policy, question: "¿Los artículos rebajados son venta final o se pueden devolver?"}
+  - {id: ful-1, archetype: fulfillment, question: "¿Enviáis al extranjero y quién paga los aranceles?"}
+  - {id: ful-2, archetype: fulfillment, question: "¿Qué tan rápido llega un pedido si lo necesito esta semana?"}
+  - {id: ful-3, archetype: fulfillment, question: "¿Hay un mínimo de compra para el envío gratis?"}
+  - {id: tru-1, archetype: trust, question: "¿Cómo contacto con una persona por un problema con mi pedido?"}
+  - {id: tru-2, archetype: trust, question: "¿Dónde se fabrica vuestra ropa?"}
+  - {id: tru-3, archetype: trust, question: "¿Qué métodos de pago aceptáis, incluido pagar a plazos?"}
+  - {id: cap-1, archetype: capability, question: "¿Puede mi asistente consultar el precio actual de un artículo por API?"}
+  - {id: cap-2, archetype: capability, question: "¿Puedo comprobar ahora mismo si hay stock de una talla y color concretos?"}
+  - {id: cap-3, archetype: capability, question: "¿Puedo consultar el estado de mi pedido de forma programática?"}
+  - {id: promo-1, archetype: promotion, question: "¿Hay alguna oferta activa ahora mismo?"}
+  - {id: promo-2, archetype: promotion, question: "¿Hay un código de descuento por registrarse?"}
+  - {id: promo-3, archetype: promotion, question: "¿Cuándo termina la promoción actual?"}
+  - {id: fit-1, archetype: fit_compatibility, question: "Mido 1,78 y peso 77 kilos — ¿qué talla pido en vuestras camisas?"}
+  - {id: fit-2, archetype: fit_compatibility, question: "Estoy entre la M y la L en vuestras chaquetas — ¿por cuál voy?"}
+  - {id: fit-3, archetype: fit_compatibility, question: "¿Vuestros zapatos son estrechos, y hay opción de horma ancha?"}
+  - {id: own-1, archetype: ownership, question: "¿Cómo lavo esto sin estropear la impermeabilización?"}
+  - {id: own-2, archetype: ownership, question: "Se cayó un botón a los dos meses — ¿qué opciones tengo?"}
+  - {id: own-3, archetype: ownership, question: "¿Arregláis o cogéis bajos de prendas que vendisteis, y cuánto cuesta?"}
+  - {id: pass-1, archetype: compliance, question: "¿Cuál es la composición exacta del tejido y dónde se fabricó?"}
+  - {id: pass-2, archetype: compliance, question: "¿Qué certificaciones respaldan vuestras afirmaciones de sostenibilidad — puedo verlas?"}
+  - {id: pass-3, archetype: compliance, question: "¿Esto se recicla al final de su vida o acaba en el vertedero?"}
+  - {id: loc-1, archetype: local_availability, question: "¿Dónde está vuestra tienda más cercana y tiene probadores?"}
+  - {id: loc-2, archetype: local_availability, question: "¿Puedo recoger hoy en tienda un pedido online, y cuánto tarda en estar listo?"}
+  - {id: loc-3, archetype: local_availability, question: "¿Puedo devolver en la tienda un pedido online en vez de enviarlo de vuelta?"}
+  - {id: rfq-1, archetype: procurement, question: "¿Vendéis al por mayor a boutiques, y cuál es el pedido mínimo de apertura?"}
+  - {id: rfq-2, archetype: procurement, question: "¿Qué condiciones de pago ofrecéis a puntos de venta y cómo se solicita?"}
+  - {id: rfq-3, archetype: procurement, question: "¿Qué plazo de entrega tiene un pedido grande de uniformes para plantilla?"}

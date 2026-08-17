@@ -15,7 +15,7 @@ sources:
     title: Warranty page
     last_modified: 2026-07-29
 x_geo:
-  profile: ecommerce-geo/1.8
+  profile: ecommerce-geo/1.9
   risk: a
   intents: [policy, trust]
   source_hash: sha256:7d0f2b4a6c8e0d2f4b6a8c0e2d4f6b8a0c2e4d6f8a0b2c4e6d8f0a2b4c6e8d0f

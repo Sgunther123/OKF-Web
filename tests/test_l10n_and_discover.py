@@ -118,7 +118,7 @@ CDN = "https://cdn.host.example/shop-okf"
 
 
 def _manifest(site=None):
-    manifest = {"okf_version": "0.2", "profile": "ecommerce-geo/1.8",
+    manifest = {"okf_version": "0.2", "profile": "ecommerce-geo/1.9",
                 "files": {"index.md": {"sha256": "x", "bytes": 1}}}
     if site:
         manifest["site"] = site

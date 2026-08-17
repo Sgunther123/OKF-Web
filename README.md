@@ -43,7 +43,7 @@ lock-in; any engine that reads files can consume it.
 | --- | --- |
 | [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) | Plain-English guide for store owners — walkthrough and FAQs, no programming background needed |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | The system design — architecture, novelty, threat model, efficiency budget |
-| [`docs/GEO-PROFILE.md`](docs/GEO-PROFILE.md) | The `ecommerce-geo/1.8` profile: concept types, `x_geo` namespace, risk tiers, `http` runtime |
+| [`docs/GEO-PROFILE.md`](docs/GEO-PROFILE.md) | The `ecommerce-geo/1.9` profile: concept types, `x_geo` namespace, risk tiers, `http` runtime |
 | [`docs/EVALUATION.md`](docs/EVALUATION.md) | The answerability rubric: archetypes, metrics, gating |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phased tooling roadmap, ranked by adoption leverage |
 | [`docs/EXPANSION.md`](docs/EXPANSION.md) | Value expansion plan: fit, ownership, passports, omnichannel, B2B |
@@ -70,8 +70,9 @@ okf-web review approve bundle-example policies/warranty.md --by legal@alpinepeak
 okf-web publish bundle-example dist/
 
 # Against a real store (see "LLM access" below for credential options)
+okf-web survey my-bundle --feed products.csv     # catalog from a feed export — no LLM
 okf-web survey my-bundle --sitemap https://www.example-store.com --limit 25
-okf-web questions my-bundle --pack outdoor   # or: apparel/electronics/grocery; no LLM needed
+okf-web questions my-bundle --pack outdoor   # or apparel/electronics/grocery (+ .es variants); no LLM
 okf-web evaluate my-bundle --write-scorecard
 
 # Keep it honest over time (all LLM-free — nightly-cheap)
@@ -157,6 +158,12 @@ no keys for the merchant to manage. Consumers run
 `okf-web verify dist/ --cert-identity <id> --cert-oidc-issuer <url>`
 for the full chain: signature → manifest → file hashes (the hash
 sweep runs stdlib-only, even without sigstore installed).
+
+Third parties can **countersign** the same manifest with their own
+identity — `okf-web sign dist/ --as auditor-acme` — and consumers
+check that attestation with `okf-web verify dist/ --countersignature
+auditor-acme --cert-identity <attester> ...`. The merchant signature
+says who published; each countersignature says who vouched.
 
 ## Status
 

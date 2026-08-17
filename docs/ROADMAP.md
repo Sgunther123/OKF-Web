@@ -75,15 +75,31 @@ human cost:
   CI-able.
 - **Log-scan tool** — shipped with Phase 2 as `okf-web logscan`.
 
-## Phase 4 — candidates (not started)
+## Phase 4 — shipped
 
-- **Connector-neutral catalog ingestion** — survey from a product
-  feed file (Google Merchant/CSV) as a sitemap alternative; true
-  platform connectors remain a hosted capability.
-- **Attestation ecosystem** — auditor countersignatures over the
-  published manifest (the signing substrate already supports it).
-- **Localized question packs** — starter packs in the languages the
-  l10n convention now serves.
+- **Connector-neutral catalog ingestion** — `okf-web survey
+  my-bundle --feed products.csv` (Google Merchant XML/TSV or CSV):
+  each row becomes a draft `Product` concept **deterministically —
+  no LLM, no credentials**. Price/availability/shipping fields are
+  dropped per the live-values rule (and excluded from the row hash,
+  so a price change never forces re-ingest); everything flows
+  through the same write gate as the LLM surveyor (path stability,
+  collision safety, drift proposals protecting human-approved
+  concepts) and lands in the same review queue. True platform
+  connectors that sync continuously remain a hosted capability.
+- **Attestation ecosystem** (profile 1.9) — auditors countersign
+  the published manifest with their own identity: `okf-web sign
+  dist --as auditor-acme` writes
+  `manifest.json.auditor-acme.sigstore.json`; consumers check it
+  with `okf-web verify dist --countersignature auditor-acme
+  --cert-identity <attester> --cert-oidc-issuer <issuer>`. The
+  merchant signature says who published; each countersignature says
+  who vouched.
+- **Localized question packs** — Spanish packs for all four
+  verticals (`--pack outdoor.es`, `apparel.es`, `electronics.es`,
+  `grocery.es`), 39 questions across all thirteen archetypes each,
+  for evaluating `l10n/es` localized views with native-language
+  shopper phrasing.
 
 ## Elsewhere
 

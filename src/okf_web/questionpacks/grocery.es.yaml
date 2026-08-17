@@ -1,0 +1,43 @@
+# Pack inicial de preguntas: alimentación / supermercado (español).
+# Semilla para evaluations/questions.yaml — adapta los sustantivos a tu
+# catálogo y cúralo añadiendo preguntas negativas.
+questions:
+  - {id: disc-1, archetype: discovery, question: "¿Qué tenéis para un proyecto de repostería sin gluten este fin de semana?"}
+  - {id: disc-2, archetype: discovery, question: "Cocino para alguien con alergia grave a los frutos secos — ¿qué gamas son seguras?"}
+  - {id: disc-3, archetype: discovery, question: "¿Tenéis productos frescos locales o ecológicos?"}
+  - {id: fact-1, archetype: product_fact, question: "¿Qué ingredientes y alérgenos lleva vuestra granola de marca propia?"}
+  - {id: fact-2, archetype: product_fact, question: "¿Cuánto aguanta vuestra pasta fresca una vez entregada?"}
+  - {id: fact-3, archetype: product_fact, question: "¿Vuestro aceite de oliva es de origen único y de qué cosecha?"}
+  - {id: comp-1, archetype: comparison, question: "¿Qué diferencia hay entre vuestras suscripciones de café estándar y premium?"}
+  - {id: comp-2, archetype: comparison, question: "¿Cuál de vuestros kits de comida se cocina más rápido entre semana?"}
+  - {id: comp-3, archetype: comparison, question: "¿Congelado o fresco — cuál de vuestras opciones de pescado llega realmente más fresca?"}
+  - {id: pol-1, archetype: policy, question: "¿Qué pasa si algo llega estropeado o dañado?"}
+  - {id: pol-2, archetype: policy, question: "¿Devolvéis el dinero en productos perecederos o solo dais crédito?"}
+  - {id: pol-3, archetype: policy, question: "¿Cómo pauso o cancelo una suscripción?"}
+  - {id: ful-1, archetype: fulfillment, question: "¿A qué zonas repartís y qué días?"}
+  - {id: ful-2, archetype: fulfillment, question: "¿Cómo mantenéis la cadena de frío en verano?"}
+  - {id: ful-3, archetype: fulfillment, question: "¿Hay un pedido mínimo para el reparto gratis?"}
+  - {id: tru-1, archetype: trust, question: "¿De dónde viene vuestra carne y está certificada?"}
+  - {id: tru-2, archetype: trust, question: "¿Cómo hablo con una persona por un problema con la entrega?"}
+  - {id: tru-3, archetype: trust, question: "¿Qué métodos de pago aceptáis, incluidos vales o ayudas?"}
+  - {id: cap-1, archetype: capability, question: "¿Puede mi asistente consultar el precio actual de un artículo por API?"}
+  - {id: cap-2, archetype: capability, question: "¿Puedo comprobar si un artículo estará disponible para mi franja de entrega?"}
+  - {id: cap-3, archetype: capability, question: "¿Puedo consultar mi franja de reparto o el estado del pedido de forma programática?"}
+  - {id: promo-1, archetype: promotion, question: "¿Hay alguna oferta activa ahora mismo?"}
+  - {id: promo-2, archetype: promotion, question: "¿Hay descuento por primer pedido o por invitar a alguien?"}
+  - {id: promo-3, archetype: promotion, question: "¿Cuándo termina la promoción actual?"}
+  - {id: fit-1, archetype: fit_compatibility, question: "¿Vuestras cápsulas de café recambio sirven en cafeteras de otras marcas?"}
+  - {id: fit-2, archetype: fit_compatibility, question: "¿Cuáles de vuestras salsas puedo usar en una cocina estrictamente sin frutos secos?"}
+  - {id: fit-3, archetype: fit_compatibility, question: "¿Las raciones de vuestro kit de comida alcanzan de verdad para una familia de cuatro?"}
+  - {id: own-1, archetype: ownership, question: "¿Cuánto dura esto una vez abierto y necesita nevera?"}
+  - {id: own-2, archetype: ownership, question: "¿Puedo congelar las raciones que no use esta semana?"}
+  - {id: own-3, archetype: ownership, question: "Mi entrega de suscripción llegó dañada — ¿cómo consigo que la repongan?"}
+  - {id: pass-1, archetype: compliance, question: "¿De dónde vienen realmente los ingredientes principales de este producto?"}
+  - {id: pass-2, archetype: compliance, question: "¿La etiqueta ecológica está certificada, y por quién?"}
+  - {id: pass-3, archetype: compliance, question: "¿El envase se recicla o se composta donde yo vivo?"}
+  - {id: loc-1, archetype: local_availability, question: "¿Repartís en mi zona o hay un punto de recogida cerca?"}
+  - {id: loc-2, archetype: local_availability, question: "¿Puedo conseguir una franja de recogida hoy mismo si pido por la mañana?"}
+  - {id: loc-3, archetype: local_availability, question: "¿Estará realmente todo mi pedido en stock en mi punto de recogida?"}
+  - {id: rfq-1, archetype: procurement, question: "¿Suministráis a cafeterías u oficinas, y cuál es el pedido semanal mínimo?"}
+  - {id: rfq-2, archetype: procurement, question: "¿Puede nuestro restaurante tener condiciones de empresa y factura en vez de pago con tarjeta?"}
+  - {id: rfq-3, archetype: procurement, question: "¿Qué plazo tiene un pedido grande recurrente para nuestra cocina?"}
