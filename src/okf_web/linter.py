@@ -36,6 +36,12 @@ from .model import (
 ERROR = "error"
 WARNING = "warning"
 
+# Types the profile's type table lists at risk `a`. Not high-risk *by
+# definition* (that set is `model.Concept._HIGH_RISK_TYPES`), but a lower
+# declared risk contradicts the table — and would unlock batch approval —
+# so W034 surfaces the mismatch.
+_RISK_FLOOR_TYPES = ("Policy", "Promotion", "Store Identity")
+
 
 @dataclass
 class Finding:
@@ -93,6 +99,19 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                     "reviewers cannot check claims against sources",
                 )
             )
+
+    # -- profile: risk floor -----------------------------------------------
+    if concept.type in _RISK_FLOOR_TYPES and concept.risk != RISK_HIGH:
+        findings.append(
+            Finding(
+                WARNING,
+                "W034",
+                rel,
+                f"`{concept.type}` declares risk `{concept.risk}`; the profile "
+                "type table floors this type at `a` — a lower declared risk "
+                "would unlock batch approval",
+            )
+        )
 
     # -- profile: type-specific requirements -------------------------------
     if concept.type == "Attested Computation":

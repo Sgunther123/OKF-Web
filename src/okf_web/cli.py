@@ -100,7 +100,7 @@ def cmd_review(args) -> int:
     bundle = load_bundle(args.bundle)
     if args.action == "list":
         items = review.pending(bundle)
-        shown = [i for i in items if not args.risk or i.concept.risk == args.risk]
+        shown = [i for i in items if not args.risk or i.concept.effective_risk == args.risk]
         if not items:
             print("review queue is empty")
         for item in shown:
@@ -117,7 +117,8 @@ def cmd_review(args) -> int:
         # Machine-greppable summary so CI can surface a rotting queue.
         by_risk = {"a": 0, "b": 0, "c": 0}
         for item in items:
-            by_risk[item.concept.risk] = by_risk.get(item.concept.risk, 0) + 1
+            tier = item.concept.effective_risk
+            by_risk[tier] = by_risk.get(tier, 0) + 1
         print(
             f"\npending: {len(items)} (a: {by_risk['a']}, b: {by_risk['b']}, "
             f"c: {by_risk['c']}); drift proposals: {len(proposed)}"
@@ -175,14 +176,16 @@ def cmd_survey(args) -> int:
 
         feed_result = feed_mod.ingest_feed(args.feed, args.bundle)
         for attr in ("written", "proposed", "skipped_unchanged",
-                     "quarantined", "collisions", "errors"):
+                     "quarantined", "collisions", "errors",
+                     "dropped_live_fields"):
             getattr(result, attr).extend(getattr(feed_result, attr))
     if urls:
         if args.limit:
             urls = urls[: args.limit]
         page_result = surveyor.survey(urls, args.bundle, _llm(args))
         for attr in ("written", "proposed", "skipped_unchanged",
-                     "quarantined", "collisions", "errors"):
+                     "quarantined", "collisions", "errors",
+                     "dropped_live_fields"):
             getattr(result, attr).extend(getattr(page_result, attr))
     print(
         f"written: {len(result.written)}  proposed: {len(result.proposed)}  "
@@ -195,6 +198,11 @@ def cmd_survey(args) -> int:
         print(f"  drift proposal: _review/proposed/{rel}")
     for note in result.collisions:
         print(f"  path collision: {note}")
+    if result.dropped_live_fields:
+        print(
+            "  dropped live-value fields (never published): "
+            + ", ".join(sorted(set(result.dropped_live_fields)))
+        )
     for err in result.errors:
         print(f"  error: {err}", file=sys.stderr)
     return 0 if not result.errors else 1
@@ -499,7 +507,11 @@ def cmd_verify(args) -> int:
         print("integrity: all manifest hashes match")
 
     failed = bool(errors)
-    has_sig = signing.signature_path(args.dist, args.countersignature).exists()
+    try:
+        has_sig = signing.signature_path(args.dist, args.countersignature).exists()
+    except signing.SigningError as exc:
+        print(f"signature: {exc}", file=sys.stderr)
+        return 2
     if args.cert_identity or args.cert_oidc_issuer:
         if not (args.cert_identity and args.cert_oidc_issuer):
             print(

@@ -52,7 +52,7 @@ def _now_iso() -> str:
 def pending(bundle: Bundle) -> list[ReviewItem]:
     """Concepts awaiting human review, highest risk first.
 
-    Lack of verification only queues risk ``a``/``b`` concepts: stable
+    Lack of verification only queues effective-risk ``a``/``b`` concepts: stable
     risk-``c`` machine artifacts (indexes, scorecards) don't need human
     attention. Drafts and stale concepts always queue.
     """
@@ -61,7 +61,7 @@ def pending(bundle: Bundle) -> list[ReviewItem]:
         reasons = []
         if concept.status == "draft":
             reasons.append("status is draft")
-        if concept.trust_tier == TRUST_UNVERIFIED and concept.risk in (
+        if concept.trust_tier == TRUST_UNVERIFIED and concept.effective_risk in (
             RISK_HIGH,
             RISK_MEDIUM,
         ):
@@ -70,7 +70,11 @@ def pending(bundle: Bundle) -> list[ReviewItem]:
             reasons.append("stale_after has passed")
         if reasons:
             items.append(ReviewItem(concept, reasons))
-    items.sort(key=lambda i: (_RISK_ORDER.get(i.concept.risk, 2), i.concept.rel_path))
+    # Triage on *effective* risk so the queue agrees with the gates: a
+    # Trade Program declaring `b` sorts — and counts — as `a`.
+    items.sort(
+        key=lambda i: (_RISK_ORDER.get(i.concept.effective_risk, 2), i.concept.rel_path)
+    )
     return items
 
 

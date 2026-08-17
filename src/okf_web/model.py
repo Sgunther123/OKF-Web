@@ -181,7 +181,9 @@ class Concept:
         stale_after = _as_date(self.frontmatter.get("stale_after"))
         if stale_after is None:
             return False
-        return (today or _dt.date.today()) > stale_after
+        # Spec §5.5: stale when today >= stale_after — on the day itself,
+        # not the day after.
+        return (today or _dt.date.today()) >= stale_after
 
     # -- ecommerce-geo profile extensions ----------------------------------
     @property
@@ -283,6 +285,13 @@ class Concept:
         exclusion.
         """
         return self.risk == RISK_HIGH or self.type in self._HIGH_RISK_TYPES
+
+    @property
+    def effective_risk(self) -> str:
+        """The risk letter after the by-definition floor — what triage
+        surfaces must sort, filter, and count on so they agree with the
+        gates that enforce ``is_high_risk``."""
+        return RISK_HIGH if self.is_high_risk else self.risk
 
     @property
     def entity_refs(self) -> list[str]:
@@ -433,13 +442,23 @@ def localized_view(bundle: Bundle, lang: str) -> Bundle:
     for rel, concept in bundle.concepts.items():
         parsed = split_l10n(rel)
         if parsed and parsed[0] == lang:
-            view.concepts[parsed[1]] = concept
+            # Re-key *and* re-path: the overlay must advertise the same
+            # rel_path a consumer can look back up (search → get, the
+            # citability metric), not an l10n/ path this view no longer
+            # exposes.
+            view.concepts[parsed[1]] = Concept(
+                parsed[1], concept.frontmatter, concept.body,
+                abs_path=concept.abs_path,
+            )
     view.indexes = {
         rel: doc for rel, doc in bundle.indexes.items() if split_l10n(rel) is None
     }
     localized_index = bundle.indexes.get(f"{L10N_DIR}/{lang}/index.md")
     if localized_index is not None:
-        view.indexes["index.md"] = localized_index
+        view.indexes["index.md"] = Concept(
+            "index.md", localized_index.frontmatter, localized_index.body,
+            abs_path=localized_index.abs_path,
+        )
     view.logs = dict(bundle.logs)
     return view
 

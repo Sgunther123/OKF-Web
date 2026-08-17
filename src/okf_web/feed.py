@@ -39,7 +39,7 @@ from pathlib import Path
 
 from . import PROFILE
 from .linter import ERROR, lint_concept
-from .model import Concept
+from .model import Concept, load_bundle
 from .surveyor import SurveyResult, place_draft, stable_page_hash
 
 FEED_ACTOR = "process:okf-web-feed-ingest"
@@ -50,7 +50,28 @@ DROPPED_FIELDS = {
     "price", "sale_price", "sale_price_effective_date", "availability",
     "availability_date", "shipping", "shipping_weight", "tax",
     "quantity", "inventory",
+    # Money-bearing Merchant fields beyond the obvious ones: COGS is
+    # merchant-private margin data, and the rest are price claims in
+    # disguise. None of them may reach a published body.
+    "cost_of_goods_sold", "installment", "subscription_cost",
+    "loyalty_points", "auto_pricing_min_price",
 }
+
+# Deny-by-category backstop for columns the explicit list does not name:
+# a key carrying one of these tokens is a live value or money figure.
+# Matching is on `_`-split tokens, not substrings, so
+# `google_product_taxonomy` (token `taxonomy`) survives while
+# `wholesale_price_usd` (token `price`) is dropped — and logged, since a
+# backstop catch deserves a human glance.
+_LIVE_VALUE_TOKENS = {
+    "price", "prices", "pricing", "cost", "costs", "tax", "taxes", "vat",
+    "inventory", "quantity", "qty", "stock", "availability", "loyalty",
+    "installment", "installments", "subscription",
+}
+
+
+def _is_live_value_key(key: str) -> bool:
+    return key in DROPPED_FIELDS or bool(_LIVE_VALUE_TOKENS & set(key.split("_")))
 
 _G_NS = "{http://base.google.com/ns/1.0}"
 
@@ -67,6 +88,7 @@ class FeedItem:
     product_type: str = ""
     item_group_id: str = ""
     extras: dict = field(default_factory=dict)
+    dropped: tuple = ()
 
 
 _KNOWN = {"id", "title", "description", "link", "brand", "gtin", "mpn",
@@ -114,10 +136,17 @@ def _parse_delimited(text: str) -> list[FeedItem]:
 
 
 def _item_from(fields: dict[str, str]) -> FeedItem:
-    item = FeedItem(extras={
-        k: v for k, v in fields.items()
-        if k not in _KNOWN and k not in DROPPED_FIELDS and v
-    })
+    item = FeedItem(
+        extras={
+            k: v for k, v in fields.items()
+            if k not in _KNOWN and v and not _is_live_value_key(k)
+        },
+        dropped=tuple(sorted(
+            k for k in fields
+            if k not in _KNOWN and k not in DROPPED_FIELDS
+            and _is_live_value_key(k)
+        )),
+    )
     for name in _KNOWN:
         setattr(item, name, fields.get(name, ""))
     return item
@@ -212,17 +241,24 @@ def ingest_feed(
     bundle_root.mkdir(parents=True, exist_ok=True)
     result = SurveyResult()
 
-    from .surveyor import _existing_by_resource
+    # One bundle load per ingest, maintained incrementally by
+    # place_draft — never a reload per row, which made large catalogs
+    # quadratic. The resource map keeps unchanged-row detection O(1).
+    state = load_bundle(bundle_root)
+    by_resource = {c.resource: c for c in state.concepts.values() if c.resource}
 
     now = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
     for item in parse_feed(feed_path):
+        for name in item.dropped:
+            if name not in result.dropped_live_fields:
+                result.dropped_live_fields.append(name)
         if not item.link or not item.title:
             result.errors.append(
                 f"feed item {item.id or '?'!s}: missing link or title; skipped"
             )
             continue
         source_hash = stable_page_hash(item_text(item))
-        existing = _existing_by_resource(bundle_root).get(item.link)
+        existing = by_resource.get(item.link)
         if existing is not None and existing.source_hash == source_hash:
             result.skipped_unchanged.append(item.link)
             continue
@@ -246,5 +282,8 @@ def ingest_feed(
                 + "; ".join(f.message for f in hard_errors)
             )
             continue
-        place_draft(bundle_root, item.link, rel, fm, body, result)
+        final = place_draft(bundle_root, item.link, rel, fm, body, result, state=state)
+        placed = state.concepts.get(final)
+        if placed is not None:
+            by_resource[item.link] = placed
     return result

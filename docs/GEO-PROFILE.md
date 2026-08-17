@@ -338,6 +338,7 @@ path position is the binding.
 | E019 | error | Stable `Trade Program` missing `trade.payment_terms`/`min_order` |
 | W032 | warn | Compatibility/Ownership Guide/Passport draft missing its refs, or a `fits`/`works_with`/`covers`/`passport_for` id that resolves to no concept's `entity` |
 | W033 | warn | `Compatibility`/`Ownership Guide`/`Store Location` classified risk `c`, or `Product Passport`/`Trade Program` declaring anything but `a` (both are gated as `a` regardless) |
+| W034 | warn | `Policy`/`Promotion`/`Store Identity` declaring a risk below the type table's `a` floor — a lower declared risk would unlock batch approval |
 
 Errors block publishing; `--strict` promotes warnings for CI.
 

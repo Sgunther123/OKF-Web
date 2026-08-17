@@ -110,7 +110,10 @@ def discover(store_url: str, fetch=None, timeout: float = 15.0) -> DiscoveryRepo
             parser = _LinkTagParser()
             parser.feed(html)
             if parser.hrefs:
-                pointed = urljoin(store_url.rstrip("/") + "/", parser.hrefs[0]).rstrip("/")
+                # Resolve exactly as a browser resolves the page's own
+                # relative URLs — against the document URL itself, not a
+                # directory-ified variant of it.
+                pointed = urljoin(store_url, parser.hrefs[0]).rstrip("/")
                 report.routes.append("link-tag")
                 if report.manifest is None:
                     pointed_manifest = _try_manifest(fetch, pointed)

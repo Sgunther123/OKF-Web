@@ -45,6 +45,7 @@ from pathlib import Path
 
 from .linter import ERROR, lint_concept
 from .model import (
+    Bundle,
     Concept,
     TRUST_HUMAN,
     load_bundle,
@@ -185,6 +186,7 @@ class SurveyResult:
     quarantined: list[str] = field(default_factory=list)
     collisions: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    dropped_live_fields: list[str] = field(default_factory=list)
 
 
 def parse_llm_concepts(response: str) -> list[tuple[str, str]]:
@@ -294,11 +296,18 @@ def place_draft(
     fm: dict,
     body: str,
     result: SurveyResult,
-) -> None:
+    state: Bundle | None = None,
+) -> str:
     """The write-policy gate every draft producer shares (LLM surveyor,
     feed ingest): path stability, collision safety, and never silently
-    overwriting human-approved knowledge. One policy, one place."""
-    state = load_bundle(bundle_root)
+    overwriting human-approved knowledge. One policy, one place.
+
+    Bulk producers pass ``state`` — the bundle they already hold — and it
+    is updated in place after a write so the next draft's checks see this
+    one without a per-row reload. Returns the rel path the draft actually
+    landed at."""
+    if state is None:
+        state = load_bundle(bundle_root)
 
     # Path stability: a URL that already has a concept keeps its
     # path, even when the producer proposes a new name on re-survey —
@@ -336,6 +345,8 @@ def place_draft(
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(render_document(fm, body), encoding="utf-8")
         result.written.append(rel)
+        state.concepts[rel] = Concept(rel, fm, body, abs_path=target)
+    return rel
 
 
 def survey(
@@ -371,6 +382,17 @@ def _quarantine(bundle_root: Path, url: str, payload: str, reason: str) -> None:
     )
 
 
+def _plural(type_name: str) -> str:
+    """Heading-grade pluralization: ``Policy`` → ``Policies``, ``Store
+    Identity`` → ``Store Identities`` — never ``Policys`` on the
+    published navigation surface."""
+    if type_name.endswith("s"):
+        return type_name
+    if type_name.endswith("y") and type_name[-2:-1].lower() not in "aeiou":
+        return type_name[:-1] + "ies"
+    return type_name + "s"
+
+
 def rebuild_index(bundle_root: Path | str) -> str:
     """Regenerate the root ``index.md`` sections from bundle contents.
 
@@ -393,7 +415,7 @@ def rebuild_index(bundle_root: Path | str) -> str:
 
     lines = [title, ""]
     for type_name in sorted(by_type):
-        lines.append(f"## {type_name}s" if not type_name.endswith("s") else f"## {type_name}")
+        lines.append(f"## {_plural(type_name)}")
         lines.append("")
         for concept in sorted(by_type[type_name], key=lambda c: c.rel_path):
             desc = str(concept.frontmatter.get("description") or "").strip()

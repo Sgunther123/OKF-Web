@@ -204,7 +204,10 @@ def _tool_execute(state: BridgeState, args: dict) -> dict[str, Any]:
         name = str(p["name"])
         value = supplied.get(name, "")
         url = url.replace("{" + name + "}", urllib.parse.quote(str(value), safe=""))
-    if "{" in urllib.parse.urlsplit(url).path + "?" + (urllib.parse.urlsplit(url).query or ""):
+    # The whole URL, not just path+query: a placeholder left in the host
+    # or fragment must fail the same contractual way, not surface later
+    # as DNS noise from a literal `{region}` hostname.
+    if "{" in url:
         raise ValueError(f"executor template has undeclared placeholders: {url}")
 
     status, body = state.http_get(url)

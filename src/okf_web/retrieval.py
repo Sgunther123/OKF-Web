@@ -108,6 +108,21 @@ def _cosine(a: list[float], b: list[float]) -> float:
 CACHE_NAME = ".embeddings.json"
 
 
+def _hashes_signature(hashes: dict[str, str]) -> str:
+    return sha256_text(
+        "\n".join(f"{rel}\x00{digest}" for rel, digest in sorted(hashes.items()))
+    )
+
+
+def _bundle_signature(bundle: Bundle) -> str:
+    """Content identity of the retrievable slice of a bundle."""
+    return _hashes_signature({
+        rel: sha256_text(concept.retrieval_text())
+        for rel, concept in bundle.concepts.items()
+        if concept.type not in META_TYPES and split_l10n(rel) is None
+    })
+
+
 class EmbeddingIndex:
     """Embedding retriever with an incremental cache.
 
@@ -123,7 +138,7 @@ class EmbeddingIndex:
         self.cache_path = Path(cache_path) if cache_path else None
         self._vectors: dict[str, list[float]] = {}
         self._hashes: dict[str, str] = {}
-        self._built_for: int | None = None
+        self._built_for: str | None = None
 
     # -- cache -------------------------------------------------------------
     def _load_cache(self) -> dict:
@@ -174,12 +189,15 @@ class EmbeddingIndex:
             for (rel, _), vec in zip(todo, vectors):
                 self._vectors[rel] = vec
         self._save_cache()
-        self._built_for = id(bundle)
+        self._built_for = _hashes_signature(self._hashes)
         return len(todo)
 
     # -- retrieve ----------------------------------------------------------
     def __call__(self, bundle: Bundle, question: str, top_k: int = 4) -> list[Concept]:
-        if self._built_for != id(bundle):
+        # Content-addressed staleness, never object identity: a recycled
+        # `id()` must not serve another bundle's vectors, and an in-place
+        # edit must re-embed. Re-hashing is cheap next to embedding.
+        if self._built_for != _bundle_signature(bundle):
             self.build(bundle)
         query_vec = self.embedder.embed([question], input_type="query")[0]
         scored = [

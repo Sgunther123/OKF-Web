@@ -145,7 +145,7 @@ full verification loop; anything that changes rankings or cached vectors
 bumps the embedder model id; any new `x_geo` surface bumps the profile with
 a GEO-PROFILE §10 row.
 
-### Phase F1 — Trust-invariant integrity (D1, D2, D5, D6 + chores)
+### Phase F1 — Trust-invariant integrity (D1, D2, D5, D6 + chores) — **shipped**
 
 The invariants the product's credibility rests on, made true everywhere,
 not just at the final gates. Extend `DROPPED_FIELDS` to every money-bearing
@@ -160,7 +160,7 @@ none of them; a risk-`b` Policy draft warns; a `stale_after == today`
 concept is withheld under `--freshness withhold`; `review list --risk a`
 lists a mis-declared Trade Program draft.
 
-### Phase F2 — Consumer-surface correctness (D3, D7, D9, D10, D11)
+### Phase F2 — Consumer-surface correctness (D3, D7, D9, D10, D11) — **shipped**
 
 The surfaces engines and operators actually touch. Rewrite `localized_view`
 to re-key translated concepts so advertised paths round-trip through
@@ -174,7 +174,14 @@ successfully; a `{region}`-host capability raises the contractual error;
 `okf-web index` output contains no malformed headings; an invalid label
 exits 2 with a one-line message.
 
-### Phase F3 — Scale and determinism (D4, D8)
+### Phase F3 — Scale and determinism (D4, D8) — **shipped**
+
+Note on the shipped form: the O(N) proof is a deterministic
+load-count assertion (one `load_bundle` per ingest, monkeypatch-counted)
+rather than a wall-clock bound — strictly stronger, and immune to CI
+timing noise. The risk floor landed as lint code **W034**; the staleness
+guard in `EmbeddingIndex` is a content signature over the retrievable
+slice, so cross-process cache correctness holds by construction.
 
 What delegation-scale catalogs require. Load the bundle's resource map once
 per `ingest_feed` and maintain it incrementally across writes (target:

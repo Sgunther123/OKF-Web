@@ -4,10 +4,11 @@ The evaluator role-plays the consumer the bundle exists for — a
 generative engine answering shopper questions — and measures instead of
 guessing:
 
-* A **question set** spans the seven shopping intents (discovery,
-  product_fact, comparison, policy, fulfillment, trust, capability),
-  either curated in ``evaluations/questions.yaml`` or LLM-generated from
-  the bundle's own index.
+* A **question set** spans the thirteen question archetypes in
+  ``ARCHETYPES`` (discovery and product facts through compliance, local
+  availability, and procurement), either curated in
+  ``evaluations/questions.yaml`` or LLM-generated from the bundle's own
+  index.
 * For each question the harness **retrieves** concepts (progressive
   disclosure, same as a real agent), **answers** only from that context,
   and a **judge** scores the answer: was it answerable, grounded, and
