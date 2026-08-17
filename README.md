@@ -49,7 +49,7 @@ lock-in; any engine that reads files can consume it.
 | [`docs/EXPANSION.md`](docs/EXPANSION.md) | Value expansion plan: fit, ownership, passports, omnichannel, B2B |
 | [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md) | Seeing engines consume the bundle (logscan + log recipes) |
 | [`docs/FIDELITY.md`](docs/FIDELITY.md) | Audit against the published OKF v0.2 spec + the shipped hardening phases |
-| [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md) | Distribution plan: audiences, PyPI strategy, release gates, non-goals |
+| [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md) | Distribution plan: audiences, PyPI strategy, the MCP assistant channel, release gates |
 | [`bundle-example/`](bundle-example/index.md) | Complete conformant companion bundle for a fictional store |
 | [`src/okf_web/`](src/okf_web/) | Reference implementation (`okf-web` CLI) |
 | [`src/okf_web/prompts/`](src/okf_web/prompts/) | The versioned LLM prompts: extraction contract, question generation, answerer, judge |
