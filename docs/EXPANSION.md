@@ -123,9 +123,25 @@ rate 1.0, coverage 0.944. The hosted-side levers below remain open.
 | Hosted | Per-location inventory connectors and feed sync |
 | Why later | Needs per-store APIs most mid-market merchants don't have yet; the profile pattern is ready whenever they do |
 
-## Phase E — B2B and procurement
+## Phase E — B2B and procurement (shipped, profile 1.8)
 
 *A different buyer: purchasing agents and their software.*
+
+Shipped as designed, completing the plan: the `Trade Program` type
+carrying the store-level B2B contract in `x_geo.trade` (payment
+terms and minimums required before stable — E019), gated as risk `a`
+by definition under the same effective-risk rule as passports;
+per-SKU trade facts on products via `x_geo.procurement`; the
+live-values rule extended to quoted/contract prices (terms are
+static, the price is always the quote); RFQ and applications as
+mutating flows on the store's pages, with quote-status lookups as
+the designed capability pattern. The `procurement` archetype ships
+everywhere questions live, with the honest note in EVALUATION.md
+that B2B-heavy stores should expand it with their own RFQ research.
+Reference bundle: `trade/wholesale-program.md` plus procurement data
+on the Ridgeline product; measured at 39 questions, hit rate 1.0,
+coverage 0.949. Hosted-side levers — quote workflows, punchout,
+account-scoped delivery — remain open.
 
 | | |
 | --- | --- |
@@ -144,7 +160,13 @@ type shipped ahead of the hosted jurisdiction packs. D and E wait for
 their prerequisites (APIs, buyer research) rather than blocking the
 earlier phases.
 
-Each phase ships the same way the promotion type did: concept type +
-keys + lint gates + archetype questions + example-bundle coverage in
-one additive profile minor, with the scorecard proving the lift on
-the reference bundle before the docs claim it.
+Each phase shipped the same way the promotion type did: concept type
++ keys + lint gates + archetype questions + example-bundle coverage
+in one additive profile minor, with the scorecard proving the lift
+on the reference bundle before the docs claimed it.
+
+**The plan is complete** (profiles 1.4 → 1.8, shipped in sequence):
+the bundle now spans the full lifecycle the redefinition promised —
+discover, choose correctly, own longer, comply, buy locally, and buy
+at volume. Further expansion should re-enter through the admission
+rule at the top, not by momentum.

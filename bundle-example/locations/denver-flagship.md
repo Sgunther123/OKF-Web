@@ -18,7 +18,7 @@ sources:
     title: Denver store page
     last_modified: 2026-08-12
 x_geo:
-  profile: ecommerce-geo/1.7
+  profile: ecommerce-geo/1.8
   risk: b
   intents: [local_availability, trust, fulfillment]
   entity: loc:APO-DEN-01

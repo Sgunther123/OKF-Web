@@ -7,7 +7,7 @@ varies the knowledge.
 
 ## 1. Question set
 
-Questions simulate what shoppers ask AI assistants, across twelve
+Questions simulate what shoppers ask AI assistants, across thirteen
 archetypes (one axis of coverage each):
 
 | Archetype | Probes | Example |
@@ -24,6 +24,7 @@ archetypes (one axis of coverage each):
 | `ownership` | Owners: care, repair, warranty process | "Can I machine-wash it?" |
 | `compliance` | Materials, origin, certifications, proof | "Is the down certified — can you prove it?" |
 | `local_availability` | Stores, hours, pickup, on the shelf now | "Can I pick it up today?" |
+| `procurement` | B2B: wholesale terms, MOQs, lead times, RFQ | "40 units by October — minimum and lead time?" |
 
 Sets are LLM-generated from the bundle outline
 ([prompt](../src/okf_web/prompts/evaluator_questions.md)), then
@@ -91,8 +92,11 @@ With `N` questions, `R_q` the result for question `q`:
 
 **GEO lift** = bundle coverage − baseline coverage, and the token
 ratio `baseline.context_tokens_mean / context_tokens_mean`. The
-reference bundle reports 0.611 → 0.944 coverage and an 18× token
-reduction.
+reference bundle reports 0.615 → 0.949 coverage and an 18× token
+reduction. B2B-heavy stores should treat the `procurement` archetype
+as a starting point and expand it with their own RFQ research — the
+buyer journey differs enough that three generic questions understate
+it.
 
 ## 4. Scorecard
 

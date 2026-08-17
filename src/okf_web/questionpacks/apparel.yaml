@@ -39,3 +39,6 @@ questions:
   - {id: loc-1, archetype: local_availability, question: "Where is your nearest store, and does it have fitting rooms?"}
   - {id: loc-2, archetype: local_availability, question: "Can I pick up an online order in store today, and how fast is it ready?"}
   - {id: loc-3, archetype: local_availability, question: "Can I return an online order at the store instead of shipping it back?"}
+  - {id: rfq-1, archetype: procurement, question: "Do you wholesale to boutiques, and what's the opening order minimum?"}
+  - {id: rfq-2, archetype: procurement, question: "What payment terms do you offer stockists, and how do I apply?"}
+  - {id: rfq-3, archetype: procurement, question: "What's the lead time on a bulk order for staff uniforms?"}

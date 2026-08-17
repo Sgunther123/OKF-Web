@@ -97,7 +97,7 @@ def test_all_packs_load_and_cover_all_archetypes(tmp_path):
         path = tmp_path / f"{name}.yaml"
         path.write_text(text)
         questions = evaluator.load_questions(path)
-        assert len(questions) == 36, name
+        assert len(questions) == 39, name
         archetypes = {q.archetype for q in questions}
         assert archetypes == set(evaluator.ARCHETYPES), name
 
@@ -111,7 +111,7 @@ def test_questions_pack_cli(bundle_copy, capsys):
     questions = evaluator.load_questions(
         bundle_copy / "evaluations" / "questions.yaml"
     )
-    assert len(questions) == 36
+    assert len(questions) == 39
 
     assert cli_mod.main(["questions", str(bundle_copy), "--pack", "nope"]) == 2
     assert cli_mod.main(["questions", str(bundle_copy), "--list-packs"]) == 0

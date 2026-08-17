@@ -111,3 +111,12 @@ questions:
   - id: loc-3
     archetype: local_availability
     question: Before I drive over — is the Alpine 2 tent on the shelf at your Denver store right now?
+  - id: rfq-1
+    archetype: procurement
+    question: Do you sell wholesale to guide services, and who qualifies?
+  - id: rfq-2
+    archetype: procurement
+    question: What are your payment terms for business accounts?
+  - id: rfq-3
+    archetype: procurement
+    question: We need 40 sleeping bags for a summer program — what's the minimum order and how fast can you deliver?

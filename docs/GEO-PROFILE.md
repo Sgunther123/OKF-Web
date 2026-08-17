@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.7` Profile for OKF v0.2
+# The `ecommerce-geo/1.8` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.7`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.8`.
 
 ## 1. Concept types
 
@@ -29,6 +29,7 @@ tooling and engines can dispatch on them.
 | `Ownership Guide` | Care, setup, troubleshooting, warranty process for owners (added in 1.5) | `b` |
 | `Product Passport` | Materials, origin, certifications, repairability (added in 1.6) | `a` (always) |
 | `Store Location` | A physical store or pickup point: address, hours, services (added in 1.7) | `b` |
+| `Trade Program` | Wholesale/B2B terms, eligibility, RFQ process (added in 1.8) | `a` (always) |
 | `GEO Scorecard` | Machine-generated answerability evaluation | `c` |
 
 ### Per-type requirements (beyond OKF's required `type`)
@@ -103,6 +104,21 @@ tooling and engines can dispatch on them.
   rather than counts) is the upgrade when the store has the API, and
   BOPIS ordering is a mutating flow that stays on the store's pages
   (§5).
+- **`Trade Program`:** the store-level B2B contract. `x_geo.trade`
+  MUST carry at least `payment_terms` and `min_order` before
+  `stable` (E019; W032 for drafts), `lead_time` as stated. **The
+  type is risk `a` by definition** — commercial and payment terms
+  are money/legal claims, so the effective-risk rule applies exactly
+  as for Product Passports: E010/E013/W024, publisher
+  draft-withholding, and batch-approve exclusion gate on the type,
+  whatever the frontmatter declares (W033 flags a mismatch).
+  **Wholesale and contract prices are live values** (§4): quoted per
+  RFQ, never published. Applying and requesting quotes are mutating
+  flows (§5) — described in the body, done by the buyer on the
+  store's pages; a token-scoped quote-*status* lookup is a fine
+  capability, same pattern as warranty claims. Products MAY carry
+  `x_geo.procurement` (`moq`, `case_pack`, `lead_time`) for per-SKU
+  trade facts — terms only.
 - **`GEO Scorecard`:** `generated` required; metrics live under
   `x_geo.metrics` (schema in [EVALUATION.md](EVALUATION.md)).
 
@@ -113,9 +129,9 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.7` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.8` (opt-in marker) |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
-| `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership`, `compliance`, `local_availability` — retrieval hint for engines |
+| `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership`, `compliance`, `local_availability`, `procurement` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
 | `entity` | string | Stable store-local id, e.g. `sku:APO-TENT-A2`, `org:acme` |
 | `fits` / `works_with` | list | Compatibility concepts (and products declaring interop): entity ids this concept gives fit guidance for / declares interoperable — every id must resolve to a concept's `entity` (W032) |
@@ -123,6 +139,8 @@ the OKF core surface stays pristine.
 | `passport_for` | string | Product Passport concepts: the single entity described — same resolution rule (W032) |
 | `passport` | mapping | Product Passport concepts: `materials` (list), `origin`, `certifications` (list of name/issuer/resource), `repairability` — extra keys legal |
 | `location` | mapping | Store Location concepts: `address` (required before stable), `hours`, `phone`, `services` — extra keys legal |
+| `trade` | mapping | Trade Program concepts: `payment_terms` and `min_order` (required before stable), `lead_time` — terms, never prices |
+| `procurement` | mapping | Product concepts: per-SKU trade facts — `moq`, `case_pack`, `lead_time` |
 | `brand` | string | Product brand |
 | `source_hash` | string | `sha256:<hex>` of the normalized source text at survey time — powers incremental re-survey |
 | `source_fetched_at` | date | When the source was fetched |
@@ -172,6 +190,9 @@ most often wrong about in third-party surfaces. The same rule covers
 physical presence: *posted* hours are static claims, but whether a
 store is open **right now** and what is on the shelf **right now**
 are live values — quote posted hours, execute a stock capability.
+It also covers trade: **wholesale and contract prices are quoted per
+RFQ and never published** — terms (minimums, payment terms, lead
+times) are the static claims; the price is always the quote.
 
 ## 5. The `http` runtime for Attested Computations
 
@@ -306,14 +327,22 @@ path position is the binding.
 | E016 | error | Stable `Ownership Guide` without `x_geo.covers` |
 | E017 | error | Stable `Product Passport` missing `passport_for` or `passport.materials`/`origin` |
 | E018 | error | Stable `Store Location` missing `x_geo.entity` or `location.address` |
+| E019 | error | Stable `Trade Program` missing `trade.payment_terms`/`min_order` |
 | W032 | warn | Compatibility/Ownership Guide/Passport draft missing its refs, or a `fits`/`works_with`/`covers`/`passport_for` id that resolves to no concept's `entity` |
-| W033 | warn | `Compatibility`/`Ownership Guide`/`Store Location` classified risk `c`, or `Product Passport` declaring anything but `a` (it is gated as `a` regardless) |
+| W033 | warn | `Compatibility`/`Ownership Guide`/`Store Location` classified risk `c`, or `Product Passport`/`Trade Program` declaring anything but `a` (both are gated as `a` regardless) |
 
 Errors block publishing; `--strict` promotes warnings for CI.
 
 ## 10. Versioning
 
-**1.7** (current) adds the `Store Location` type, the `location`
+**1.8** (current) adds the `Trade Program` type, the
+`trade`/`procurement` mappings, the `procurement` intent, lint code
+E019, the extension of the effective-risk rule to trade programs,
+and the quoted-prices live-values clarification — additive; concepts
+declaring earlier minors remain fully valid. This completes the
+five-phase value-expansion plan ([EXPANSION.md](EXPANSION.md)).
+
+**1.7** adds the `Store Location` type, the `location`
 mapping, the `local_availability` intent, lint code E018, and the
 live-values clarification for open-right-now and shelf stock —
 additive; concepts declaring earlier minors remain fully valid.

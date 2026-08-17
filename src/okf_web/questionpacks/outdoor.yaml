@@ -39,3 +39,6 @@ questions:
   - {id: loc-1, archetype: local_availability, question: "Is there a store near me where I can try gear before buying?"}
   - {id: loc-2, archetype: local_availability, question: "Can I order online and pick it up in the store today?"}
   - {id: loc-3, archetype: local_availability, question: "Before I drive over — can your store tell me if an item is on the shelf?"}
+  - {id: rfq-1, archetype: procurement, question: "Do you sell wholesale to guide services or outdoor programs, and who qualifies?"}
+  - {id: rfq-2, archetype: procurement, question: "What are your payment terms for business accounts?"}
+  - {id: rfq-3, archetype: procurement, question: "We need 40 units for a summer program — minimum order and lead time?"}

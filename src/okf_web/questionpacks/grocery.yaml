@@ -39,3 +39,6 @@ questions:
   - {id: loc-1, archetype: local_availability, question: "Do you deliver to my area, or is there a pickup point near me?"}
   - {id: loc-2, archetype: local_availability, question: "Can I get a same-day pickup slot if I order this morning?"}
   - {id: loc-3, archetype: local_availability, question: "Will everything in my order actually be in stock at my pickup location?"}
+  - {id: rfq-1, archetype: procurement, question: "Do you supply cafes or offices, and what's the minimum weekly order?"}
+  - {id: rfq-2, archetype: procurement, question: "Can our restaurant get trade terms and invoicing instead of card payment?"}
+  - {id: rfq-3, archetype: procurement, question: "What's the lead time on a standing bulk order for our kitchen?"}

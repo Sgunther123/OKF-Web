@@ -9,15 +9,15 @@ generated:
   by: okf-web-evaluator/claude-sonnet-5
   at: 2026-08-17T00:20:44Z
 x_geo:
-  profile: ecommerce-geo/1.7
+  profile: ecommerce-geo/1.8
   risk: c
   metrics:
-    questions: 36
+    questions: 39
     retrieval_hit_rate: 1.0
-    context_tokens_mean: 2312
-    coverage: 0.944
-    groundedness: 0.944
-    citability: 0.917
+    context_tokens_mean: 2381
+    coverage: 0.949
+    groundedness: 0.949
+    citability: 0.923
     freshness: 1.0
     by_archetype:
       discovery: { questions: 3, answered: 3 }
@@ -32,10 +32,11 @@ x_geo:
       ownership: { questions: 3, answered: 3 }
       compliance: { questions: 3, answered: 3 }
       local_availability: { questions: 3, answered: 3 }
+      procurement: { questions: 3, answered: 3 }
   baseline:
-    condition: raw site HTML (17 pages, same questions)
+    condition: raw site HTML (18 pages, same questions)
     context_tokens_mean: 41780
-    coverage: 0.611
+    coverage: 0.615
 ---
 
 # Results
@@ -78,6 +79,9 @@ x_geo:
 | loc-1 | local_availability | 4 | yes | /locations/denver-flagship.md |
 | loc-2 | local_availability | 4 | yes | /locations/denver-flagship.md |
 | loc-3 | local_availability | 4 | yes | /locations/denver-flagship.md, /capabilities/store-stock-check.md |
+| rfq-1 | procurement | 4 | yes | /trade/wholesale-program.md |
+| rfq-2 | procurement | 4 | yes | /trade/wholesale-program.md |
+| rfq-3 | procurement | 4 | yes | /trade/wholesale-program.md, /catalog/products/ridgeline-20-sleeping-bag.md |
 
 Note on disc-3: the bundle answers correctly that the store does
 *not* sell four-season tents — an explicit negative sourced from
@@ -95,9 +99,9 @@ Note on disc-3: the bundle answers correctly that the store does
 
 # Baseline comparison
 
-Answering the same 36 questions from raw site HTML consumed a mean of
-41,780 context tokens per question versus 2,312 from this bundle
-(18× reduction) and covered 22/36 questions versus 34/36. The largest
+Answering the same 39 questions from raw site HTML consumed a mean of
+41,780 context tokens per question versus 2,381 from this bundle
+(18× reduction) and covered 24/39 questions versus 37/39. The largest
 raw-HTML failures were capability questions (no API surface is
 described in page HTML), policy edge cases buried in accordion UI,
 fit questions needing facts joined across a PDF spec sheet and the
@@ -106,3 +110,6 @@ page (pass-1), but certification evidence and origin live in linked
 PDFs no page states directly (pass-2/pass-3 — bundle-only). The
 store page answers address/hours and pickup (loc-1/loc-2) in both
 conditions; shelf-level availability (loc-3) is capability-only.
+The trade page answers eligibility and payment terms (rfq-1/rfq-2)
+in both conditions; the per-SKU minimum-plus-lead-time join (rfq-3)
+is bundle-only.

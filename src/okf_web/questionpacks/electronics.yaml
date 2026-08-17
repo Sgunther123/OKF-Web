@@ -39,3 +39,6 @@ questions:
   - {id: loc-1, archetype: local_availability, question: "Do you have a showroom where I can see the display before buying?"}
   - {id: loc-2, archetype: local_availability, question: "Can I reserve online and collect it in store today?"}
   - {id: loc-3, archetype: local_availability, question: "Is this model physically in stock at your store right now, or order-only?"}
+  - {id: rfq-1, archetype: procurement, question: "Do you have a business or education purchasing program?"}
+  - {id: rfq-2, archetype: procurement, question: "Can we buy on purchase order with net payment terms?"}
+  - {id: rfq-3, archetype: procurement, question: "We need 25 units configured identically — minimum order and delivery time?"}

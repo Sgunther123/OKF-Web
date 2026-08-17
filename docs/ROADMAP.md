@@ -51,7 +51,7 @@ human cost:
   the `b`/`c` draft tail in one command (risk `a` is deliberately not
   batchable — E010 stays individual).
 - **Starter question packs** — `okf-web questions my-store --pack
-  outdoor|apparel|electronics|grocery`: 36 curated questions across
+  outdoor|apparel|electronics|grocery`: 39 curated questions across
   every archetype, no LLM or credentials needed for the first
   evaluation.
 - **Consumption measurement** — [MEASUREMENT.md](MEASUREMENT.md)

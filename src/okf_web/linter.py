@@ -323,6 +323,48 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                 )
             )
 
+    if concept.type == "Trade Program":
+        # The contract: machine-readable commercial terms. A trade
+        # program that states no terms invites the exact guessing
+        # (payment terms, minimums) that costs B2B deals.
+        missing = []
+        if not concept.trade.get("payment_terms"):
+            missing.append("`x_geo.trade.payment_terms`")
+        if not concept.trade.get("min_order"):
+            missing.append("`x_geo.trade.min_order`")
+        if missing:
+            if concept.status == "stable":
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "E019",
+                        rel,
+                        "stable Trade Program is missing " + ", ".join(missing),
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W032",
+                        rel,
+                        "Trade Program draft is missing "
+                        + ", ".join(missing)
+                        + "; a reviewer must complete it before it can go stable",
+                    )
+                )
+        if concept.risk != RISK_HIGH:
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W033",
+                    rel,
+                    f"Trade Program declares risk `{concept.risk}`, but "
+                    "commercial terms are money/legal claims and are gated "
+                    "as risk `a` regardless — declare `a` explicitly",
+                )
+            )
+
     if concept.type == "Product" and not concept.resource:
         findings.append(
             Finding(

@@ -252,17 +252,37 @@ class Concept:
         value = self.x_geo.get("passport")
         return value if isinstance(value, dict) else {}
 
+    # -- B2B / procurement (profile 1.8) -----------------------------------
+    @property
+    def trade(self) -> dict[str, Any]:
+        """Trade Program concepts: the machine-readable commercial
+        terms — payment_terms, min_order, lead_time (extra keys legal)."""
+        value = self.x_geo.get("trade")
+        return value if isinstance(value, dict) else {}
+
+    @property
+    def procurement(self) -> dict[str, Any]:
+        """Product concepts: per-SKU trade facts — moq, case_pack,
+        lead_time. Terms only; quoted prices are live values."""
+        value = self.x_geo.get("procurement")
+        return value if isinstance(value, dict) else {}
+
+    # High-risk-by-definition types: their claims are money/legal
+    # whatever the frontmatter declares.
+    _HIGH_RISK_TYPES = ("Product Passport", "Trade Program")
+
     @property
     def is_high_risk(self) -> bool:
         """The gate classification the tooling enforces.
 
-        Declared ``x_geo.risk`` — except that Product Passports are
-        compliance claims and therefore high-risk *by definition*: a
-        passport declaring ``b`` must not dodge the human-verifier
+        Declared ``x_geo.risk`` — except that some types are high-risk
+        *by definition*: Product Passports carry compliance claims and
+        Trade Programs carry commercial/payment terms. A concept of
+        these types declaring ``b`` must not dodge the human-verifier
         gate, the publisher's draft withholding, or batch approval
         exclusion.
         """
-        return self.risk == RISK_HIGH or self.type == "Product Passport"
+        return self.risk == RISK_HIGH or self.type in self._HIGH_RISK_TYPES
 
     @property
     def entity_refs(self) -> list[str]:

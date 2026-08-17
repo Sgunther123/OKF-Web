@@ -119,4 +119,4 @@ def test_store_stock_capability_takes_location_entity(example_bundle):
 
 def test_local_availability_is_an_archetype():
     assert "local_availability" in evaluator.ARCHETYPES
-    assert len(evaluator.ARCHETYPES) == 12
+    assert len(evaluator.ARCHETYPES) == 13

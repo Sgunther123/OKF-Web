@@ -3,7 +3,7 @@ okf_version: "0.2"
 title: Alpine Peak Outfitters — Knowledge Bundle
 description: Curated, provenance-tracked knowledge about the Alpine Peak Outfitters store, published as an OKF companion to the live site.
 x_geo:
-  profile: ecommerce-geo/1.7
+  profile: ecommerce-geo/1.8
   site: https://www.alpinepeakoutfitters.example
 ---
 
@@ -47,6 +47,10 @@ price or stock claim. Only `stable` concepts are listed here.
 ## Locations
 
 * [Alpine Peak Outfitters — Denver Flagship](/locations/denver-flagship.md) - Address, posted hours, in-store pickup and returns for the physical store.
+
+## Trade & Procurement
+
+* [Alpine Peak Trade — Wholesale Program](/trade/wholesale-program.md) - Wholesale eligibility, opening-order minimum, payment terms, lead times, and the quote process.
 
 ## Promotions
 

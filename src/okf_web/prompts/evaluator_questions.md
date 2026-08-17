@@ -48,6 +48,11 @@ description.
   is there a store, where, open when, can I pick up an online order,
   is the item on the shelf right now. Phrase as a shopper with car
   keys in hand ("before I drive over…"), not as "omnichannel".
+- **procurement** — a buyer purchasing for a business: who qualifies
+  for wholesale, minimum orders and case packs, payment terms, lead
+  times for volume, how to get a quote. Phrase as an RFQ ("we need
+  40 units by October — minimum order and lead time?"), never ask
+  for wholesale *prices* — those are quoted, not published.
 
 # Rules
 

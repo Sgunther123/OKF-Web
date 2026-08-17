@@ -2,9 +2,10 @@
 
 ## 2026-08-17
 
+* **Verify**: [Alpine Peak Trade — Wholesale Program](/trade/wholesale-program.md) approved by human:sales-lead@alpinepeakoutfitters.example; terms and minimums published, wholesale prices stay quote-only.
 * **Verify**: [Alpine Peak Outfitters — Denver Flagship](/locations/denver-flagship.md) approved by human:ops-lead@alpinepeakoutfitters.example; posted hours static, open-right-now and shelf stock stay live.
 * **Verify**: [Store Shelf Stock Check](/capabilities/store-stock-check.md) approved by human:platform-lead@alpinepeakoutfitters.example; availability classes only, no shelf counts.
-* **Update**: [Answerability evaluation — 2026-08-17](/evaluations/geo-scorecard.md) refreshed by okf-web-evaluator/claude-sonnet-5 (36 questions across twelve archetypes, coverage 0.944).
+* **Update**: [Answerability evaluation — 2026-08-17](/evaluations/geo-scorecard.md) refreshed by okf-web-evaluator/claude-sonnet-5 (39 questions across thirteen archetypes, coverage 0.949).
 
 ## 2026-08-16
 

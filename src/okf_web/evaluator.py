@@ -54,6 +54,7 @@ ARCHETYPES = [
     "ownership",      # I own it: setup, care, troubleshooting, warranty process
     "compliance",     # materials, origin, certifications, repairability — passport facts
     "local_availability",  # stores near me, hours, pickup today, on the shelf now
+    "procurement",    # B2B: wholesale eligibility, MOQs, payment terms, lead times, RFQ
 ]
 
 _WORD_RE = re.compile(r"[a-z0-9]+")

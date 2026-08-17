@@ -153,4 +153,4 @@ def test_example_passport_resolves_and_retrieves(example_bundle):
 
 def test_compliance_is_an_archetype():
     assert "compliance" in evaluator.ARCHETYPES
-    assert len(evaluator.ARCHETYPES) == 12
+    assert len(evaluator.ARCHETYPES) == 13
