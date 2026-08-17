@@ -16,9 +16,12 @@ sources:
   - id: faq
     resource: https://www.alpinepeakoutfitters.example/faq
     title: FAQ page
+    author: team:alpinepeak-support
+    usage_count: 4200
     last_modified: 2026-06-28
+usage_window: {from: 2026-07-01, to: 2026-07-31}
 x_geo:
-  profile: ecommerce-geo/1.9
+  profile: ecommerce-geo/1.10
   risk: b
   intents: [trust, policy, fulfillment]
   source_hash: sha256:4c6e8f0b2d4a6c8e0f2b4d6a8c0e2f4b6d8a0c2e4f6b8d0a2c4e6f8b0d2a4c6e

@@ -43,6 +43,14 @@ WARNING = "warning"
 _RISK_FLOOR_TYPES = ("Policy", "Promotion", "Store Identity")
 
 
+def _valid_usage_window(value) -> bool:
+    return (
+        isinstance(value, dict)
+        and _as_date(value.get("from")) is not None
+        and _as_date(value.get("to")) is not None
+    )
+
+
 @dataclass
 class Finding:
     severity: str
@@ -100,6 +108,58 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                 )
             )
 
+    # -- spec: source credibility signal shapes (SPEC §5.1) ----------------
+    # The signals are optional; when present they must be machine-usable,
+    # or consumers inferring trust from them will choke on the very
+    # bundles that tried hardest to earn it.
+    for entry in concept.sources:
+        label = str(entry.get("id") or entry.get("resource") or "?")
+        count = entry.get("usage_count")
+        if count is not None and (
+            isinstance(count, bool) or not isinstance(count, int) or count < 0
+        ):
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W035",
+                    rel,
+                    f"source `{label}`: `usage_count` must be a non-negative "
+                    f"integer, got {count!r}",
+                )
+            )
+        last_modified = entry.get("last_modified")
+        if last_modified is not None and _as_date(last_modified) is None:
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W035",
+                    rel,
+                    f"source `{label}`: `last_modified` is not a date: "
+                    f"{last_modified!r}",
+                )
+            )
+        window = entry.get("usage_window")
+        if window is not None and not _valid_usage_window(window):
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W035",
+                    rel,
+                    f"source `{label}`: `usage_window` must be a mapping with "
+                    "`from` and `to` dates",
+                )
+            )
+    window = concept.frontmatter.get("usage_window")
+    if window is not None and not _valid_usage_window(window):
+        findings.append(
+            Finding(
+                WARNING,
+                "W035",
+                rel,
+                "`usage_window` must be a mapping with `from` and `to` dates",
+            )
+        )
+
     # -- profile: risk floor -----------------------------------------------
     if concept.type in _RISK_FLOOR_TYPES and concept.risk != RISK_HIGH:
         findings.append(
@@ -118,6 +178,20 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
         if not concept.frontmatter.get("runtime"):
             findings.append(
                 Finding(ERROR, "E011", rel, "Attested Computation requires `runtime`")
+            )
+        attester = concept.frontmatter.get("attester")
+        if isinstance(attester, dict) and str(
+            attester.get("resource") or ""
+        ).startswith(("http://", "https://")):
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W036",
+                    rel,
+                    "`attester.resource` names an endpoint, not deterministic "
+                    "verifier code — point it at a bundle artifact "
+                    "(e.g. `/attesters/http_refetch.py`), per SPEC §10.2",
+                )
             )
         executor = concept.frontmatter.get("executor")
         if not (isinstance(executor, dict) and executor.get("resource")):
@@ -424,7 +498,7 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
 
 
 def lint_bundle(
-    root: Path | str, today: _dt.date | None = None
+    root: Path | str, today: _dt.date | None = None, strict_okf: bool = False
 ) -> tuple[Bundle, list[Finding]]:
     bundle = load_bundle(root)
     findings: list[Finding] = []
@@ -502,6 +576,58 @@ def lint_bundle(
                     "it was translated — re-translate and re-pin",
                 )
             )
+
+    # Attester artifacts: a bundle-relative attester must actually ship.
+    for rel, concept in sorted(bundle.concepts.items()):
+        if concept.type != "Attested Computation":
+            continue
+        attester = concept.frontmatter.get("attester")
+        resource = (
+            str(attester.get("resource") or "") if isinstance(attester, dict) else ""
+        )
+        if resource.startswith("/") and not (bundle.root / resource.lstrip("/")).exists():
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W036",
+                    rel,
+                    f"attester artifact not found in bundle: {resource}",
+                )
+            )
+
+    if strict_okf:
+        # Base-spec deviations the profile makes deliberately (documented
+        # in GEO-PROFILE §7): report, so an operator targeting strict OKF
+        # consumers can see exactly where this bundle exceeds SPEC §8.
+        root_index = bundle.indexes.get("index.md")
+        extra = (
+            sorted(set(root_index.frontmatter) - {"okf_version"})
+            if root_index is not None
+            else []
+        )
+        if extra:
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W040",
+                    "index.md",
+                    "base-spec deviation (SPEC §8): root index frontmatter "
+                    "carries keys beyond `okf_version`: " + ", ".join(extra)
+                    + " — manifest.json `site` is the normative copy of the "
+                    "binding for consumers",
+                )
+            )
+        for rel, doc in sorted(bundle.indexes.items()):
+            if rel != "index.md" and doc.frontmatter:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W040",
+                        rel,
+                        "base-spec deviation (SPEC §8): non-root index carries "
+                        "frontmatter",
+                    )
+                )
 
     # Broken bundle-internal links (concepts and indexes alike).
     known_paths = set(bundle.concepts) | set(bundle.indexes) | set(bundle.logs)

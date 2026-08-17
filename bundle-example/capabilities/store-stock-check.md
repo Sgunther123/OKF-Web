@@ -18,7 +18,7 @@ sources:
     title: Public storefront API documentation
     last_modified: 2026-08-01
 x_geo:
-  profile: ecommerce-geo/1.9
+  profile: ecommerce-geo/1.10
   risk: a
   intents: [capability, local_availability]
   rate_limit: 60 requests/minute per client
@@ -31,7 +31,7 @@ executor:
   resource: https://www.alpinepeakoutfitters.example/api/v1/store-stock?sku={sku}&location={location}
   receipt: [sku, location, availability, as_of]
 attester:
-  resource: https://www.alpinepeakoutfitters.example/api/v1/store-stock?sku={sku}&location={location}
+  resource: /attesters/http_refetch.py
 ---
 
 # Purpose

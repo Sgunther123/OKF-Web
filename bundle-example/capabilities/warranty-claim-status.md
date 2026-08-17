@@ -18,7 +18,7 @@ sources:
     title: Public storefront API documentation
     last_modified: 2026-08-01
 x_geo:
-  profile: ecommerce-geo/1.9
+  profile: ecommerce-geo/1.10
   risk: a
   intents: [capability, ownership]
   rate_limit: 30 requests/minute per client
@@ -31,7 +31,7 @@ executor:
   resource: https://www.alpinepeakoutfitters.example/api/v1/warranty-claim?claim_id={claim_id}&token={token}
   receipt: [claim_id, status, updated_at]
 attester:
-  resource: https://www.alpinepeakoutfitters.example/api/v1/warranty-claim?claim_id={claim_id}&token={token}
+  resource: /attesters/http_refetch.py
 ---
 
 # Purpose

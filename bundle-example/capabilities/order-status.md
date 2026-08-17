@@ -25,9 +25,9 @@ executor:
   resource: https://www.alpinepeakoutfitters.example/api/v1/orders/{order_id}/status
   receipt: [order_id, status, carrier, tracking_url, as_of]
 attester:
-  resource: https://www.alpinepeakoutfitters.example/api/v1/orders/{order_id}/status
+  resource: /attesters/http_refetch.py
 x_geo:
-  profile: ecommerce-geo/1.9
+  profile: ecommerce-geo/1.10
   risk: a
   intents: [capability, fulfillment, trust]
   rate_limit: 10 requests/minute per token

@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.9` Profile for OKF v0.2
+# The `ecommerce-geo/1.10` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.9`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.10`.
 
 ## 1. Concept types
 
@@ -129,7 +129,7 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.9` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.10` (opt-in marker) |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
 | `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership`, `compliance`, `local_availability`, `procurement` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
@@ -206,11 +206,19 @@ for public storefront endpoints:
   fields agents should retain.
 - `# Computation` body section: the concrete HTTP request template
   (method, headers) in a fenced block, plus an example response.
-- `attester.resource`: how anyone verifies a receipt. Two accepted
-  modes: **signature attestation** (endpoint validating a signed
-  receipt, e.g. ECDSA over `sku|price|currency|as_of`) or
-  **re-execution** (idempotent public endpoint — verify by calling
-  again).
+- `attester.resource`: deterministic verifier **code** (no LLM) that
+  takes a receipt and returns a verdict, per SPEC §10.2 — a bundle
+  artifact, not an endpoint (1.10; W036 flags an http(s) attester).
+  The profile ships the reference comparator
+  `/attesters/http_refetch.py`: re-fetch the executor endpoint and
+  compare the **attest-stable receipt fields** (identity and echo
+  fields such as `sku`, `order_id`) against what the agent displayed.
+  A live value has no job id to re-read, so http attestation
+  certifies receipt fidelity — the value came from the declared
+  endpoint, unaltered — never that a volatile number is eternal.
+  Signature attestation (a signed receipt, e.g. ECDSA over
+  `sku|price|currency|as_of`, checked by the artifact) remains the
+  stronger mode where the store supports it.
 - Etiquette in `x_geo`: `rate_limit`, `auth`. Endpoints exposed here
   MUST be safe for anonymous automated callers: read-only, no PII
   beyond token-gated fulfillment state, rate-limited server-side.
@@ -240,7 +248,15 @@ self-verify).
 
 ## 7. Reserved layout
 
-`index.md`, `log.md` per OKF. Additionally reserved by this profile:
+`index.md`, `log.md` per OKF — with one declared deviation from SPEC
+§8: the bundle-root `index.md` frontmatter carries `title`,
+`description`, and `x_geo` (`profile`, `site`) alongside the
+`okf_version` key the spec permits there, because the site binding
+must live somewhere both strict consumers and tooling can find before
+any concept is read. `manifest.json`'s `site` is the **normative**
+copy of the binding for consumers; `lint --strict-okf` reports the
+deviation (W040) for operators targeting strict base-spec readers.
+Additionally reserved by this profile:
 `_review/` (drift proposals awaiting humans) and `_quarantine/`
 (rejected LLM output) — working-copy state that MUST NOT be
 published; **`l10n/<lang>/<rel-path>`** (added in 1.3) — a
@@ -339,12 +355,27 @@ path position is the binding.
 | W032 | warn | Compatibility/Ownership Guide/Passport draft missing its refs, or a `fits`/`works_with`/`covers`/`passport_for` id that resolves to no concept's `entity` |
 | W033 | warn | `Compatibility`/`Ownership Guide`/`Store Location` classified risk `c`, or `Product Passport`/`Trade Program` declaring anything but `a` (both are gated as `a` regardless) |
 | W034 | warn | `Policy`/`Promotion`/`Store Identity` declaring a risk below the type table's `a` floor — a lower declared risk would unlock batch approval |
+| W035 | warn | Malformed source credibility signal (SPEC §5.1): `usage_count` not a non-negative integer, `last_modified` not a date, or `usage_window` without `from`/`to` dates |
+| W036 | warn | `attester.resource` names an endpoint instead of deterministic verifier code, or a bundle-relative attester artifact missing from the bundle |
+| W040 | warn | (`--strict-okf` only) declared base-spec deviation: index frontmatter beyond SPEC §8's allowance (§7) |
 
 Errors block publishing; `--strict` promotes warnings for CI.
 
 ## 10. Versioning
 
-**1.9** (current) adds the countersignature convention (§7) —
+**1.10** (current) closes the spec-coverage gaps found by the
+fidelity audit ([FIDELITY.md](FIDELITY.md), Phase F4): source
+credibility signals are emitted by the surveyor contract and the feed
+ingester and validated by lint (W035, with `usage_window` support);
+the http attester convention becomes deterministic verifier code
+shipped as a bundle artifact (`/attesters/http_refetch.py`; W036),
+replacing the endpoint-as-attester mode; the root-index frontmatter
+deviation from SPEC §8 is declared in §7 and reportable via
+`lint --strict-okf` (W040); and the risk-floor lint W034
+(`Policy`/`Promotion`/`Store Identity`) ships alongside. Additive;
+concepts declaring earlier minors remain fully valid.
+
+**1.9** adds the countersignature convention (§7) —
 bundle-level only: third parties attest a published bundle by
 signing the same manifest under their own identity. No concept
 frontmatter changes; concepts declaring earlier minors remain fully

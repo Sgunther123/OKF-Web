@@ -1,12 +1,16 @@
-"""Phase F1–F3 acceptance tests (docs/FIDELITY.md): trust-invariant
-integrity, consumer-surface correctness, and scale/determinism."""
+"""Phase F1–F4 acceptance tests (docs/FIDELITY.md): trust-invariant
+integrity, consumer-surface correctness, scale/determinism, and
+spec coverage."""
 
 import datetime as dt
 import json
+import subprocess
+import sys
+from pathlib import Path
 
 from okf_web import discover, feed, retrieval, review, surveyor
 from okf_web.cli import main as cli_main
-from okf_web.linter import lint_concept
+from okf_web.linter import lint_bundle, lint_concept
 from okf_web.mcp_bridge import build_state, handle_message
 from okf_web.model import Concept, load_bundle, localized_view
 from okf_web.publisher import publish, select_publishable
@@ -227,3 +231,105 @@ def test_embedding_index_is_content_addressed(bundle_copy):
     target.body = "Completely different text about kayaks and paddles.\n"
     results = index(bundle, "kayaks paddles", top_k=3)
     assert any(c.rel_path == "catalog/products/alpine-2-tent.md" for c in results)
+
+
+# --- F4: spec coverage (profile 1.10) ---------------------------------------
+
+def test_credibility_signal_shapes_are_validated():
+    def with_sources(entry, window=None):
+        fm = {"type": "FAQ", "title": "t", "description": "d", "tags": ["t"],
+              "sources": [dict({"id": "s", "resource": "https://x.example/p"},
+                               **entry)]}
+        if window is not None:
+            fm["usage_window"] = window
+        return Concept("x.md", fm, "Body.[^s]\n\n[^s]: s\n")
+
+    good = with_sources(
+        {"author": "team:x", "usage_count": 10, "last_modified": "2026-07-01"},
+        window={"from": "2026-07-01", "to": "2026-07-31"},
+    )
+    assert "W035" not in {f.code for f in lint_concept(good)}
+
+    assert "W035" in {f.code for f in lint_concept(with_sources({"usage_count": "lots"}))}
+    assert "W035" in {f.code for f in lint_concept(with_sources({"last_modified": "recently"}))}
+    assert "W035" in {f.code for f in lint_concept(with_sources({}, window={"from": "2026-07-01"}))}
+
+
+def test_attester_convention_warnings(bundle_copy):
+    # The example capabilities point at the shipped artifact: no W036.
+    _, findings = lint_bundle(bundle_copy)
+    assert "W036" not in {f.code for f in findings}
+
+    endpoint_attester = Concept("capabilities/x.md", {
+        "type": "Attested Computation", "title": "t", "description": "d",
+        "tags": ["t"], "runtime": "http", "status": "draft",
+        "attester": {"resource": "https://api.example/check"},
+        "executor": {"resource": "https://api.example/check?sku={sku}"},
+        "x_geo": {"risk": "a"},
+    }, "Body.\n")
+    assert "W036" in {f.code for f in lint_concept(endpoint_attester)}
+
+    (bundle_copy / "capabilities" / "ghost.md").write_text(
+        "---\ntype: Attested Computation\ntitle: Ghost\ndescription: d\n"
+        "tags: [capability]\nstatus: draft\nruntime: http\n"
+        "attester: {resource: /attesters/missing.py}\n"
+        "executor: {resource: 'https://api.example/x?sku={sku}'}\n"
+        "x_geo: {risk: a}\n---\n\nBody.\n"
+    )
+    _, findings = lint_bundle(bundle_copy)
+    assert any(f.code == "W036" and "not found" in f.message for f in findings)
+
+
+def test_strict_okf_reports_the_declared_deviation(bundle_copy, capsys):
+    _, findings = lint_bundle(bundle_copy)
+    assert "W040" not in {f.code for f in findings}
+
+    _, findings = lint_bundle(bundle_copy, strict_okf=True)
+    w040 = [f for f in findings if f.code == "W040"]
+    assert w040 and "x_geo" in w040[0].message
+
+    assert cli_main(["lint", str(bundle_copy), "--strict-okf"]) == 0  # warnings only
+    assert "W040" in capsys.readouterr().out
+
+
+def test_publish_ships_the_attester_artifact(bundle_copy, tmp_path):
+    dist = tmp_path / "dist"
+    publish(bundle_copy, dist)
+    assert (dist / "attesters" / "http_refetch.py").exists()
+    manifest = json.loads((dist / "manifest.json").read_text())
+    assert "attesters/http_refetch.py" in manifest["files"]
+
+
+def test_attester_script_verdict(tmp_path):
+    script = (Path(__file__).resolve().parents[1]
+              / "bundle-example" / "attesters" / "http_refetch.py")
+    receipt = tmp_path / "receipt.json"
+    fresh = tmp_path / "fresh.json"
+    receipt.write_text(json.dumps({"sku": "A1", "status": "in_stock", "price": "9"}))
+    fresh.write_text(json.dumps({"sku": "A1", "status": "in_stock", "price": "8"}))
+
+    ok = subprocess.run(
+        [sys.executable, str(script), "--receipt", str(receipt),
+         "--fresh", str(fresh), "--fields", "sku,status"],
+        capture_output=True, text=True,
+    )
+    assert ok.returncode == 0 and '"attested": true' in ok.stdout
+
+    fresh.write_text(json.dumps({"sku": "A1", "status": "sold_out"}))
+    bad = subprocess.run(
+        [sys.executable, str(script), "--receipt", str(receipt),
+         "--fresh", str(fresh), "--fields", "sku,status"],
+        capture_output=True, text=True,
+    )
+    assert bad.returncode == 1 and '"attested": false' in bad.stdout
+
+
+def test_feed_source_carries_last_modified(tmp_path):
+    feed_path = tmp_path / "f.csv"
+    feed_path.write_text(
+        "id,title,description,link\nS1,Mug,An enamel mug.,https://shop.example/p/mug\n"
+    )
+    root = tmp_path / "b"
+    feed.ingest_feed(feed_path, root)
+    concept = load_bundle(root).concepts["catalog/products/mug.md"]
+    dt.date.fromisoformat(concept.sources[0]["last_modified"])  # a real date

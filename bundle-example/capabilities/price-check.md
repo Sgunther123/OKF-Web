@@ -25,9 +25,9 @@ executor:
   resource: https://www.alpinepeakoutfitters.example/api/v1/price?sku={sku}&currency={currency}
   receipt: [sku, price, currency, promo, as_of, signature]
 attester:
-  resource: https://www.alpinepeakoutfitters.example/api/v1/attest?signature={signature}
+  resource: /attesters/http_refetch.py
 x_geo:
-  profile: ecommerce-geo/1.9
+  profile: ecommerce-geo/1.10
   risk: a
   intents: [capability, product_fact]
   rate_limit: 60 requests/minute per client

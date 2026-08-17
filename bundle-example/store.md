@@ -16,13 +16,14 @@ sources:
   - id: about
     resource: https://www.alpinepeakoutfitters.example/about
     title: About Alpine Peak Outfitters
+    author: team:alpinepeak-web
     last_modified: 2026-06-19
   - id: contact
     resource: https://www.alpinepeakoutfitters.example/contact
     title: Contact page
     last_modified: 2026-07-02
 x_geo:
-  profile: ecommerce-geo/1.9
+  profile: ecommerce-geo/1.10
   risk: a
   intents: [trust, discovery]
   entity: org:alpine-peak-outfitters

@@ -85,7 +85,7 @@ def _add_llm_args(parser) -> None:
 
 
 def cmd_lint(args) -> int:
-    _, findings = linter.lint_bundle(args.bundle)
+    _, findings = linter.lint_bundle(args.bundle, strict_okf=args.strict_okf)
     for finding in findings:
         print(finding)
     errors = [f for f in findings if f.severity == linter.ERROR]
@@ -559,6 +559,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("lint", help="check spec conformance + profile rules")
     p.add_argument("bundle")
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
+    p.add_argument(
+        "--strict-okf",
+        action="store_true",
+        help="also report the base-OKF-spec deviations the profile makes "
+        "deliberately (W040; see GEO-PROFILE §7)",
+    )
     p.set_defaults(func=cmd_lint)
 
     p = sub.add_parser("review", help="human-in-the-loop verification queue")

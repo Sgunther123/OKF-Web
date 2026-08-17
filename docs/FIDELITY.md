@@ -191,7 +191,7 @@ provably O(N) bundle loads per ingest, demonstrated with a synthetic
 staleness (the concept-hash set it already computes), which also makes the
 cache correct across processes by construction.
 
-### Phase F4 — Spec-coverage and conventions (D12, D13, D14)
+### Phase F4 — Spec-coverage and conventions (D12, D13, D14) — **shipped, profile 1.10**
 
 Close the gap between "conformant where exercised" and "exercises the
 spec." Credibility signals: surveyor and feed emit `author`/`last_modified`
@@ -208,6 +208,16 @@ for consumers, and add a `lint --strict-okf` mode that reports D12-class
 deviations so operators can see exactly where the profile exceeds the base
 spec. F4's additions to `x_geo` or emitted frontmatter are additive and
 ship as a profile bump with the standard §10 history row.
+
+Shipped form: lint W035 (signal shapes) and W036 (endpoint-as-attester,
+missing artifact); the reference comparator lives at
+`/attesters/http_refetch.py` in the example bundle and publishes with
+it; `lint --strict-okf` reports W040; the example FAQ and Store
+Identity sources carry live signals; the feed stamps `last_modified`
+from the file itself. All four phases of this plan are complete — the
+audit table in §2 should be re-run against the next OKF spec revision
+when one lands (the reference repo is versioned; MEMORY records the
+audited commit).
 
 ## 5. Why fidelity is the adoption lever
 

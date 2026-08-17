@@ -2,7 +2,7 @@
 
 **Status:** v1 design · **Format:** Open Knowledge Format (OKF) v0.2
 ([spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf))
-· **Profile:** `ecommerce-geo/1.9`
+· **Profile:** `ecommerce-geo/1.10`
 
 ## 1. Problem
 
@@ -363,7 +363,7 @@ A 500-product store, ~50 KB of extractable text per page:
 | Weekly upkeep, ~3% pages changed | full re-crawl per engine, per question | ~15 re-extractions total |
 | Freshness check | re-crawl | 1 GET of `manifest.json` |
 
-The reference scorecard measures 41,780 → 2,381 mean context tokens
+The reference scorecard measures 41,780 → 2,380 mean context tokens
 per answered question (18×) with coverage rising from 0.615 to 0.949.
 The asymmetry is the point: the merchant pays extraction **once**;
 every engine, every question, every day inherits the savings — and
@@ -394,8 +394,12 @@ the citations.
   (`Promotion` concepts with lint-gated end dates and publisher
   auto-retirement); discovery delegation for platform-hosted stores
   (GEO-PROFILE §8); LLM-free drift detection (`okf-web drift`); the
-  freshness publish policy (`--freshness withhold`); and the MCP
-  bridge (`okf-web mcp`).
+  freshness publish policy (`--freshness withhold`); the MCP
+  bridge (`okf-web mcp`); and the fidelity hardening pass against the
+  published OKF v0.2 spec ([FIDELITY.md](FIDELITY.md) Phases F1–F4:
+  invariant fixes, consumer-surface corrections, O(N) feed ingestion,
+  credibility signals, the code-artifact attester convention, and
+  `lint --strict-okf`).
 - **Next:** see [ROADMAP.md](ROADMAP.md) for the phased remainder —
   packaging and reviewer ergonomics first, then reach (multi-language
   bundles, consumption measurement, a consumer-side delegation

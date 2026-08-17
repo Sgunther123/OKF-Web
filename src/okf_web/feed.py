@@ -247,6 +247,12 @@ def ingest_feed(
     state = load_bundle(bundle_root)
     by_resource = {c.resource: c for c in state.concepts.values() if c.resource}
 
+    # The one credibility signal a feed genuinely carries (SPEC §5.1):
+    # when the source itself last changed. File mtime is that fact.
+    feed_last_modified = _dt.date.fromtimestamp(
+        Path(feed_path).stat().st_mtime
+    ).isoformat()
+
     now = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
     for item in parse_feed(feed_path):
         for name in item.dropped:
@@ -264,6 +270,7 @@ def ingest_feed(
             continue
 
         rel, fm, body = item_to_document(item)
+        fm["sources"][0]["last_modified"] = feed_last_modified
         fm["status"] = "draft"
         fm["generated"] = {
             "by": FEED_ACTOR,
