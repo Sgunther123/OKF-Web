@@ -11,3 +11,4 @@ venv/
 bundle-example/_quarantine/
 bundle-example/_review/
 .embeddings.json
+.concepts-cache.json

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import hashlib
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,6 +19,15 @@ from typing import Any, Iterator
 import yaml
 
 RESERVED_FILENAMES = {"index.md", "log.md"}
+
+# Parse cache (READINESS R4): YAML frontmatter parsing dominates
+# bundle-load time (7–10 s at 5,000 concepts), so parsed documents are
+# cached in one hidden JSON file keyed by (mtime_ns, size). JSON, never
+# pickle — a bundle cloned from someone else must not be able to
+# execute code through its working-state files. Hidden ⇒ the publisher
+# never ships it; gitignored ⇒ it never reaches a commit.
+CONCEPT_CACHE_NAME = ".concepts-cache.json"
+_CACHE_VERSION = 1
 
 # Directories the surveyor/review tooling uses for not-yet-accepted content.
 # They live inside the bundle checkout but are never published.
@@ -484,37 +494,123 @@ def localized_view(bundle: Bundle, lang: str) -> Bundle:
     return view
 
 
-def load_bundle(root: Path | str, include_internal: bool = False) -> Bundle:
+def _cache_encode(value: Any) -> Any:
+    """Frontmatter → JSON-safe: YAML's date/datetime scalars survive the
+    round trip as tagged objects (a real frontmatter mapping whose only
+    key is one of the tags would be misread — no OKF key looks like
+    that)."""
+    if isinstance(value, _dt.datetime):
+        return {"__dt__": value.isoformat()}
+    if isinstance(value, _dt.date):
+        return {"__d__": value.isoformat()}
+    if isinstance(value, dict):
+        return {k: _cache_encode(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_cache_encode(v) for v in value]
+    return value
+
+
+def _cache_decode(value: Any) -> Any:
+    if isinstance(value, dict):
+        if set(value) == {"__dt__"}:
+            return _dt.datetime.fromisoformat(value["__dt__"])
+        if set(value) == {"__d__"}:
+            return _dt.date.fromisoformat(value["__d__"])
+        return {k: _cache_decode(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_cache_decode(v) for v in value]
+    return value
+
+
+def _read_parse_cache(cache_path: Path) -> dict[str, dict]:
+    if not cache_path.exists():
+        return {}
+    try:
+        raw = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        return {}
+    if not isinstance(raw, dict) or raw.get("version") != _CACHE_VERSION:
+        return {}
+    entries = raw.get("entries")
+    return entries if isinstance(entries, dict) else {}
+
+
+def _parse_entry(name: str, text: str) -> dict:
+    """Parse one document into its cacheable form."""
+    if name == "index.md":
+        try:
+            fm, body = parse_document(text)
+        except FrontmatterError:
+            # Index files are reserved; frontmatter is optional there.
+            fm, body = {}, text
+        return {"fm": _cache_encode(fm), "body": body, "broken": None}
+    try:
+        fm, body = parse_document(text)
+    except FrontmatterError as exc:
+        return {"fm": None, "body": "", "broken": str(exc)}
+    return {"fm": _cache_encode(fm), "body": body, "broken": None}
+
+
+def load_bundle(
+    root: Path | str, include_internal: bool = False, use_cache: bool = True
+) -> Bundle:
     """Load every ``.md`` file under ``root`` into a :class:`Bundle`.
 
     Files under internal dirs (``_review``, ``_quarantine``) are skipped
     unless ``include_internal`` is set; they are workflow state, not
     published knowledge.
+
+    Parsed documents are served from ``.concepts-cache.json`` when the
+    file's (mtime_ns, size) is unchanged (READINESS R4); an edit, a new
+    file, or a deletion re-parses exactly what changed and rewrites the
+    cache. A missing, stale, or corrupt cache degrades to a full parse —
+    never to an error — and a read-only bundle simply skips the rewrite.
     """
     root = Path(root)
     bundle = Bundle(root=root)
+    cache_path = root / CONCEPT_CACHE_NAME
+    cached = _read_parse_cache(cache_path) if use_cache else {}
+    fresh: dict[str, dict] = {}
+    dirty = False
     for path in sorted(root.rglob("*.md")):
         rel = path.relative_to(root).as_posix()
         top = rel.split("/", 1)[0]
         if top in INTERNAL_DIRS and not include_internal:
             continue
-        text = path.read_text(encoding="utf-8")
         name = path.name
         if name == "log.md":
-            bundle.logs[rel] = text
+            bundle.logs[rel] = path.read_text(encoding="utf-8")
             continue
+        st = path.stat()
+        entry = cached.get(rel)
+        if (
+            entry is None
+            or entry.get("mtime_ns") != st.st_mtime_ns
+            or entry.get("size") != st.st_size
+        ):
+            entry = {
+                "mtime_ns": st.st_mtime_ns,
+                "size": st.st_size,
+                **_parse_entry(name, path.read_text(encoding="utf-8")),
+            }
+            dirty = True
+        fresh[rel] = entry
+        if entry["broken"] is not None:
+            bundle.broken[rel] = entry["broken"]
+            continue
+        concept = Concept(
+            rel, _cache_decode(entry["fm"]), entry["body"], abs_path=path
+        )
         if name == "index.md":
-            try:
-                fm, body = parse_document(text)
-            except FrontmatterError:
-                # Index files are reserved; frontmatter is optional there.
-                fm, body = {}, text
-            bundle.indexes[rel] = Concept(rel, fm, body, abs_path=path)
-            continue
+            bundle.indexes[rel] = concept
+        else:
+            bundle.concepts[rel] = concept
+    if use_cache and (dirty or set(fresh) != set(cached)):
         try:
-            fm, body = parse_document(text)
-        except FrontmatterError as exc:
-            bundle.broken[rel] = str(exc)
-            continue
-        bundle.concepts[rel] = Concept(rel, fm, body, abs_path=path)
+            cache_path.write_text(
+                json.dumps({"version": _CACHE_VERSION, "entries": fresh}),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass  # read-only checkout: the cache is a convenience, not state
     return bundle

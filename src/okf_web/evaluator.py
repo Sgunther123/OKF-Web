@@ -242,6 +242,46 @@ def _tokens(text: str) -> list[str]:
 META_TYPES = {"GEO Scorecard"}
 
 
+def _lexical_index(bundle: Bundle) -> tuple[dict, dict, dict, int]:
+    """Inverted index over the bundle's retrievable concepts, built once
+    per :class:`Bundle` instance and cached on it (READINESS R4): the
+    old per-query re-tokenization of every concept made each query
+    O(bundle); with postings, a query touches only the concepts that
+    share a term with it. The index snapshots the instance at first
+    retrieval — consumers treat a loaded Bundle as an immutable view
+    (the evaluator, the MCP bridge); reload after in-place edits.
+
+    Returns ``(postings, intent_tokens, by_rel, n_docs)`` where
+    ``postings[term][rel]`` is the term count and ``n_docs`` counts every
+    candidate (including token-less ones), preserving the exact idf of
+    the pre-index implementation.
+    """
+    cached = getattr(bundle, "_lexical_cache", None)
+    if cached is not None:
+        return cached
+    postings: dict[str, dict[str, int]] = {}
+    intent_tokens: dict[str, set[str]] = {}
+    by_rel: dict[str, Concept] = {}
+    n_docs = 0
+    for rel, concept in bundle.concepts.items():
+        if concept.type in META_TYPES or split_l10n(rel) is not None:
+            continue
+        n_docs += 1
+        toks = _tokens(concept.retrieval_text())
+        if not toks:
+            continue
+        by_rel[rel] = concept
+        intent_tokens[rel] = set(_tokens(" ".join(concept.intents)))
+        counts: dict[str, int] = {}
+        for tok in toks:
+            counts[tok] = counts.get(tok, 0) + 1
+        for tok, count in counts.items():
+            postings.setdefault(tok, {})[rel] = count
+    index = (postings, intent_tokens, by_rel, max(1, n_docs))
+    bundle._lexical_cache = index
+    return index
+
+
 def retrieve(bundle: Bundle, question: str, top_k: int = 4) -> list[Concept]:
     """Rank concepts by overlap with the question (tf * idf-lite).
 
@@ -253,31 +293,24 @@ def retrieve(bundle: Bundle, question: str, top_k: int = 4) -> list[Concept]:
     query = set(_tokens(question))
     if not query:
         return []
-    candidates = [
-        c
-        for rel, c in bundle.concepts.items()
-        if c.type not in META_TYPES and split_l10n(rel) is None
-    ]
-    docs = {c.rel_path: _tokens(c.retrieval_text()) for c in candidates}
-    doc_freq = {term: sum(1 for toks in docs.values() if term in toks) for term in query}
-    n_docs = max(1, len(docs))
+    postings, intent_tokens, by_rel, n_docs = _lexical_index(bundle)
+    hit_rels: set[str] = set()
+    for term in query:
+        hit_rels.update(postings.get(term, ()))
     scored: list[tuple[float, Concept]] = []
-    for concept in candidates:
-        toks = docs[concept.rel_path]
-        if not toks:
-            continue
-        counts = {t: toks.count(t) for t in query}
+    for rel in hit_rels:
         score = 0.0
-        for term, count in counts.items():
+        for term in query:
+            count = postings.get(term, {}).get(rel, 0)
             if count == 0:
                 continue
-            idf = math.log(1 + n_docs / (1 + doc_freq.get(term, 0)))
+            idf = math.log(1 + n_docs / (1 + len(postings.get(term, {}))))
             score += (1 + math.log(count)) * idf
         # Small boost when the concept declares an intent matching words
         # in the question (e.g. "return" → policy concepts).
-        score *= 1.0 + 0.1 * len(query & set(_tokens(" ".join(concept.intents))))
+        score *= 1.0 + 0.1 * len(query & intent_tokens[rel])
         if score > 0:
-            scored.append((score, concept))
+            scored.append((score, by_rel[rel]))
     scored.sort(key=lambda pair: (-pair[0], pair[1].rel_path))
     return [c for _, c in scored[:top_k]]
 

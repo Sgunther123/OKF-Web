@@ -454,7 +454,7 @@ included) → report in one no-LLM command, printing what it skipped,
 why, and the exact command that runs it later, ending with the MCP
 config block.
 
-### R4 — Scale headroom (deferrable, and honest about it)
+### R4 — Scale headroom (deferrable, and honest about it) — **shipped**
 
 Closes: **A6**.
 
@@ -465,6 +465,25 @@ inverted index for `okf_search`, and streaming publish so memory does
 not track catalog size. Until a tenant with 50,000 SKUs exists, the
 correct action is to document the measured ceiling (§A6) in
 DESIGN.md's efficiency budget and move on.
+
+Shipped form, re-measured on the 5,000-product probe. (1) The parse
+cache (`.concepts-cache.json`, keyed by mtime_ns+size, JSON never
+pickle, hidden and gitignored) cuts the fixed load tax **11.9 s →
+0.58 s warm**; edits re-parse only what changed, and a corrupt or
+read-only cache degrades to a full parse, never an error. YAML's
+date scalars survive the round trip as dates (tested), so warm loads
+are byte-equivalent to cold ones. (2) The inverted index (built once
+per loaded Bundle instance) cuts a query from 200–300 ms to **~3 ms**
+after a ~300 ms first-query build — a 200-question dry-run sweep
+drops 41 s → 2.5 s — with rankings reproduced hit-for-hit on the
+probes (1.000/0.995/9-of-12 unchanged). (3) "Streaming publish"
+shipped as its honest subset: manifest hashing now streams in 64 KB
+chunks, so peak memory never tracks the largest published asset. The
+remaining ceiling is stated rather than fixed: concept bodies load
+eagerly, so memory is linear in catalog size — **97 MB measured at
+5,000 concepts**, ~1 GB extrapolated at 50,000 — and lazy body
+loading stays the known next lever, deferred until a real catalog
+needs it (DESIGN §10 records the table).
 
 ## 5. Sequencing note
 

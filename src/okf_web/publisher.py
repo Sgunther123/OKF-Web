@@ -238,6 +238,20 @@ def _origin(url: str) -> str:
     return f"{parts.scheme}://{parts.netloc}".lower()
 
 
+def _file_digest(path: Path) -> tuple[str, int]:
+    """sha256 + size in 64 KB chunks: manifest hashing must not load a
+    whole file — spec-sheet PDFs and media assets publish alongside the
+    concepts, and peak memory must not track the largest asset
+    (READINESS R4)."""
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 16), b""):
+            digest.update(chunk)
+            size += len(chunk)
+    return digest.hexdigest(), size
+
+
 def _write_manifest(
     dist: Path,
     published: list[str],
@@ -246,10 +260,10 @@ def _write_manifest(
 ) -> None:
     files = {}
     for rel in sorted(published):
-        data = (dist / rel).read_bytes()
+        sha256, size = _file_digest(dist / rel)
         files[rel] = {
-            "sha256": hashlib.sha256(data).hexdigest(),
-            "bytes": len(data),
+            "sha256": sha256,
+            "bytes": size,
         }
     manifest = {
         "okf_version": OKF_VERSION,

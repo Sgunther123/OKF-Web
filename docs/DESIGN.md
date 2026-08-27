@@ -397,6 +397,26 @@ The asymmetry is the point: the merchant pays extraction **once**;
 every engine, every question, every day inherits the savings — and
 the citations.
 
+**Tooling costs at catalog scale** (measured on a synthetic
+5,000-product bundle; READINESS R4):
+
+| Cost | Before R4 | After R4 | Mechanism |
+| --- | --- | --- | --- |
+| Bundle load (every CLI command) | 7–12 s | **~0.6 s warm** | `.concepts-cache.json` — parsed docs keyed by (mtime_ns, size); an edit re-parses only what changed |
+| One retrieval query | 200–300 ms | **~3 ms** after a ~300 ms first-query index build | inverted index, built once per loaded bundle |
+| 200-question dry-run sweep | ~41 s | **~2.5 s** | same index, reused across questions |
+| Peak memory, full 5,000-concept load + index | — | **~97 MB** | linear in catalog size |
+
+Scaling positions: at 50,000 SKUs the warm load extrapolates to a few
+seconds and peak memory to ~1 GB — acceptable on any real host, and
+the honest remaining ceiling: bodies load eagerly, so memory tracks
+catalog size. Lazy body loading is the known next lever, deliberately
+deferred until a real catalog needs it. The parse cache is JSON, never
+pickle — a bundle cloned from someone else must not execute code
+through its working-state files — hidden (the publisher never ships
+it) and gitignored. Rankings are unchanged by the index: the 5,000-
+product probes reproduce hit-for-hit.
+
 ## 11. Limitations and roadmap
 
 - **Where OKF adoption actually stands (stated plainly).** OKF is a
