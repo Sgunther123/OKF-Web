@@ -39,7 +39,7 @@ from pathlib import Path
 
 from . import PROFILE
 from .linter import ERROR, lint_concept
-from .model import Concept, load_bundle
+from .model import Concept, load_bundle, utc_instant
 from .surveyor import SurveyResult, place_draft, stable_page_hash
 
 FEED_ACTOR = "process:okf-web-feed-ingest"
@@ -248,10 +248,13 @@ def ingest_feed(
     by_resource = {c.resource: c for c in state.concepts.values() if c.resource}
 
     # The one credibility signal a feed genuinely carries (SPEC §5.1):
-    # when the source itself last changed. File mtime is that fact.
-    feed_last_modified = _dt.date.fromtimestamp(
-        Path(feed_path).stat().st_mtime
-    ).isoformat()
+    # when the source itself last changed. File mtime is that fact,
+    # stamped at the spec's instant precision (F5).
+    feed_last_modified = utc_instant(
+        _dt.datetime.fromtimestamp(
+            Path(feed_path).stat().st_mtime, tz=_dt.timezone.utc
+        )
+    )
 
     now = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
     for item in parse_feed(feed_path):

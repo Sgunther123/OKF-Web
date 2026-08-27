@@ -332,7 +332,11 @@ def test_feed_source_carries_last_modified(tmp_path):
     root = tmp_path / "b"
     feed.ingest_feed(feed_path, root)
     concept = load_bundle(root).concepts["catalog/products/mug.md"]
-    dt.date.fromisoformat(concept.sources[0]["last_modified"])  # a real date
+    stamp = str(concept.sources[0]["last_modified"])
+    # F5: the spec's instant form — an ISO 8601 datetime with a UTC
+    # offset, not a bare date.
+    assert stamp.endswith("Z") and "T" in stamp
+    dt.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
 # --- R1.2: spec rev ad30107 — ISO datetime stamps are read ----------------
@@ -369,3 +373,88 @@ def test_datetime_credibility_signals_validate(tmp_path):
     )
     _, findings = lint_bundle(tmp_path)
     assert not any(f.code == "W035" for f in findings)
+
+
+# --- F5: instant-precision timestamps (writer side) -----------------------
+
+def test_is_stale_instant_granular_with_datetime_clock():
+    """With a datetime clock the comparison is the spec's exact
+    `now >= stale_after`; with a date clock it stays date-granular
+    (conservative, declared as D15)."""
+    utc = dt.timezone.utc
+    concept = Concept(
+        "c.md", {"type": "FAQ", "stale_after": "2026-09-23T14:00:00Z"}, "\nbody\n"
+    )
+    assert not concept.is_stale(dt.datetime(2026, 9, 23, 13, 59, tzinfo=utc))
+    assert concept.is_stale(dt.datetime(2026, 9, 23, 14, 0, tzinfo=utc))
+    # Date clock: stale from the start of the stamp's day — earlier,
+    # never later, than the instant semantics.
+    assert concept.is_stale(dt.date(2026, 9, 23))
+    # Date-valued stamps work under a datetime clock too (midnight UTC).
+    dated = Concept("d.md", {"type": "FAQ", "stale_after": dt.date(2026, 9, 23)}, "\nb\n")
+    assert not dated.is_stale(dt.datetime(2026, 9, 22, 23, 59, tzinfo=utc))
+    assert dated.is_stale(dt.datetime(2026, 9, 23, 0, 0, tzinfo=utc))
+
+
+def test_scorecard_carries_instant_sla(tmp_path, example_bundle):
+    import shutil
+
+    from okf_web import evaluator
+
+    root = tmp_path / "b"
+    shutil.copytree(example_bundle, root)
+    bundle = load_bundle(root)
+    questions = evaluator.load_questions(root / "evaluations" / "questions.yaml")[:3]
+    report = evaluator.evaluate(bundle, questions)
+    out = evaluator.write_scorecard(bundle, report)
+    fresh = load_bundle(root, use_cache=False)
+    scorecard = fresh.concepts["evaluations/geo-scorecard.md"]
+    stamp = scorecard.frontmatter["stale_after"]
+    # The 30-day evaluation SLA, stamped at instant precision.
+    instant = stamp if isinstance(stamp, dt.datetime) else dt.datetime.fromisoformat(
+        str(stamp).replace("Z", "+00:00")
+    )
+    delta = instant - dt.datetime.now(dt.timezone.utc)
+    assert dt.timedelta(days=29) < delta <= dt.timedelta(days=30)
+    assert out.name == "geo-scorecard.md"
+
+
+def test_promotion_stale_after_stamped_as_instant(tmp_path):
+    """The surveyor's promotion defaulting: ends_at (a profile calendar
+    date) becomes a spec instant at midnight UTC, and W027's
+    date-granular equality still holds."""
+    from okf_web.llm import StaticClient
+
+    response = (
+        '<<<CONCEPT path="promotions/flash.md">>>\n'
+        "---\n"
+        "type: Promotion\n"
+        "title: Flash sale\n"
+        "description: Ten percent off everything.\n"
+        "tags: [sale]\n"
+        "sources:\n"
+        "  - id: s\n"
+        "    resource: https://shop.example/sale\n"
+        "x_geo:\n"
+        "  risk: b\n"
+        "  intents: [promotion]\n"
+        "  starts_at: 2027-01-01\n"
+        "  ends_at: 2027-03-01\n"
+        "  code: TEN\n"
+        "---\n\nTen percent off.[^s]\n\n[^s]: s.\n"
+        "<<<END>>>\n"
+    )
+    result = surveyor.SurveyResult()
+    surveyor.survey_page(
+        "https://shop.example/sale",
+        "page text",
+        tmp_path,
+        StaticClient(responses=[response]),
+        result,
+    )
+    assert result.written == ["promotions/flash.md"]
+    concept = load_bundle(tmp_path, use_cache=False).concepts["promotions/flash.md"]
+    assert str(concept.frontmatter["stale_after"]).startswith("2027-03-01T00:00:00")
+    assert not any(
+        f.code == "W027" for f in lint_concept(concept, today=dt.date(2026, 8, 5))
+    )

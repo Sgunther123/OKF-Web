@@ -271,6 +271,16 @@ must live somewhere both strict consumers and tooling can find before
 any concept is read. `manifest.json`'s `site` is the **normative**
 copy of the binding for consumers; `lint --strict-okf` reports the
 deviation (W040) for operators targeting strict base-spec readers.
+
+**Timestamp precision (F5).** Spec timestamp keys (`stale_after`,
+`sources[].last_modified`, `usage_window.from/to`) are emitted as ISO
+8601 UTC instants (`2026-06-30T14:00:00Z`), per the spec's current
+revision; readers accept the older bare-date form too. The profile's
+own `x_geo` date keys — `starts_at`, `ends_at`, `source_fetched_at` —
+remain **calendar dates by design**: a sale ends on a date, not at an
+instant, and a survey stamp needs day precision only. Where a spec
+timestamp derives from a profile date (a Promotion's `stale_after`
+from its `ends_at`), midnight UTC of that date is stamped.
 Additionally reserved by this profile:
 `_review/` (drift proposals awaiting humans) and `_quarantine/`
 (rejected LLM output) — working-copy state that MUST NOT be

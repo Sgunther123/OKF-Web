@@ -5,7 +5,7 @@ description: Materials, origin, certifications, and repairability for the Ridgel
 resource: https://www.alpinepeakoutfitters.example/passport/APO-BAG-R20
 tags: [passport, materials, origin, certifications, repairability]
 status: stable
-stale_after: 2028-08-01
+stale_after: 2028-08-01T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-16T22:05:33Z
@@ -16,15 +16,15 @@ sources:
   - id: passport-page
     resource: https://www.alpinepeakoutfitters.example/passport/APO-BAG-R20
     title: Ridgeline 20 product passport page
-    last_modified: 2026-08-10
+    last_modified: 2026-08-10T00:00:00Z
   - id: rds-cert
     resource: https://www.alpinepeakoutfitters.example/media/certs/rds-2026.pdf
     title: Responsible Down Standard scope certificate (Control Union, 2026)
-    last_modified: 2026-03-02
+    last_modified: 2026-03-02T00:00:00Z
   - id: supplier-declaration
     resource: https://www.alpinepeakoutfitters.example/media/certs/ridgeline-material-declaration.pdf
     title: Supplier material composition declaration
-    last_modified: 2026-06-18
+    last_modified: 2026-06-18T00:00:00Z
 x_geo:
   profile: ecommerce-geo/1.10
   risk: a

@@ -23,8 +23,8 @@ every timestamp-valued key (`stale_after`, `sources[].last_modified`,
 `usage_window.from/to`) is now an ISO 8601 datetime with an explicit UTC
 offset, and staleness reads `now >= stale_after`; §5/§11 also drop a
 duplicated timestamp-conformance bullet. Every §2 verdict below survives
-the rev; the format change is recorded as **D15** and its writer-side
-migration as **F5** (§4).
+the rev; the format change is recorded as **D15**, closed by the shipped
+writer-side migration **F5** (§4).
 
 ## 1. Verdict
 
@@ -54,7 +54,8 @@ unexercised spec family (D14), and ten code-level findings (D1–D4, D6–D11)
 where the implementation undercut its own invariants or its consumer
 surfaces. All fourteen are closed by the shipped phases F1–F4. The
 re-audit at `ad30107` opened one new finding, **D15** (timestamp
-precision), whose writer-side migration is the open Phase F5.
+precision), closed by the shipped Phase F5 — every finding this
+document has ever recorded is now closed.
 
 ## 2. Conformance audit by spec section
 
@@ -69,7 +70,7 @@ precision), whose writer-side migration is the open Phase F5.
 | §5.2 | `generated {by, at}`; `verified` list; bare mapping = one-element list (MUST) | ✓ | `model.Concept.verified_entries` |
 | §5.3 | Trust tiers from `verified` + `human:` prefix | ✓ | `model.Concept.trust_tier` |
 | §5.4 | `status` absent ⇒ `stable` | ✓ | `model.Concept.status` |
-| §5.5 | Stale when `now >= stale_after` (datetime since ad30107) | **deviation** | D5 (closed, F1) — `>=` shipped; date-granular reading of instants is D15, conservative |
+| §5.5 | Stale when `now >= stale_after` (datetime since ad30107) | ✓ (closed, F1+F5) | `>=` shipped (F1); instants emitted and instant-granular comparison with a datetime clock (F5); date-clock paths stay conservatively date-granular |
 | §6 | `/`-absolute + relative links; broken links tolerated | ✓ | `model.Bundle.resolve_link`; W-codes warn, never reject |
 | §7 | Actor convention (`producer/version`, `human:`, `process:`) | ✓ | surveyor/feed stamps; trust tiers |
 | §8 | Index frontmatter: only `okf_version`, root only | **deviation, declared** | D12 (declared, F4) — root index carries the site binding; W040 reports under `--strict-okf` |
@@ -148,17 +149,17 @@ with file/line anchors; D5, D12–D14 are the spec-conformance items.
   prompt requests only `last_modified`, the feed emits none, the linter
   validates none, and no consumer surface reads them.
 
-- **D15 — Timestamp precision (spec rev ad30107).** The spec now makes
-  every timestamp-valued key an ISO 8601 datetime with an explicit UTC
-  offset (`2026-06-30T14:00:00Z`), staleness reading `now >= stale_after`.
-  The **reader side already conforms**: `model._as_date` accepts datetime
-  objects and ISO datetime strings alongside bare dates (tested in
-  `test_fidelity.py`), truncating to date precision — which marks a mid-day
-  instant stale from the start of its day, the conservative direction. The
-  **writer side deviates, declared**: this profile emits date-precision
-  stamps (`stale_after`, feed `last_modified`) and its own `x_geo` date
-  keys, which new-spec strict consumers will read (tolerantly, per §11) as
-  midnight instants. Migration to instant-precision emission is Phase F5.
+- **D15 — Timestamp precision (spec rev ad30107) — closed by F5.** The
+  spec now makes every timestamp-valued key an ISO 8601 datetime with an
+  explicit UTC offset (`2026-06-30T14:00:00Z`), staleness reading
+  `now >= stale_after`. The **reader side** accepts datetime objects and
+  ISO datetime strings alongside bare dates (tested), and `is_stale`
+  compares at instant granularity when given a datetime clock; date-clock
+  paths keep the date-granular reading, which marks a mid-day instant
+  stale from the start of its day — the conservative direction. The
+  **writer side conforms since F5**: every spec timestamp is emitted as
+  an instant, and the profile's own `x_geo` calendar-date keys are
+  declared date-precision by design (GEO-PROFILE §7).
 
 Minor doc drift, folded into Phase F1 chores: the evaluator module
 docstring still says "seven shopping intents" (there are thirteen
@@ -244,7 +245,7 @@ it; `lint --strict-okf` reports W040; the example FAQ and Store
 Identity sources carry live signals; the feed stamps `last_modified`
 from the file itself.
 
-### Phase F5 — Instant-precision timestamps (D15) — planned
+### Phase F5 — Instant-precision timestamps (D15) — **shipped**
 
 Emit ISO 8601 datetime stamps wherever the base spec now expects them:
 `stale_after` in generated concepts and the surveyor prompt contract,
@@ -254,13 +255,31 @@ datetime clock. Profile-owned `x_geo` date keys (`ends_at`,
 `source_fetched_at`) migrate together or are declared date-precision in
 GEO-PROFILE §7 — decided when the phase is implemented. Reader
 tolerance for both forms already ships and is pinned by tests (D15), so
-this phase is writer-side only and additive; it lands as a normal
-feature commit when scheduled.
+this phase is writer-side only and additive.
 
-F1–F4 are complete; F5 is open. The audit table in §2 should be re-run
-against the next OKF spec revision when one lands (the reference repo
-is versioned; MEMORY records the audited commit — currently `ad30107`
-in `GoogleCloudPlatform/open-knowledge-format`).
+Shipped form. Every writer of a spec timestamp now stamps instants:
+the feed's `last_modified` from file mtime (`model.utc_instant`), the
+surveyor's Promotion `stale_after` (midnight UTC of the profile's
+`ends_at` calendar date — W027's date-granular equality holds), the
+surveyor prompt contract's credibility signals, and `write_scorecard`,
+which now also emits the 30-day evaluation SLA as a real
+`stale_after` instant (EVALUATION.md's "scorecard SLA" made
+machine-readable — the freshness machinery retires an un-renewed
+scorecard). The example bundle's `stale_after`, `last_modified`, and
+`usage_window` values all migrated to instants (es
+`l10n_source_hash` re-pinned). The decision the plan left open landed
+as **declared date-precision**: `x_geo.starts_at`/`ends_at`/
+`source_fetched_at` remain calendar dates by design, recorded in
+GEO-PROFILE §7. `is_stale` gained the spec's exact `now >=
+stale_after` when handed a datetime clock (tested at the boundary
+minute); every date-clock path — linter, publisher — keeps the
+date-granular reading, which errs stale-earlier: the conservative
+direction.
+
+F1–F5 are complete. The audit table in §2 should be re-run against
+the next OKF spec revision when one lands (the reference repo is
+versioned; MEMORY records the audited commit — currently `ad30107` in
+`GoogleCloudPlatform/open-knowledge-format`).
 
 ## 5. Why fidelity is the adoption lever
 

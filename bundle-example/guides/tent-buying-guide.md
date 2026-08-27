@@ -5,7 +5,7 @@ description: How to choose between the store's tents by season rating, capacity,
 resource: https://www.alpinepeakoutfitters.example/guides/tent-buying-guide
 tags: [guide, tents, comparison]
 status: stable
-stale_after: 2027-11-02
+stale_after: 2027-11-02T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:29:41Z
@@ -16,7 +16,7 @@ sources:
   - id: guide
     resource: https://www.alpinepeakoutfitters.example/guides/tent-buying-guide
     title: Tent Buying Guide page
-    last_modified: 2026-04-09
+    last_modified: 2026-04-09T00:00:00Z
 x_geo:
   profile: ecommerce-geo/1.10
   risk: b

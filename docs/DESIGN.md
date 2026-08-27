@@ -127,7 +127,7 @@ history is the audit trail.
    unchanged pages cost zero LLM tokens; consuming agents use
    progressive disclosure (`index.md` → section → concept) and
    `manifest.json` sha256s for delta sync; the scorecard reports
-   context-tokens-per-answer against a raw-HTML baseline (18× cheaper
+   context-tokens-per-answer against a raw-HTML baseline (17× cheaper
    in the reference bundle).
 
 ## 4. The companion bundle
@@ -391,8 +391,8 @@ A 500-product store, ~50 KB of extractable text per page:
 | Weekly upkeep, ~3% pages changed | full re-crawl per engine, per question | ~15 re-extractions total |
 | Freshness check | re-crawl | 1 GET of `manifest.json` |
 
-The reference scorecard measures 41,780 → 2,380 mean context tokens
-per answered question (18×) with coverage rising from 0.615 to 0.949.
+The reference scorecard measures 41,780 → 2,407 mean context tokens
+per answered question (17×) with coverage rising from 0.615 to 0.949.
 The asymmetry is the point: the merchant pays extraction **once**;
 every engine, every question, every day inherits the savings — and
 the citations.

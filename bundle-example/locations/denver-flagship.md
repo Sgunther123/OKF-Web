@@ -5,7 +5,7 @@ description: The store's physical location in Denver — address, posted hours, 
 resource: https://www.alpinepeakoutfitters.example/stores/denver
 tags: [store, location, denver, pickup, bopis]
 status: stable
-stale_after: 2027-11-14
+stale_after: 2027-11-14T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-16T23:40:18Z
@@ -16,7 +16,7 @@ sources:
   - id: store-page
     resource: https://www.alpinepeakoutfitters.example/stores/denver
     title: Denver store page
-    last_modified: 2026-08-12
+    last_modified: 2026-08-12T00:00:00Z
 x_geo:
   profile: ecommerce-geo/1.10
   risk: b

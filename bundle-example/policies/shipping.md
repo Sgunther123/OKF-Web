@@ -5,7 +5,7 @@ description: Ships to the United States and Canada; US orders over 75 USD ship f
 resource: https://www.alpinepeakoutfitters.example/policies/shipping
 tags: [policy, shipping, fulfillment, delivery]
 status: stable
-stale_after: 2028-02-01
+stale_after: 2028-02-01T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:15:27Z
@@ -16,7 +16,7 @@ sources:
   - id: policy
     resource: https://www.alpinepeakoutfitters.example/policies/shipping
     title: Shipping Policy page
-    last_modified: 2026-07-11
+    last_modified: 2026-07-11T00:00:00Z
 x_geo:
   profile: ecommerce-geo/1.10
   risk: a

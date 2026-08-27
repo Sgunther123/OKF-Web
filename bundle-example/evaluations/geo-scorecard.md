@@ -4,7 +4,7 @@ title: Answerability evaluation — 2026-08-17
 description: Machine-generated answerability scorecard for this bundle; see x_geo.metrics for the numbers.
 tags: [evaluation, geo]
 status: stable
-stale_after: 2027-09-16
+stale_after: 2027-09-16T00:00:00Z
 generated:
   by: okf-web-evaluator/claude-sonnet-5
   at: 2026-08-17T00:20:44Z
@@ -14,7 +14,7 @@ x_geo:
   metrics:
     questions: 39
     retrieval_hit_rate: 1.0
-    context_tokens_mean: 2380
+    context_tokens_mean: 2407
     coverage: 0.949
     groundedness: 0.949
     citability: 0.923
@@ -100,8 +100,8 @@ Note on disc-3: the bundle answers correctly that the store does
 # Baseline comparison
 
 Answering the same 39 questions from raw site HTML consumed a mean of
-41,780 context tokens per question versus 2,380 from this bundle
-(18× reduction) and covered 24/39 questions versus 37/39. The largest
+41,780 context tokens per question versus 2,407 from this bundle
+(17× reduction) and covered 24/39 questions versus 37/39. The largest
 raw-HTML failures were capability questions (no API surface is
 described in page HTML), policy edge cases buried in accordion UI,
 fit questions needing facts joined across a PDF spec sheet and the

@@ -5,7 +5,7 @@ description: Two-person, three-season freestanding backpacking tent with a 1.9 k
 resource: https://www.alpinepeakoutfitters.example/products/alpine-2-tent
 tags: [tents, backpacking, three-season, two-person]
 status: stable
-stale_after: 2027-11-02
+stale_after: 2027-11-02T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:21:36Z
@@ -16,11 +16,11 @@ sources:
   - id: pdp
     resource: https://www.alpinepeakoutfitters.example/products/alpine-2-tent
     title: Alpine 2 Tent product page
-    last_modified: 2026-07-25
+    last_modified: 2026-07-25T00:00:00Z
   - id: spec-sheet
     resource: https://www.alpinepeakoutfitters.example/media/alpine-2-spec.pdf
     title: Alpine 2 manufacturer spec sheet
-    last_modified: 2026-05-14
+    last_modified: 2026-05-14T00:00:00Z
 x_geo:
   profile: ecommerce-geo/1.10
   risk: b

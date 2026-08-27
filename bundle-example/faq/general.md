@@ -5,7 +5,7 @@ description: Answers to common questions about payments, support, sizing help, a
 resource: https://www.alpinepeakoutfitters.example/faq
 tags: [faq, payments, support, gift-cards]
 status: stable
-stale_after: 2028-02-01
+stale_after: 2028-02-01T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:27:15Z
@@ -18,8 +18,8 @@ sources:
     title: FAQ page
     author: team:alpinepeak-support
     usage_count: 4200
-    last_modified: 2026-06-28
-usage_window: {from: 2026-07-01, to: 2026-07-31}
+    last_modified: 2026-06-28T00:00:00Z
+usage_window: {from: 2026-07-01T00:00:00Z, to: 2026-07-31T00:00:00Z}
 x_geo:
   profile: ecommerce-geo/1.10
   risk: b

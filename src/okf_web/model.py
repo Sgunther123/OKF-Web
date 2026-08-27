@@ -129,6 +129,40 @@ def _as_date(value: Any) -> _dt.date | None:
     return None
 
 
+def _as_instant(value: Any) -> _dt.datetime | None:
+    """The value as a tz-aware instant (SPEC since ad30107): datetimes
+    pass through (naive ⇒ UTC), bare dates mean midnight UTC, strings
+    parse either form. None when unparseable."""
+    if isinstance(value, _dt.datetime):
+        return value if value.tzinfo else value.replace(tzinfo=_dt.timezone.utc)
+    if isinstance(value, _dt.date):
+        return _dt.datetime.combine(
+            value, _dt.time.min, tzinfo=_dt.timezone.utc
+        )
+    if isinstance(value, str):
+        text = value.strip().replace("Z", "+00:00")
+        try:
+            return _as_instant(_dt.datetime.fromisoformat(text))
+        except ValueError:
+            date = _as_date(value)
+            return None if date is None else _as_instant(date)
+    return None
+
+
+def utc_instant(moment: _dt.datetime | None = None) -> str:
+    """Now (or ``moment``) as the spec's timestamp form:
+    ``2026-06-30T14:00:00Z`` — what every writer stamps since F5."""
+    moment = moment or _dt.datetime.now(_dt.timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=_dt.timezone.utc)
+    return (
+        moment.astimezone(_dt.timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
 @dataclass
 class Concept:
     """A single non-reserved ``.md`` file in a bundle."""
@@ -196,12 +230,29 @@ class Concept:
             return str(by) if by else None
         return None
 
-    def is_stale(self, today: _dt.date | None = None) -> bool:
-        stale_after = _as_date(self.frontmatter.get("stale_after"))
+    def is_stale(self, today: _dt.date | _dt.datetime | None = None) -> bool:
+        """Spec §5.5: stale when ``now >= stale_after``. With a datetime
+        clock the comparison is instant-granular (the spec's exact
+        semantics since ad30107); with a date clock — every linter and
+        publisher path — it stays date-granular, which marks a mid-day
+        instant stale from the start of its day: the conservative
+        direction, declared as D15."""
+        raw = self.frontmatter.get("stale_after")
+        if raw is None:
+            return False
+        if isinstance(today, _dt.datetime):
+            instant = _as_instant(raw)
+            if instant is None:
+                return False
+            now = (
+                today
+                if today.tzinfo
+                else today.replace(tzinfo=_dt.timezone.utc)
+            )
+            return now >= instant
+        stale_after = _as_date(raw)
         if stale_after is None:
             return False
-        # Spec §5.5: stale when today >= stale_after — on the day itself,
-        # not the day after.
         return (today or _dt.date.today()) >= stale_after
 
     # -- ecommerce-geo profile extensions ----------------------------------

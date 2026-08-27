@@ -102,7 +102,7 @@ evidence, not proof (READINESS A7/R3).
 
 **GEO lift** = bundle coverage − baseline coverage, and the token
 ratio `baseline.context_tokens_mean / context_tokens_mean`. The
-reference bundle reports 0.615 → 0.949 coverage and an 18× token
+reference bundle reports 0.615 → 0.949 coverage and a 17× token
 reduction. B2B-heavy stores should treat the `procurement` archetype
 as a starting point and expand it with their own RFQ research — the
 buyer journey differs enough that three generic questions understate
@@ -118,7 +118,10 @@ machine-generated (`generated.by: okf-web-evaluator/<model>`), risk
 is deliberate:
 
 - engines can read the store's own audited answerability and its
-  cadence (`stale_after` on the scorecard = evaluation SLA);
+  cadence (`stale_after` on the scorecard = evaluation SLA — since F5,
+  `write_scorecard` stamps it as a real 30-day UTC instant, so an
+  un-renewed scorecard is retired by the ordinary freshness machinery
+  instead of claiming freshness forever);
 - the gap list is the surveyor's and reviewers' shared backlog;
 - score history in git is the GEO regression record.
 

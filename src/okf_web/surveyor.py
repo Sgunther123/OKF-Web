@@ -48,6 +48,7 @@ from .model import (
     Bundle,
     Concept,
     TRUST_HUMAN,
+    _as_date,
     load_bundle,
     parse_document,
     render_document,
@@ -272,8 +273,14 @@ def survey_page(
             fm["resource"] = url
         # Promotions retire with their sale: default stale_after to the
         # end date so the freshness machinery tracks the time bound.
+        # `ends_at` is a profile calendar date; `stale_after` is a spec
+        # timestamp, stamped at instant precision since F5 (midnight UTC
+        # of the end date — W027's date-granular equality still holds).
         if fm.get("type") == "Promotion" and x_geo.get("ends_at") and not fm.get("stale_after"):
-            fm["stale_after"] = x_geo["ends_at"]
+            ends = _as_date(x_geo["ends_at"])
+            fm["stale_after"] = (
+                f"{ends.isoformat()}T00:00:00Z" if ends else x_geo["ends_at"]
+            )
 
         concept = Concept(rel, fm, body)
         hard_errors = [f for f in lint_concept(concept, today=today) if f.severity == ERROR]

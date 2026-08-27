@@ -5,7 +5,7 @@ description: Items may be returned within 60 days of delivery in unused conditio
 resource: https://www.alpinepeakoutfitters.example/policies/returns
 tags: [policy, returns, exchanges, refunds]
 status: stable
-stale_after: 2028-02-01
+stale_after: 2028-02-01T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:14:03Z
@@ -16,7 +16,7 @@ sources:
   - id: policy
     resource: https://www.alpinepeakoutfitters.example/policies/returns
     title: Return & Exchange Policy page
-    last_modified: 2026-05-30
+    last_modified: 2026-05-30T00:00:00Z
 x_geo:
   profile: ecommerce-geo/1.10
   risk: a

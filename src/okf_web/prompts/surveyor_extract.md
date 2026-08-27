@@ -96,11 +96,12 @@ Required: `type`, `title`, `description` (one sentence), `resource`
 
 `sources` must list every source you drew from, with `id`, `resource`
 (URL), `title`, and the credibility signals the page actually shows:
-`last_modified` (a date), `author` (actor convention, e.g.
-`team:acme-support`), and `usage_count` — with a sibling top-level
-`usage_window: {from, to}` — only when the source system exposes an
-exercise count. Do not invent values; a signal you cannot read off the
-source does not appear.
+`last_modified` (an ISO 8601 UTC instant, e.g. `2026-06-18T00:00:00Z` —
+use midnight when the page shows only a date), `author` (actor
+convention, e.g. `team:acme-support`), and `usage_count` — with a
+sibling top-level `usage_window: {from, to}` (same instant form) —
+only when the source system exposes an exercise count. Do not invent
+values; a signal you cannot read off the source does not appear.
 Omit `status`, `generated`, `verified`, `stale_after` — the pipeline
 stamps those.
 

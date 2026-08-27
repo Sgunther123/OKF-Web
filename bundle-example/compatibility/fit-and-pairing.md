@@ -5,7 +5,7 @@ description: Which Ridgeline 20 length fits your height, and what fits side by s
 resource: https://www.alpinepeakoutfitters.example/size-guide
 tags: [fit, sizing, size-guide, pairing]
 status: stable
-stale_after: 2027-11-02
+stale_after: 2027-11-02T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-15T08:40:22Z
@@ -16,15 +16,15 @@ sources:
   - id: size-guide
     resource: https://www.alpinepeakoutfitters.example/size-guide
     title: Size & fit guide
-    last_modified: 2026-07-30
+    last_modified: 2026-07-30T00:00:00Z
   - id: bag-pdp
     resource: https://www.alpinepeakoutfitters.example/products/ridgeline-20-sleeping-bag
     title: Ridgeline 20 product page
-    last_modified: 2026-07-22
+    last_modified: 2026-07-22T00:00:00Z
   - id: tent-spec
     resource: https://www.alpinepeakoutfitters.example/media/alpine-2-spec.pdf
     title: Alpine 2 manufacturer spec sheet
-    last_modified: 2026-05-14
+    last_modified: 2026-05-14T00:00:00Z
 x_geo:
   profile: ecommerce-geo/1.10
   risk: b

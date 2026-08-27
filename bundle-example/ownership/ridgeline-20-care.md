@@ -5,7 +5,7 @@ description: How to wash, dry, store, and get warranty help for the Ridgeline 20
 resource: https://www.alpinepeakoutfitters.example/care/ridgeline-20
 tags: [care, washing, storage, warranty, owners]
 status: stable
-stale_after: 2028-02-01
+stale_after: 2028-02-01T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-16T09:05:12Z
@@ -16,11 +16,11 @@ sources:
   - id: care-page
     resource: https://www.alpinepeakoutfitters.example/care/ridgeline-20
     title: Ridgeline 20 care instructions
-    last_modified: 2026-08-01
+    last_modified: 2026-08-01T00:00:00Z
   - id: bag-pdp
     resource: https://www.alpinepeakoutfitters.example/products/ridgeline-20-sleeping-bag
     title: Ridgeline 20 product page
-    last_modified: 2026-07-22
+    last_modified: 2026-07-22T00:00:00Z
 x_geo:
   profile: ecommerce-geo/1.10
   risk: b

@@ -5,7 +5,7 @@ description: Respuestas a preguntas comunes sobre pagos, soporte, tallas y tarje
 resource: https://www.alpinepeakoutfitters.example/es/faq
 tags: [faq, pagos, soporte, tarjetas-regalo]
 status: stable
-stale_after: 2028-02-01
+stale_after: 2028-02-01T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-14T09:12:00Z
@@ -16,12 +16,12 @@ sources:
   - id: faq
     resource: https://www.alpinepeakoutfitters.example/faq
     title: FAQ page
-    last_modified: 2026-06-28
+    last_modified: 2026-06-28T00:00:00Z
 x_geo:
   profile: ecommerce-geo/1.10
   risk: b
   intents: [trust, policy, fulfillment]
-  l10n_source_hash: sha256:6c1c571d7c56cd38455cc783f07f63e2f4a76af34168d1458b9ffa35ffe4d06d
+  l10n_source_hash: sha256:aad157fab62129910d5c94be0f6a72ecabfd9f0727572d0b2981756dd88d93f3
 ---
 
 # Pagos

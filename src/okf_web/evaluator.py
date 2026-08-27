@@ -41,6 +41,7 @@ from .model import (
     render_document,
     split_l10n,
     trust_mix,
+    utc_instant,
 )
 
 ARCHETYPES = [
@@ -444,6 +445,11 @@ def write_scorecard(
         ),
         "tags": ["evaluation", "geo"],
         "status": "stable",
+        # The evaluation SLA made real (EVALUATION.md; F5): a scorecard
+        # is a snapshot, and 30 days is how long it may claim freshness
+        # before the freshness machinery retires it — re-evaluate to
+        # renew. Stamped at the spec's instant precision.
+        "stale_after": utc_instant(now + _dt.timedelta(days=30)),
         "generated": {"by": report.generated_by, "at": now.isoformat().replace("+00:00", "Z")},
         "x_geo": {"risk": "c", "metrics": metrics},
     }

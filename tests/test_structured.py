@@ -155,7 +155,7 @@ def test_report_renders_scorecard_and_trust_posture(example_bundle, tmp_path):
     assert "Alpine Peak Outfitters" in text
     assert "95%" in text          # coverage 0.949
     assert "62%" in text          # baseline 0.615
-    assert "18× less" in text     # 41,780 / 2,380
+    assert "17× less" in text     # 41,780 / 2,407
     assert "Returns, warranty and policies" in text
     assert "read and approved individually by a named person" in text
     assert "warranty" in text     # the measured gap surfaces
@@ -187,7 +187,7 @@ def test_report_handles_dry_run_scorecards(tmp_path):
         "  metrics:\n"
         "    questions: 39\n"
         "    retrieval_hit_rate: 1.0\n"
-        "    context_tokens_mean: 2380\n"
+        "    context_tokens_mean: 2407\n"
         "---\n\n# Results\n\n# Knowledge gaps\n\nNone found in this run.\n"
     )
     html = build_report(load_bundle(bundle_dir))
