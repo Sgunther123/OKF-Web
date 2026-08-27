@@ -50,7 +50,11 @@ def test_batch_approve_clears_bc_but_never_a(bundle_copy):
     fresh = load_bundle(bundle_copy)
     assert fresh.concepts["policies/warranty.md"].status == "draft"
     assert fresh.concepts["faq/b-draft.md"].status == "stable"
-    assert fresh.concepts["faq/b-draft.md"].trust_tier == "human-reviewed"
+    # Wholesale attestation is labeled as itself, never as per-item
+    # review (READINESS R3): human-batch: actor → human-attested tier.
+    verified = fresh.concepts["faq/b-draft.md"].verified_entries
+    assert verified[-1]["by"] == "human-batch:ops@shop.example"
+    assert fresh.concepts["faq/b-draft.md"].trust_tier == "human-attested"
 
 
 def test_batch_approve_only_machine_confirmed(bundle_copy):

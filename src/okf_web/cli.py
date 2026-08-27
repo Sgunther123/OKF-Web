@@ -63,14 +63,15 @@ def _bundle_site(bundle_root) -> str | None:
     return str(site) if site else None
 
 
-def _llm(args):
+def _llm(args, model: str | None = None):
+    model = model or args.model
     if getattr(args, "llm", "api") == "claude-code":
         from .llm import claude_code_client
 
-        return claude_code_client(model=args.model)
+        return claude_code_client(model=model)
     from .llm import AnthropicClient
 
-    return AnthropicClient(model=args.model)
+    return AnthropicClient(model=model)
 
 
 def _add_llm_args(parser) -> None:
@@ -298,8 +299,12 @@ def cmd_evaluate(args) -> int:
     questions = evaluator.load_questions(questions_path)
     retriever = _build_retriever(args, args.bundle)
     llm = None if args.dry_run else _llm(args)
+    judge = None
+    if llm is not None and args.judge_model and args.judge_model != args.model:
+        judge = _llm(args, model=args.judge_model)
     report = evaluator.evaluate(
-        bundle, questions, llm=llm, top_k=args.top_k, retriever=retriever
+        bundle, questions, llm=llm, top_k=args.top_k, retriever=retriever,
+        judge=judge,
     )
     metrics = report.metrics(bundle)
     for key, value in metrics.items():
@@ -453,6 +458,154 @@ def cmd_logscan(args) -> int:
         )
         if args.fail_empty:
             return 1
+    return 0
+
+
+def cmd_init(args) -> int:
+    """The guided first run (READINESS R3): feed → lint → attest →
+    questions → dry-run scorecard → publish → report, one command, no
+    LLM required. Every skipped step says why and names the command
+    that runs it later."""
+    from . import feed as feed_mod
+    from .model import render_document
+
+    bundle_root = Path(args.bundle)
+    dist = Path(args.dist)
+    steps_skipped: list[str] = []
+
+    if not args.feed:
+        print(
+            "okf-web init needs --feed PRODUCTS.csv for the no-LLM first "
+            "run (a sitemap survey needs an LLM — run `okf-web survey "
+            f"{args.bundle} --sitemap URL --llm ...` and then the steps "
+            "init would have chained: lint, review, publish, report)",
+            file=sys.stderr,
+        )
+        return 2
+
+    print(f"[1/7] ingesting {args.feed} (no LLM — feed rows become draft concepts)")
+    result = feed_mod.ingest_feed(args.feed, bundle_root)
+    print(
+        f"      {len(result.written)} drafted, "
+        f"{len(result.skipped_unchanged)} unchanged, {len(result.errors)} error(s)"
+    )
+    if result.dropped_live_fields:
+        print(
+            "      live-value fields dropped (never static claims): "
+            + ", ".join(result.dropped_live_fields)
+        )
+    for line in result.errors[:5]:
+        print(f"      error: {line}")
+
+    index_path = bundle_root / "index.md"
+    if not index_path.exists():
+        fm: dict = {"okf_version": "0.2"}
+        title = args.title or bundle_root.name
+        fm["title"] = title
+        if args.site:
+            fm["x_geo"] = {"site": args.site.rstrip("/")}
+        index_path.write_text(
+            render_document(fm, "\n# " + title + "\n\nCatalog concepts live under /catalog/.\n"),
+            encoding="utf-8",
+        )
+        print(f"[2/7] wrote {index_path} (okf_version 0.2"
+              + (f", site {args.site})" if args.site else ")"))
+    else:
+        print(f"[2/7] {index_path} already exists — kept")
+
+    _, findings = linter.lint_bundle(bundle_root)
+    errors = [f for f in findings if f.severity == linter.ERROR]
+    print(f"[3/7] lint: {len(errors)} error(s), "
+          f"{len(findings) - len(errors)} warning(s)")
+    if errors:
+        for f in errors[:5]:
+            print(f"      {f}")
+        print("      fix the errors above, then re-run — publish refuses errors",
+              file=sys.stderr)
+        return 1
+
+    if args.by:
+        bundle = load_bundle(bundle_root)
+        approved = review.batch_approve(bundle, args.by)
+        print(
+            f"[4/7] attested {len(approved)} low-risk draft(s) as "
+            f"human-batch:{args.by} — a named bulk sign-off, deliberately "
+            "distinct from per-item review; high-risk drafts (if any) still "
+            "need `okf-web review approve`"
+        )
+    else:
+        steps_skipped.append(
+            "attestation (pass --by you@store.com to batch-attest the "
+            "low-risk drafts; until then everything stays draft and "
+            "publishes nothing)"
+        )
+        print("[4/7] skipped attestation — no --by given")
+
+    questions_path = bundle_root / "evaluations" / "questions.yaml"
+    if not questions_path.exists() and args.pack:
+        packs = _question_packs()
+        if args.pack in packs:
+            questions_path.parent.mkdir(parents=True, exist_ok=True)
+            questions_path.write_text(packs[args.pack], encoding="utf-8")
+            print(f"[5/7] wrote starter questions ({args.pack} pack)")
+        else:
+            print(f"[5/7] unknown pack {args.pack!r}; skipped questions")
+    elif questions_path.exists():
+        print("[5/7] questions.yaml already present — kept")
+    else:
+        steps_skipped.append(
+            "questions/scorecard/report (pass --pack "
+            f"{'|'.join(sorted(_question_packs()))} for a starter set)"
+        )
+        print("[5/7] skipped questions — no --pack given")
+
+    if questions_path.exists():
+        bundle = load_bundle(bundle_root)
+        questions = evaluator.load_questions(questions_path)
+        eval_report = evaluator.evaluate(bundle, questions)
+        evaluator.write_scorecard(bundle, eval_report)
+        metrics = eval_report.metrics(bundle)
+        print(
+            f"[6/7] dry-run scorecard: {metrics['questions']} questions, "
+            f"retrieval hit rate {metrics['retrieval_hit_rate']} "
+            "(retrieval-only; run `okf-web evaluate ... --write-scorecard` "
+            "with an LLM for graded coverage)"
+        )
+    else:
+        print("[6/7] skipped scorecard — no question set")
+
+    site = args.site or _bundle_site(bundle_root)
+    pub = publisher.publish(bundle_root, dist, site=site)
+    print(
+        f"[7/7] published {len(pub.published)} file(s) to {dist} "
+        f"({len(pub.withheld)} withheld"
+        + (f"; derived tier: {max(0, len(pub.structured) - 1)} JSON-LD + llms.txt)"
+           if pub.structured else ")")
+    )
+
+    report_path = None
+    if questions_path.exists():
+        report_path = report_mod.write_report(bundle_root)
+        print(f"      report: {report_path}")
+
+    print("\ndone. what you have now:")
+    print(f"  bundle:  {bundle_root}  (facts, provenance, review queue)")
+    print(f"  publish: {dist}  (serve at /.well-known/okf/ — includes jsonld/ + llms.txt)")
+    if report_path:
+        print(f"  report:  {report_path}  (open in a browser, share as-is)")
+    print("\nserve it to Claude Desktop/Code right now — add to the MCP config:")
+    print(
+        '  {"mcpServers": {"my-store": {"command": "okf-web", '
+        '"args": ["mcp", "' + str(bundle_root) + '"]}}}'
+    )
+    if steps_skipped:
+        print("\nskipped (and how to run them):")
+        for line in steps_skipped:
+            print(f"  - {line}")
+    print(
+        "\nnext: review drafts (`okf-web review list`), run the full "
+        "LLM evaluation, and see docs/USER-GUIDE.md for the loop."
+    )
     return 0
 
 
@@ -658,6 +811,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--questions", help="question set YAML (default: bundle/evaluations/questions.yaml)")
     p.add_argument("--dry-run", action="store_true", help="retrieval-only, no LLM")
     p.add_argument(
+        "--judge-model",
+        help="grade answers with a different model than the answerer, so "
+        "coverage is not self-graded; both identities are recorded in the "
+        "scorecard's generated.by",
+    )
+    p.add_argument(
         "--published",
         action="store_true",
         help="evaluate the published view (drafts excluded) — what engines "
@@ -730,6 +889,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="skip the derived tier (jsonld/ + llms.txt) — bundle-only publish",
     )
     p.set_defaults(func=cmd_publish)
+
+    p = sub.add_parser(
+        "init",
+        help="guided first run, no LLM: feed → lint → attest → questions → "
+        "dry-run scorecard → publish → report, in one command",
+    )
+    p.add_argument("bundle", help="bundle directory to create/extend")
+    p.add_argument("--feed", required=False, help="product feed export (CSV/TSV/Merchant XML)")
+    p.add_argument("--site", help="storefront origin (recorded in index.md and manifest)")
+    p.add_argument("--title", help="store name for the bundle index (default: directory name)")
+    p.add_argument(
+        "--by",
+        help="your email/id: batch-attests the low-risk drafts as "
+        "human-batch:<id> (a named bulk sign-off, not per-item review)",
+    )
+    p.add_argument(
+        "--pack",
+        help="starter question pack (outdoor/apparel/electronics/grocery, "
+        "+ .es variants) for the dry-run scorecard and report",
+    )
+    p.add_argument("--dist", default="dist", help="publish output directory (default: dist)")
+    p.set_defaults(func=cmd_init)
 
     p = sub.add_parser(
         "report",

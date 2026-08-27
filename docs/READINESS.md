@@ -399,7 +399,7 @@ trust posture; dry-run scorecards render honestly as retrieval-only).
 adoption stands (honestly)") and DESIGN §11, and the derivation rules
 are now invariants in the working agreement.
 
-### R3 — Honest defaults and a shorter first run
+### R3 — Honest defaults and a shorter first run — **shipped**
 
 Closes: **A5, A7**; unblocks **A9**.
 
@@ -426,6 +426,33 @@ Closes: **A5, A7**; unblocks **A9**.
 
 Exit: a first run is one command and a few minutes; the numbers a
 merchant sees are the numbers their shoppers will get.
+
+Shipped form, with two refinements. (1) `batch-approve` now stamps
+`human-batch:<id>` → trust tier **`human-attested`** — a named
+person's wholesale sign-off, labeled as itself in the published
+frontmatter, the scorecard's new `trust_mix`, the report's trust
+posture, and every MCP search result. E010 still accepts only
+`human:` for high-risk concepts (tested), and — a deliberate
+refinement of R2's invariant — the derived JSON-LD accepts **both**
+human tiers: a feed-derived catalog a named person took
+responsibility for may be restated as the merchant's own markup; what
+changed is that the label no longer overstates what happened.
+(2) Question sets gain an optional shopper-vocabulary `paraphrase`
+(the example's 39 all carry one; the generation prompt now requests
+them), and the metrics gained two columns — `paraphrase_hit_rate`
+(mirrors the primary metric; saturates on small bundles) and
+**`paraphrase_agreement`**, the one that discriminates: did the
+shopper phrasing find the *same* knowledge? The example measures
+**0.897** — four of 39 paraphrases land on different concepts even in
+a 21-concept bundle, exactly the honest number A7 asked for. Judged
+metrics can now be graded by a different model
+(`evaluate --judge-model`), with both identities recorded in
+`generated.by` — or the self-grading visible by their absence.
+(3) `okf-web init` chains feed → index → lint → attestation →
+starter questions → dry-run scorecard → publish (derived tier
+included) → report in one no-LLM command, printing what it skipped,
+why, and the exact command that runs it later, ending with the MCP
+config block.
 
 ### R4 — Scale headroom (deferrable, and honest about it)
 

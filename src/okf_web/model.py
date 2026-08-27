@@ -29,6 +29,13 @@ L10N_DIR = "l10n"
 
 TRUST_UNVERIFIED = "unverified"
 TRUST_MACHINE = "machine-confirmed"
+# A named human vouched for publication wholesale (`human-batch:` —
+# review batch-approve) without reading each item. Stronger than a
+# machine check, weaker than a per-item review; never sufficient for
+# high-risk concepts (E010 demands `human:`). READINESS R3: "5,000
+# mechanically ingested facts" and "a person read this" must not share
+# a label.
+TRUST_HUMAN_BATCH = "human-attested"
 TRUST_HUMAN = "human-reviewed"
 
 # Risk tiers from the ecommerce-geo profile (x_geo.risk).
@@ -164,9 +171,11 @@ class Concept:
         entries = self.verified_entries
         if not entries:
             return TRUST_UNVERIFIED
-        for entry in entries:
-            if str(entry.get("by", "")).startswith("human:"):
-                return TRUST_HUMAN
+        actors = [str(entry.get("by", "")) for entry in entries]
+        if any(actor.startswith("human:") for actor in actors):
+            return TRUST_HUMAN
+        if any(actor.startswith("human-batch:") for actor in actors):
+            return TRUST_HUMAN_BATCH
         return TRUST_MACHINE
 
     @property
@@ -423,6 +432,18 @@ def concept_content_hash(concept: Concept) -> str:
     """Content identity of a concept — what a translation pins itself to
     via ``x_geo.l10n_source_hash`` so parity is checkable offline."""
     return sha256_text(concept.render())
+
+
+def trust_mix(bundle: Bundle) -> dict[str, int]:
+    """Concept counts by trust tier (translations excluded by key) —
+    the scorecard's honest account of how much was actually read by a
+    person versus attested wholesale or machine-checked (READINESS R3)."""
+    mix: dict[str, int] = {}
+    for rel, concept in bundle.concepts.items():
+        if split_l10n(rel) is not None:
+            continue
+        mix[concept.trust_tier] = mix.get(concept.trust_tier, 0) + 1
+    return dict(sorted(mix.items()))
 
 
 def localized_view(bundle: Bundle, lang: str) -> Bundle:

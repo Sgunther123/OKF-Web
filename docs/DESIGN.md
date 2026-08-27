@@ -214,7 +214,15 @@ read directly from frontmatter:
 | --- | --- | --- |
 | `unverified` | LLM draft | Surveyor output |
 | `machine-confirmed` | Claims re-checked against live pages | `process:okf-web-faithfulness-check` re-fetches sources and diffs claims |
-| `human-reviewed` | A named human approved it | `okf-web review approve` / PR approval |
+| `human-attested` | A named person vouched for publication wholesale, without reading each item | `okf-web review batch-approve` stamps `human-batch:<id>` (READINESS R3) |
+| `human-reviewed` | A named human read and approved this item | `okf-web review approve` / PR approval |
+
+The third and fourth tiers deliberately do not share a label: "5,000
+mechanically ingested facts a person signed off on" and "a person read
+this" are different claims, and the frontmatter says which one is
+being made. Only `human-reviewed` satisfies E010's high-risk gate;
+both human tiers qualify for the derived JSON-LD (someone accountable
+vouched), and the scorecard's `trust_mix` reports the split.
 
 Risk tiers decide *what humans must touch*:
 

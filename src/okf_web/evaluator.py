@@ -40,6 +40,7 @@ from .model import (
     TRUST_UNVERIFIED,
     render_document,
     split_l10n,
+    trust_mix,
 )
 
 ARCHETYPES = [
@@ -71,6 +72,11 @@ class Question:
     id: str
     archetype: str
     question: str
+    # The same question in a shopper's own words — synonyms, no product
+    # names (READINESS R3): the curated phrasing shares vocabulary with
+    # the bundle, so its hit rate flatters lexical retrieval; the
+    # paraphrase measures what a merchant's customers will experience.
+    paraphrase: str = ""
 
 
 @dataclass
@@ -78,6 +84,7 @@ class QuestionResult:
     question: Question
     retrieved: list[str]
     context_tokens: int
+    retrieved_paraphrase: list[str] | None = None
     answered: bool | None = None
     grounded: bool | None = None
     cited_paths: list[str] = field(default_factory=list)
@@ -123,6 +130,30 @@ class Report:
                 else 0
             ),
         }
+        # The phrasing-gap columns (READINESS R3): retrieval measured on
+        # the shopper-vocabulary paraphrases, where the question set
+        # carries them. `paraphrase_hit_rate` mirrors the primary metric
+        # (anything retrieved at all — saturates on small bundles);
+        # `paraphrase_agreement` is the honest one: the paraphrase found
+        # at least one of the same concepts the curated phrasing found.
+        # A drop is the finding — it is what customers will experience.
+        with_para = [r for r in self.results if r.retrieved_paraphrase is not None]
+        if with_para:
+            metrics["paraphrase_questions"] = len(with_para)
+            metrics["paraphrase_hit_rate"] = round(
+                sum(1 for r in with_para if r.retrieved_paraphrase) / len(with_para),
+                3,
+            )
+            metrics["paraphrase_agreement"] = round(
+                sum(
+                    1
+                    for r in with_para
+                    if set(r.retrieved_paraphrase) & set(r.retrieved)
+                )
+                / len(with_para),
+                3,
+            )
+        metrics["trust_mix"] = trust_mix(bundle)
         if not self.dry_run:
             metrics.update(
                 {
@@ -164,6 +195,7 @@ def load_questions(path: Path | str) -> list[Question]:
                 id=str(item.get("id") or f"q{i}"),
                 archetype=str(item.get("archetype") or "discovery"),
                 question=str(item.get("question") or "").strip(),
+                paraphrase=str(item.get("paraphrase") or "").strip(),
             )
         )
     return [q for q in out if q.question]
@@ -292,13 +324,21 @@ def evaluate(
     llm=None,
     top_k: int = 4,
     retriever=None,
+    judge=None,
 ) -> Report:
     """Run the harness. ``retriever`` is any callable with the
     signature ``(bundle, question, top_k) -> [Concept]`` — the lexical
     default, an :class:`okf_web.retrieval.EmbeddingIndex`, or an
-    engine-specific stand-in; the metric contract doesn't change."""
+    engine-specific stand-in; the metric contract doesn't change.
+
+    ``judge`` decouples grading from answering (READINESS R3): a
+    distinct LLM client for the judge calls, so coverage/groundedness
+    are not a model grading its own family's work. Defaults to ``llm``
+    (self-graded — the scorecard's recorded identities say so either
+    way)."""
     retrieve_fn = retriever or retrieve
     dry_run = llm is None
+    judge_llm = judge or llm
     results: list[QuestionResult] = []
     for question in questions:
         retrieved = retrieve_fn(bundle, question.question, top_k)
@@ -312,6 +352,10 @@ def evaluate(
             retrieved=[c.rel_path for c in retrieved],
             context_tokens=estimate_tokens(context),
         )
+        if question.paraphrase:
+            result.retrieved_paraphrase = [
+                c.rel_path for c in retrieve_fn(bundle, question.paraphrase, top_k)
+            ]
         if not dry_run:
             answer = llm.complete(
                 _prompt("evaluator_answer.md"),
@@ -319,7 +363,7 @@ def evaluate(
                 max_tokens=1024,
             )
             verdict = _extract_json(
-                llm.complete(
+                judge_llm.complete(
                     _prompt("evaluator_judge.md"),
                     (
                         f"QUESTION: {question.question}\n\n"
@@ -336,7 +380,14 @@ def evaluate(
             ]
             result.notes = str(verdict.get("notes") or "")
         results.append(result)
-    generated_by = f"okf-web-evaluator/{llm.model}" if llm else "okf-web-evaluator/dry-run"
+    if llm is None:
+        generated_by = "okf-web-evaluator/dry-run"
+    elif judge_llm is not llm and getattr(judge_llm, "model", None) != llm.model:
+        # Both identities on the record: a reader can see the grading
+        # was independent — or, absent this suffix, that it was not.
+        generated_by = f"okf-web-evaluator/{llm.model}+judge/{judge_llm.model}"
+    else:
+        generated_by = f"okf-web-evaluator/{llm.model}"
     return Report(results=results, generated_by=generated_by, dry_run=dry_run)
 
 
@@ -364,14 +415,22 @@ def write_scorecard(
         "x_geo": {"risk": "c", "metrics": metrics},
     }
     lines = ["# Results", ""]
-    lines.append("| id | archetype | retrieved | answered | cited |")
-    lines.append("| --- | --- | --- | --- | --- |")
+    lines.append("| id | archetype | retrieved | paraphrase | answered | cited |")
+    lines.append("| --- | --- | --- | --- | --- | --- |")
     for r in report.results:
         answered = "—" if r.answered is None else ("yes" if r.answered else "no")
         cited = ", ".join(f"/{p}" for p in r.cited_paths) or "—"
+        if r.retrieved_paraphrase is None:
+            para = "—"
+        elif set(r.retrieved_paraphrase) & set(r.retrieved):
+            para = "hit"
+        elif r.retrieved_paraphrase:
+            para = "diverged"  # found *something*, but not the same knowledge
+        else:
+            para = "miss"
         lines.append(
             f"| {r.question.id} | {r.question.archetype} | "
-            f"{len(r.retrieved)} | {answered} | {cited} |"
+            f"{len(r.retrieved)} | {para} | {answered} | {cited} |"
         )
     gaps = report.gaps()
     lines += ["", "# Knowledge gaps", ""]

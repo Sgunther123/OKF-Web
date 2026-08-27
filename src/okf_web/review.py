@@ -78,12 +78,25 @@ def pending(bundle: Bundle) -> list[ReviewItem]:
     return items
 
 
-def approve(bundle: Bundle, rel_path: str, reviewer: str) -> Concept:
-    """Record a human verification event and promote the concept to stable."""
+def approve(
+    bundle: Bundle, rel_path: str, reviewer: str, actor_prefix: str = "human:"
+) -> Concept:
+    """Record a human verification event and promote the concept to stable.
+
+    ``actor_prefix`` distinguishes per-item review (``human:``, the
+    default — the only tier E010 accepts for high-risk concepts) from
+    wholesale attestation (``human-batch:``, stamped by batch-approve):
+    both name an accountable person, but only one means each item was
+    read.
+    """
     concept = bundle.get(rel_path)
     if concept is None:
         raise KeyError(f"no such concept in bundle: {rel_path}")
-    actor = reviewer if reviewer.startswith("human:") else f"human:{reviewer}"
+    actor = (
+        reviewer
+        if reviewer.startswith(("human:", "human-batch:"))
+        else f"{actor_prefix}{reviewer}"
+    )
     entry = {"by": actor, "at": _now_iso()}
 
     existing = concept.frontmatter.get("verified")
@@ -138,7 +151,13 @@ def batch_approve(
             continue
         if only_machine_confirmed and concept.trust_tier != TRUST_MACHINE:
             continue
-        approved.append(approve(bundle, concept.rel_path, reviewer))
+        # Wholesale attestation, not per-item review: the stamp says so
+        # (`human-batch:` → trust tier "human-attested"), so a reader of
+        # the published concept — or of the scorecard's trust mix — can
+        # tell the difference (READINESS R3).
+        approved.append(
+            approve(bundle, concept.rel_path, reviewer, actor_prefix="human-batch:")
+        )
     return approved
 
 

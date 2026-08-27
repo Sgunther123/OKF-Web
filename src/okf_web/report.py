@@ -22,7 +22,14 @@ import html
 import re
 from pathlib import Path
 
-from .model import Bundle, Concept, TRUST_HUMAN, load_bundle, split_l10n
+from .model import (
+    Bundle,
+    Concept,
+    TRUST_HUMAN,
+    TRUST_HUMAN_BATCH,
+    load_bundle,
+    split_l10n,
+)
 
 # Archetype → the question a shopper would recognize.
 ARCHETYPE_LABELS = {
@@ -92,6 +99,7 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
         c for rel, c in bundle.concepts.items() if split_l10n(rel) is None
     ]
     human = sum(1 for c in concepts if c.trust_tier == TRUST_HUMAN)
+    attested = sum(1 for c in concepts if c.trust_tier == TRUST_HUMAN_BATCH)
     capabilities = sum(1 for c in concepts if c.type == "Attested Computation")
     stale = sum(1 for c in concepts if c.is_stale(today))
 
@@ -136,6 +144,15 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
                 _pct(metrics.get("retrieval_hit_rate", 0)),
                 "questions with matching knowledge",
                 f"retrieval-only dry run over {questions} questions",
+            )
+        )
+    if metrics.get("paraphrase_agreement") is not None:
+        tiles.append(
+            tile(
+                _pct(metrics["paraphrase_agreement"]),
+                "asked in shoppers' own words",
+                f"same knowledge found across "
+                f"{metrics.get('paraphrase_questions', 0)} paraphrased questions",
             )
         )
     if metrics.get("context_tokens_mean") and baseline.get("context_tokens_mean"):
@@ -238,12 +255,14 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   <h2>What the store still can't answer</h2>
   <ul>{gaps_html}</ul>
   <h2>Why these answers can be trusted</h2>
-  <p class="meaning">{human} of {len(concepts)} knowledge entries were
-  approved by a named human reviewer before publication; {capabilities}
+  <p class="meaning">Of {len(concepts)} knowledge entries: {human} were
+  read and approved individually by a named person, and {attested} were
+  published under a named person's bulk sign-off (mechanical facts, like
+  a product feed — the label says which is which); {capabilities}
   live-value lookups (price, stock, order status) execute against the
   store's own systems instead of quoting stored numbers; {stale} entries
   are past their freshness date. High-risk facts — prices, policies,
-  safety — cannot be published here without a human sign-off.</p>
+  safety — cannot be published without an individual human review.</p>
   <footer>Measured by the okf-web evaluation harness
   ({e(generated_by)}) over the published bundle — an LLM-based
   measurement; method in docs/EVALUATION.md. Regenerate with

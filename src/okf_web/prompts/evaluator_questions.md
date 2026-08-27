@@ -80,10 +80,15 @@ questions:
   - id: disc-1
     archetype: discovery
     question: ...
+    paraphrase: ...
   - id: fact-1
     archetype: product_fact
     question: ...
+    paraphrase: ...
 ```
 
 Produce exactly PER_ARCHETYPE questions per archetype, ids prefixed by
-archetype.
+archetype. `paraphrase` restates the same question in a shopper's own
+words — everyday synonyms, no product names or catalog vocabulary —
+so the harness can measure whether retrieval survives phrasing a
+customer would actually use.

@@ -157,7 +157,7 @@ def test_report_renders_scorecard_and_trust_posture(example_bundle, tmp_path):
     assert "62%" in text          # baseline 0.615
     assert "18× less" in text     # 41,780 / 2,380
     assert "Returns, warranty and policies" in text
-    assert "named human reviewer" in text
+    assert "read and approved individually by a named person" in text
     assert "warranty" in text     # the measured gap surfaces
     assert text.lstrip().startswith("<!DOCTYPE html>")
 
@@ -194,3 +194,126 @@ def test_report_handles_dry_run_scorecards(tmp_path):
     assert "retrieval-only dry run" in html
     assert "100%" in html
     assert "None found in the last evaluation." in html
+
+
+# --- R3: honest defaults --------------------------------------------------
+
+def test_batch_attested_concepts_emit_jsonld(tmp_path):
+    """A named bulk sign-off is enough for the derived tier (the person
+    took responsibility for publication); the label stays distinct."""
+    from okf_web import review
+
+    bundle_dir = tmp_path / "bundle"
+    (bundle_dir / "catalog").mkdir(parents=True)
+    (bundle_dir / "catalog" / "pack.md").write_text(
+        "---\n"
+        "type: Product\n"
+        "title: Trailhead 35 Pack\n"
+        "description: 35 liter hiking backpack.\n"
+        "resource: https://shop.example/p/pack\n"
+        "status: draft\n"
+        "sources:\n"
+        "  - id: pdp\n    resource: https://shop.example/p/pack\n"
+        "x_geo:\n"
+        "  risk: b\n"
+        "  entity: sku:PK-35\n"
+        "---\n\nBody.[^pdp]\n\n[^pdp]: pdp.\n"
+    )
+    bundle = load_bundle(bundle_dir)
+    review.batch_approve(bundle, "owner@shop.example")
+    result = publish(bundle_dir, tmp_path / "dist")
+    assert "jsonld/catalog/pack.json" in result.structured
+    obj = json.loads((tmp_path / "dist" / "jsonld/catalog/pack.json").read_text())
+    assert obj["sku"] == "PK-35"
+
+
+def test_high_risk_rejects_batch_actor(tmp_path):
+    """E010 stays individual: a `human-batch:` stamp on a stable
+    high-risk concept is still an error — only `human:` clears it."""
+    from okf_web.linter import lint_bundle
+
+    (tmp_path / "policy.md").write_text(
+        "---\n"
+        "type: Policy\n"
+        "title: Warranty\n"
+        "status: stable\n"
+        "verified:\n"
+        "  - by: human-batch:ops@shop.example\n"
+        "    at: 2026-08-27T00:00:00Z\n"
+        "sources:\n"
+        "  - id: p\n    resource: https://shop.example/warranty\n"
+        "x_geo:\n"
+        "  risk: a\n"
+        "---\n\nClaim.[^p]\n\n[^p]: p.\n"
+    )
+    _, findings = lint_bundle(tmp_path)
+    assert any(f.code == "E010" for f in findings)
+
+
+def test_paraphrase_metrics_and_scorecard_column(example_bundle):
+    from okf_web.evaluator import evaluate, load_questions
+    from okf_web.model import load_bundle as _load
+
+    bundle = _load(example_bundle)
+    questions = load_questions(example_bundle / "evaluations" / "questions.yaml")
+    assert all(q.paraphrase for q in questions)
+    report = evaluate(bundle, questions)
+    metrics = report.metrics(bundle)
+    assert metrics["paraphrase_questions"] == 39
+    assert 0 < metrics["paraphrase_agreement"] <= 1
+    assert metrics["trust_mix"]["human-reviewed"] > 0
+
+
+def test_judge_decoupling_records_both_identities(example_bundle):
+    from okf_web.evaluator import evaluate, load_questions
+    from okf_web.llm import StaticClient
+    from okf_web.model import load_bundle as _load
+
+    bundle = _load(example_bundle)
+    questions = load_questions(example_bundle / "evaluations" / "questions.yaml")[:2]
+    answerer = StaticClient(["answer one", "answer two"], model="static/answer")
+    judge = StaticClient(
+        ['{"answered": true, "grounded": true, "cited": []}'] * 2,
+        model="static/judge",
+    )
+    report = evaluate(bundle, questions, llm=answerer, judge=judge)
+    assert report.generated_by == "okf-web-evaluator/static/answer+judge/static/judge"
+    # The judge client graded; the answerer only answered.
+    assert len(judge.calls) == 2 and len(answerer.calls) == 2
+    # Same client answering and judging keeps the plain identity
+    # (self-graded, and the single recorded model says so).
+    answerer2 = StaticClient(
+        ["a", '{"answered": true, "grounded": true, "cited": []}'],
+        model="static/one",
+    )
+    report2 = evaluate(bundle, questions[:1], llm=answerer2, judge=None)
+    assert report2.generated_by == "okf-web-evaluator/static/one"
+
+
+def test_init_guided_first_run(tmp_path, monkeypatch):
+    feed = tmp_path / "feed.csv"
+    feed.write_text(
+        "id,title,description,link,brand,price\n"
+        "T1,Trail Pack,35 liter hiking backpack.,https://shop.example/p/t1,Ridge,129.00\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    rc = cli_main(
+        [
+            "init", "my-store",
+            "--feed", str(feed),
+            "--site", "https://shop.example",
+            "--by", "owner@shop.example",
+            "--pack", "outdoor",
+        ]
+    )
+    assert rc == 0
+    bundle = load_bundle(tmp_path / "my-store")
+    product = next(c for c in bundle.concepts.values() if c.type == "Product")
+    assert product.trust_tier == "human-attested"
+    assert product.status == "stable"
+    assert (tmp_path / "my-store" / "index.md").exists()
+    assert (tmp_path / "my-store" / "evaluations" / "geo-report.html").exists()
+    assert (tmp_path / "dist" / "llms.txt").exists()
+    assert any((tmp_path / "dist" / "jsonld").rglob("*.json"))
+    # Live values never made it in.
+    assert "129" not in product.render()

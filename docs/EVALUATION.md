@@ -87,8 +87,18 @@ With `N` questions, `R_q` the result for question `q`:
 | `citability` | fraction whose cited concepts all exist and have trust tier ≥ `machine-confirmed` |
 | `freshness` | fraction whose cited concepts are all within `stale_after` |
 | `context_tokens_mean` | mean tokens of retrieved context per question (~4 chars/token) |
+| `paraphrase_questions` / `paraphrase_hit_rate` | questions carrying a shopper-vocabulary `paraphrase`, and the fraction whose paraphrase retrieved ≥1 concept (READINESS R3; saturates on small bundles) |
+| `paraphrase_agreement` | fraction whose paraphrase retrieval shares ≥1 concept with the curated phrasing's — the honest phrasing-gap number: did shopper words find the *same* knowledge? (reference bundle: 0.897) |
+| `trust_mix` | concept counts by trust tier — how much a person actually read (`human-reviewed`) vs. attested wholesale (`human-attested`) vs. machine-checked |
 | `by_archetype` | `{questions, answered}` per archetype |
 | `baseline.*` | optional same-questions run over raw site HTML: `coverage`, `context_tokens_mean` |
+
+Grading can be decoupled from answering: `evaluate --judge-model M`
+grades with a different model than the answerer, and the scorecard's
+`generated.by` records both identities
+(`okf-web-evaluator/<answerer>+judge/<judge>`) — or, absent the
+suffix, that the run was self-graded. Self-graded coverage is
+evidence, not proof (READINESS A7/R3).
 
 **GEO lift** = bundle coverage − baseline coverage, and the token
 ratio `baseline.context_tokens_mean / context_tokens_mean`. The

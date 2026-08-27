@@ -172,6 +172,13 @@ ones (mirroring OKF's own rule).
 This is the profile's core contract: **the trust tier an engine reads
 is backed by a gate a linter enforces**, not by convention.
 
+Actor prefixes carry the tiers: `human:<id>` (per-item review →
+`human-reviewed`), `human-batch:<id>` (a named person's wholesale
+sign-off, stamped by `review batch-approve` → `human-attested`), and
+`process:`/producer actors (→ `machine-confirmed`). `human-batch:`
+never satisfies E010 — high-risk concepts require individual `human:`
+review, and a batch command must not become the way around it.
+
 ## 4. Live values rule
 
 Concepts MUST NOT state volatile transactional values (price, stock,

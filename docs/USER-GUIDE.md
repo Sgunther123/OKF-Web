@@ -507,6 +507,7 @@ technical docs live alongside this guide:
 | Approve a fact sheet | `okf-web review approve my-store <file> --by you@yourstore.com` |
 | Send one back | `okf-web review reject my-store <file> --by you@yourstore.com --reason "…"` |
 | Draft fact sheets from your site | `okf-web survey my-store --sitemap https://yourstore.com --limit 25 --llm claude-code` |
+| Do the whole first run at once (free) | `okf-web init my-store --feed products.csv --by you@store.com --pack outdoor` |
 | Get the report card | `okf-web evaluate my-store --write-scorecard --llm claude-code` |
 | Turn it into a shareable page (free) | `okf-web report my-store` |
 | Build the publishable folder | `okf-web publish my-store dist` |

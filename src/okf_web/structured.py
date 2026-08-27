@@ -6,11 +6,14 @@ consume from it at publish time, so a merchant gets value from day one
 even if no engine ever fetches ``/.well-known/okf/`` (READINESS R2):
 
 * **JSON-LD** (schema.org), one file per eligible concept under
-  ``dist/jsonld/``, mirroring the bundle's paths. Only concepts whose
-  trust tier is **human-reviewed** are restated — the downgrade must
-  not launder unverified text into the merchant's own markup — and
-  every object carries ``subjectOf`` pointing back at its bundle
-  concept, so the provenance tier stays one hop away.
+  ``dist/jsonld/``, mirroring the bundle's paths. Only concepts a
+  **named human** vouched for are restated — per-item review
+  (``human:``) or wholesale attestation (``human-batch:``, READINESS
+  R3) — so the downgrade cannot launder unverified or merely
+  machine-checked text into the merchant's own markup, while
+  feed-derived catalogs a person took responsibility for still emit.
+  Every object carries ``subjectOf`` pointing back at its bundle
+  concept, where the exact attestation is readable, one hop away.
 * **llms.txt**, a complete file for sites that do not have one. Its
   links point into the published bundle (concept files are markdown —
   exactly what llms.txt consumers want). Links are navigation, not
@@ -33,7 +36,7 @@ import json
 import re
 from pathlib import Path
 
-from .model import Bundle, Concept, TRUST_HUMAN, split_l10n
+from .model import Bundle, Concept, TRUST_HUMAN, TRUST_HUMAN_BATCH, split_l10n
 
 _CONTEXT = "https://schema.org"
 
@@ -245,7 +248,7 @@ def write_structured(
         concept = bundle.concepts.get(rel)
         if concept is None or split_l10n(rel) is not None:
             continue
-        if concept.trust_tier != TRUST_HUMAN:
+        if concept.trust_tier not in (TRUST_HUMAN, TRUST_HUMAN_BATCH):
             continue
         obj = jsonld_for(concept, base, site)
         if obj is None:

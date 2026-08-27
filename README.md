@@ -77,6 +77,11 @@ your `llms.txt`, and your own bots.
 ```bash
 pip install -e .[dev]        # add [llm] for LLM-backed commands (Anthropic)
 
+# The whole first run in one command, no LLM: feed → lint → attest →
+# starter questions → dry-run scorecard → publish (+ jsonld/, llms.txt) → report
+okf-web init my-store --feed products.csv --site https://www.example-store.com \
+    --by you@store.com --pack outdoor
+
 # Inspect the example bundle
 okf-web lint bundle-example --strict
 okf-web review list bundle-example
@@ -99,7 +104,7 @@ okf-web report my-bundle                     # scorecard → shareable HTML repo
 okf-web drift my-bundle                          # did source pages change?
 okf-web publish my-bundle dist/ --freshness withhold   # retire stale concepts
 okf-web review list my-bundle --fail-nonempty    # CI alarm for a rotting queue
-okf-web review batch-approve my-bundle --by you@store.com  # clear the b/c draft tail
+okf-web review batch-approve my-bundle --by you@store.com  # named bulk sign-off (human-attested tier)
 
 # See who's consuming, and verify discovery like an engine would
 okf-web logscan access.log                       # AI-agent fetches (docs/MEASUREMENT.md)
