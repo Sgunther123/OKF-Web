@@ -37,6 +37,22 @@ per-claim footnotes, `stale_after` freshness, and `Attested
 Computation` for facts that must be executed, not stored. No SDK, no
 lock-in; any engine that reads files can consume it.
 
+## Where adoption stands (honestly)
+
+OKF is a real, Google-published spec — framed for enterprise agent
+knowledge. The web convention here — `/.well-known/okf/`, the site
+binding, the `ecommerce-geo` profile — is **this project's**, and no
+generative engine fetches OKF bundles yet. So the toolchain is built
+to pay for itself *without* that bet: every `publish` also emits
+**schema.org JSON-LD** and a complete **`llms.txt`** — formats engines
+read today — derived only from human-verified concepts, with prices
+and stock deliberately absent (live values stay executable, never
+static). `okf-web report` renders the measured answerability lift as
+a shareable page, and `okf-web mcp` serves the bundle to assistants
+now. If engines adopt bundle-style knowledge, yours is already
+published; if they don't, the verified tier still feeds your markup,
+your `llms.txt`, and your own bots.
+
 ## Repository map
 
 | Path | What it is |
@@ -77,6 +93,7 @@ okf-web survey my-bundle --feed products.csv     # catalog from a feed export �
 okf-web survey my-bundle --sitemap https://www.example-store.com --limit 25
 okf-web questions my-bundle --pack outdoor   # or apparel/electronics/grocery (+ .es variants); no LLM
 okf-web evaluate my-bundle --write-scorecard
+okf-web report my-bundle                     # scorecard → shareable HTML report; no LLM
 
 # Keep it honest over time (all LLM-free — nightly-cheap)
 okf-web drift my-bundle                          # did source pages change?
@@ -129,8 +146,11 @@ edition is developed as
 
 `okf-web publish` emits a static tree — bundle + `manifest.json`
 (sha256 delta sync) + `linkmap.json` (page ⇄ concept `<link>` tags) +
-`llms-snippet.txt` (discovery via `llms.txt`). Serve it from the same
-CDN as the site at `/.well-known/okf/`; config snippets are in
+`llms-snippet.txt` (discovery via `llms.txt`) — plus the **derived
+tier**: `jsonld/` (schema.org markup from human-verified concepts,
+one file per concept, `subjectOf` linking back to its source) and a
+complete `llms.txt`. Serve it from the same CDN as the site at
+`/.well-known/okf/`; config snippets are in
 [docs/DESIGN.md §8](docs/DESIGN.md#8-hosting-and-discovery).
 
 **On a hosted platform that can't serve root paths** (Shopify and

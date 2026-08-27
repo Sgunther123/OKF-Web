@@ -290,6 +290,26 @@ The bundle is static files — publishable to the same CDN as the site:
   binding is bidirectional — the pointer sits on the store's origin,
   and `manifest.json` records the claimed `site` — so consumers can
   verify the bundle speaks for the store (GEO-PROFILE §8).
+- **The derived tier — what engines read today** (READINESS R2):
+  `publish` also emits `dist/jsonld/` — schema.org JSON-LD derived
+  from the bundle — and a complete `llms.txt` whose links point into
+  the published concepts. Rules of the derivation: only
+  **human-verified** concepts are restated (the downgrade must not
+  launder unverified text into the merchant's own markup; links, being
+  navigation, cover the whole published set); every object carries
+  `subjectOf` pointing back at its bundle concept, so provenance stays
+  one hop away; and the **live-values rule survives the downgrade** —
+  Product markup carries identity (name, brand, GTIN/MPN/SKU, URL) and
+  deliberately no `offers`, price, or availability. Mappings: Product,
+  FAQ → FAQPage (sections become Q&A, footnote apparatus stripped),
+  Store Identity → Organization, Store Location → LocalBusiness
+  (structured address/hours/phone from `x_geo.location`), returns
+  Policy → minimal MerchantReturnPolicy; types with no faithful
+  mapping emit nothing — better no markup than invented markup. The
+  merchant (or their platform app) places these on the matching pages
+  via `linkmap.json`; if the platform already emits its own Product
+  markup, prefer ours only for the surfaces platforms do badly (FAQ,
+  policies, store identity). Opt out with `--no-structured`.
 - **Freshness plumbing:** standard `ETag`/`Last-Modified` per file;
   `manifest.json` sha256s let an agent sync a 500-concept bundle by
   fetching one JSON file and the handful of changed concepts.
@@ -371,6 +391,22 @@ the citations.
 
 ## 11. Limitations and roadmap
 
+- **Where OKF adoption actually stands (stated plainly).** OKF is a
+  real, Google-published specification — but its own framing is
+  *enterprise agent knowledge*: governed access to an organization's
+  internal knowledge assets. The web-publishing convention this
+  project builds on top — `/.well-known/okf/`, the two-way site
+  binding, the `ecommerce-geo` profile, the premise that engines fetch
+  merchant bundles — is **this project's construction**, and as of
+  this writing **no generative engine fetches OKF bundles**. That is
+  the bet, named honestly. What does not depend on the bet: the
+  derived tier (§8) puts schema.org markup and `llms.txt` — formats
+  engines demonstrably read today — on the site from day one; the
+  answerability report measures value against the merchant's own site
+  with no engine in the loop; and `okf-web mcp` serves the bundle to
+  assistants now. If engines adopt OKF-style bundles, the machine tier
+  is already published; if they never do, the toolchain still earned
+  its keep.
 - **Adoption asymmetry:** engines must choose to read the bundle.
   Mitigations: the bundle is also the cheapest correct source for any
   RAG pipeline the merchant runs (support bots, on-site search), and

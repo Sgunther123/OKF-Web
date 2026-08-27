@@ -38,6 +38,7 @@ from urllib.robotparser import RobotFileParser
 from . import OKF_VERSION, PROFILE
 from .linter import has_errors, lint_bundle
 from .model import Bundle, INTERNAL_DIRS, load_bundle
+from .structured import write_llms_txt, write_structured
 
 
 @dataclass
@@ -46,6 +47,7 @@ class PublishResult:
     published: list[str] = field(default_factory=list)
     withheld: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    structured: list[str] = field(default_factory=list)
 
 
 class PublishError(RuntimeError):
@@ -117,6 +119,7 @@ def publish(
     today: _dt.date | None = None,
     site: str | None = None,
     bundle_url: str | None = None,
+    structured: bool = True,
 ) -> PublishResult:
     """Build the static bundle.
 
@@ -195,6 +198,19 @@ def publish(
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, target)
         result.published.append(rel)
+
+    # Derived tier: what engines read today, generated from the verified
+    # bundle (READINESS R2). Emitted before the manifest so the manifest
+    # hashes — and any signature over it — cover these artifacts too.
+    if structured:
+        base = bundle_url or base_path
+        result.structured = write_structured(
+            dist, bundle, concept_include, base, site=site
+        )
+        result.structured.append(
+            write_llms_txt(dist, bundle, concept_include, base)
+        )
+        result.published.extend(result.structured)
 
     _write_manifest(dist, result.published, site=site, bundle_url=bundle_url)
     _write_linkmap(dist, bundle, result.published, bundle_url or base_path)

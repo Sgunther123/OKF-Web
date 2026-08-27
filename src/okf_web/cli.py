@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 from . import drift as drift_mod
+from . import report as report_mod
 from . import evaluator, linter, publisher, review, signing, surveyor
 from .model import load_bundle
 
@@ -326,11 +327,18 @@ def cmd_publish(args) -> int:
             freshness=args.freshness,
             site=site,
             bundle_url=args.bundle_url,
+            structured=not args.no_structured,
         )
     except publisher.PublishError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     print(f"published {len(result.published)} file(s) to {result.dist}")
+    if result.structured:
+        print(
+            f"derived tier: {len(result.structured) - 1} JSON-LD file(s) "
+            "(jsonld/, human-verified concepts only) + llms.txt — "
+            "structured data engines read today, generated from the bundle"
+        )
     if result.withheld:
         print(
             f"withheld {len(result.withheld)} concept(s) "
@@ -445,6 +453,20 @@ def cmd_logscan(args) -> int:
         )
         if args.fail_empty:
             return 1
+    return 0
+
+
+def cmd_report(args) -> int:
+    try:
+        out = report_mod.write_report(args.bundle, out=args.out)
+    except report_mod.ReportError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    print(f"report written to {out}")
+    print(
+        "open it in a browser, or send it as-is — it is a single "
+        "self-contained HTML file"
+    )
     return 0
 
 
@@ -702,7 +724,24 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--staging", action="store_true", help="use sigstore's staging infrastructure"
     )
+    p.add_argument(
+        "--no-structured",
+        action="store_true",
+        help="skip the derived tier (jsonld/ + llms.txt) — bundle-only publish",
+    )
     p.set_defaults(func=cmd_publish)
+
+    p = sub.add_parser(
+        "report",
+        help="render the scorecard as a shareable HTML answerability report "
+        "(no LLM; reads the scorecard the evaluator wrote)",
+    )
+    p.add_argument("bundle")
+    p.add_argument(
+        "--out",
+        help="output path (default: <bundle>/evaluations/geo-report.html)",
+    )
+    p.set_defaults(func=cmd_report)
 
     p = sub.add_parser("sign", help="sigstore-sign a published bundle's manifest.json")
     p.add_argument("dist", help="published bundle directory (from `okf-web publish`)")

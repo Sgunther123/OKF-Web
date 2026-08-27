@@ -341,7 +341,7 @@ refuses loopback/private/link-local hosts unless
 `--allow-private-hosts` is passed (literal-host check; the DNS-rebinding
 limitation is documented at the guard).
 
-### R2 — Value that does not wait for engines (the pivot)
+### R2 — Value that does not wait for engines (the pivot) — **shipped**
 
 Closes: **A8**, materially mitigates **A3**, sets up **A5** and **A7**.
 
@@ -377,6 +377,27 @@ Exit: a merchant who installs this, publishes, and is never fetched by
 a single engine still has (a) structured data on their site that
 current engines use, (b) a report showing measured answerability lift,
 and (c) an MCP endpoint their own team can query.
+
+Shipped form. (1) `publish` now emits the **derived tier** by default
+(`--no-structured` opts out): `dist/jsonld/` with one schema.org file
+per eligible concept — Product, FAQPage, Organization, LocalBusiness,
+minimal MerchantReturnPolicy — restating **only human-verified**
+concepts, each carrying `subjectOf` back to its bundle source; plus a
+complete `llms.txt` whose links point into the published bundle (the
+paste-in snippet remains). One refinement over the plan text: Product
+markup ships **no `offers` at all** rather than an Offer aimed at the
+capability endpoint — an Offer without a price adds nothing and an
+API-URL Offer misuses the vocabulary, while the live-values rule
+must survive the downgrade; the capability stays one `subjectOf` hop
+away. Emission happens before the manifest is written, so manifest
+hashes and any signature cover the derived tier too. (2) `okf-web
+report` renders the scorecard as a single self-contained HTML page
+(`report.py`; no LLM, no dependencies — reads the scorecard the
+evaluator wrote, headline tiles, per-topic coverage, measured gaps,
+trust posture; dry-run scorecards render honestly as retrieval-only).
+(3) The adoption position is stated plainly in README ("Where
+adoption stands (honestly)") and DESIGN §11, and the derivation rules
+are now invariants in the working agreement.
 
 ### R3 — Honest defaults and a shorter first run
 

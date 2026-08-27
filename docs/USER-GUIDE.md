@@ -197,6 +197,18 @@ Tip: add `--published` to the evaluate command to grade only what's
 actually published — unapproved drafts are excluded, which is exactly
 what AI assistants really see. Use that mode for the score you trust.
 
+Then turn the scorecard into something you can actually show someone:
+
+```
+okf-web report my-store
+```
+
+This writes a single web page (`evaluations/geo-report.html`) with
+the numbers in plain English — what an AI can answer about your
+store, what it can't yet, and why the answers can be trusted. Open it
+in a browser, or email the file as-is; it needs nothing else to
+display.
+
 ### Step 6 — Publish
 
 ```
@@ -206,6 +218,14 @@ okf-web publish my-store dist
 This builds the final folder (called `dist`) — and here the safety
 net shows itself: anything high-stakes that a person hasn't approved
 is **withheld**, and the tool tells you what it held back.
+
+The folder also includes two bonuses your web person will want
+regardless of AI bundles: a `jsonld/` folder of **structured data**
+(the machine-readable labels search and shopping engines already read
+today — generated only from facts a person approved, and never
+containing prices or stock, which go stale) and a ready-made
+`llms.txt` file. Ask them to add the structured data to the matching
+pages and serve `llms.txt` at the site root.
 
 Send the `dist` folder to whoever manages your website and ask them
 to serve it at:
@@ -488,6 +508,7 @@ technical docs live alongside this guide:
 | Send one back | `okf-web review reject my-store <file> --by you@yourstore.com --reason "…"` |
 | Draft fact sheets from your site | `okf-web survey my-store --sitemap https://yourstore.com --limit 25 --llm claude-code` |
 | Get the report card | `okf-web evaluate my-store --write-scorecard --llm claude-code` |
+| Turn it into a shareable page (free) | `okf-web report my-store` |
 | Build the publishable folder | `okf-web publish my-store dist` |
 | See if source pages changed (free) | `okf-web drift my-store` |
 | Leave stale sheets out when publishing | `okf-web publish my-store dist --freshness withhold` |
