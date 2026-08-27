@@ -43,7 +43,7 @@ What was actually run, so the findings can be re-derived:
 
 "Adversarial" here means: assume the docs are advocacy, assume the
 happy path was the only path tested, and prefer a measurement to a
-claim. Findings that turned out to be non-issues are recorded in §5
+claim. Findings that turned out to be non-issues are recorded in §3
 rather than dropped, because a reviewer's silence reads as an oversight.
 
 ## 2. Findings
@@ -55,7 +55,7 @@ rather than dropped, because a reviewer's silence reads as an oversight.
 | A3 | adoption | **high, strategic** | No engine consumes OKF bundles today; the consumption convention is ours alone |
 | A4 | security | medium-high | `okf_execute` fetches any host a bundle declares; nothing constrains it |
 | A5 | adoption | medium | First publish yields an empty bundle; the sanctioned unblock dilutes the trust signal |
-| A6 | scale | medium | Every command re-parses the whole bundle; ~7.4 s at 5,000 concepts |
+| A6 | scale | medium | Every command re-parses the whole bundle; 7–10 s at 5,000 concepts |
 | A7 | suitability | medium | Lexical retrieval misses roughly a quarter of synonym-phrased questions |
 | A8 | adoption | medium, strategic | Nothing is emitted in the formats engines read *today* |
 | A9 | distribution | medium | Not on PyPI, not listed anywhere; discovery path is word of mouth |
@@ -67,8 +67,8 @@ rather than dropped, because a reviewer's silence reads as an oversight.
 (`src/okf_web/linter.py:486`) fires W021 once `today >= stale_after`,
 and `cmd_lint` exits non-zero when `--strict` is set and any warning is
 present (`src/okf_web/cli.py:94`). CI runs exactly that command with
-the real date (`.github/workflows/ci.yml`, "okf-web lint bundle-example
---strict").
+the real date (`.github/workflows/okf-ci.yml:21`, "okf-web lint
+bundle-example --strict").
 
 Swept forward, the example bundle lints 0 errors / 0 warnings today and
 0 errors / **1 warning** from 2026-09-16 onward. The test suite does
@@ -185,26 +185,29 @@ without slowing anyone down.
 ### A6 — Every command pays for the whole bundle
 
 `load_bundle` parses every concept file on every invocation. Measured
-on the 5,000-product bundle: feed ingest 8 s, `lint --strict` 6.8 s,
-`batch-approve` 16 s, `publish` 15 s (23 MB, 5,001 files), and a fixed
-~7.4 s load tax before *any* command does its own work. Extrapolated
-linearly, a 50,000-SKU catalog pays ~75 s per command.
+on the 5,000-product bundle (two independent runs; the ranges are the
+run-to-run spread): feed ingest ~8 s, `lint --strict` 7–8 s,
+`batch-approve` ~16 s, `publish` ~15 s (23 MB, 5,004 files), and a
+fixed 7–10 s load tax before *any* command does its own work.
+Extrapolated linearly, a 50,000-SKU catalog pays on the order of
+75–100 s per command.
 
 Nothing here is pathological — the ingest path was already made
 single-load, and 5,000 products is a real store — but the cost is
 per-invocation and unavoidable, which makes routine operations (a
 nightly drift sweep, a CI lint) scale with catalog size rather than
-with change size. `okf_search` similarly costs ~200 ms per query with
+with change size. `okf_search` similarly costs 200–300 ms per query with
 no inverted index, which is fine for an assistant and not fine for a
 site-embedded search box.
 
 ### A7 — Retrieval is lexical, and shoppers are not
 
-Retrieval hit@4 was 1.000 when questions named the product and 0.995
-for the hashing embedder — excellent, and also the easy case. Phrased
-the way a shopper actually asks ("something warm enough for freezing
-nights" rather than the product name), roughly a quarter of questions
-missed: 9–10 of 12 in the trials.
+Retrieval hit@4 was 1.000 (200/200) when questions named the product,
+and 0.995 for the hashing embedder — excellent, and also the easy
+case. Phrased the way a shopper actually asks ("something warm enough
+for freezing nights" rather than the product name), hit@4 fell to
+9–10 of 12 in the trials — roughly a quarter of shopper-phrased
+questions missed.
 
 This is honest by construction and documented as such —
 `src/okf_web/retrieval.py:13` says the hashing embedder's "quality is
@@ -216,6 +219,14 @@ key. The finding is not that the code is wrong; it is that the
 with the bundle, and a merchant will therefore see a better number
 than their shoppers will experience. A scorecard that reported both
 phrasings would be measuring the thing that matters.
+
+The full evaluation's judged metrics carry a sibling of the same bias:
+`evaluator.evaluate` uses **one LLM client for both the answer and the
+judge calls** (`src/okf_web/evaluator.py:316-330`), so coverage,
+groundedness and citability are a model grading its own family's work,
+and the scorecard records only a single `generated.by` identity.
+Self-graded 0.949 coverage is evidence, not proof; the honest fixes
+are cheap and listed in R3.
 
 ### A8 — Nothing is emitted in the formats engines read today
 
@@ -286,7 +297,7 @@ odds.
 
 ### R1 — Stop the clock (same day, no design change)
 
-Closes: **A1, A2**, and the cheap half of **A4**.
+Closes: **A1, A2, A4**.
 
 1. **Defuse the dated lint failure.** Re-measure the example bundle's
    scorecard and re-stamp its `stale_after`, then make the fuse
@@ -322,7 +333,7 @@ of leverage.
 1. **Emit what engines read today.** A `publish`-time emitter that
    derives schema.org JSON-LD from the verified bundle — `Product`,
    `Offer` (pointing at the capability endpoint rather than stating a
-   price), `FAQPage`, `Store`/`LocalBusiness`, `Return­Policy` — plus a
+   price), `FAQPage`, `Store`/`LocalBusiness`, `ReturnPolicy` — plus a
    real `llms.txt` body rather than only a pointer. One module, no new
    dependencies, generated exclusively from human-verified concepts so
    the provenance story survives the downgrade. This converts the
@@ -362,7 +373,10 @@ Closes: **A5, A7**; unblocks **A9**.
    rate reflects shopper vocabulary, not curated vocabulary. If the
    number drops, that is the finding — it is what a merchant's
    customers will experience, and it is the argument for the semantic
-   retriever.
+   retriever. The same pass should decouple the judged metrics from
+   self-grading: let the judge run on a different model than the
+   answerer — or, at minimum, record both identities in the scorecard
+   so a reader can see when they coincide.
 3. **Cut the first run to one command.** A guided `okf-web init` that
    takes a store URL or a feed, runs ingest → lint → batch-approve
    (with the new tier) → publish → report, and ends by printing the
