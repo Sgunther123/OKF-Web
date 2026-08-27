@@ -5,7 +5,7 @@ description: Materials, origin, certifications, and repairability for the Ridgel
 resource: https://www.alpinepeakoutfitters.example/passport/APO-BAG-R20
 tags: [passport, materials, origin, certifications, repairability]
 status: stable
-stale_after: 2027-08-01
+stale_after: 2028-08-01
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-16T22:05:33Z

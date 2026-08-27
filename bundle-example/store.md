@@ -5,7 +5,7 @@ description: Independent outdoor-gear retailer selling backpacking tents, sleepi
 resource: https://www.alpinepeakoutfitters.example/about
 tags: [store, about, contact, trust]
 status: stable
-stale_after: 2027-02-01
+stale_after: 2028-02-01
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:12:41Z

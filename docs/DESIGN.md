@@ -1,7 +1,7 @@
 # OKF-Web: A Companion Knowledge Layer for Ecommerce GEO
 
 **Status:** v1 design · **Format:** Open Knowledge Format (OKF) v0.2
-([spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf))
+([spec](https://github.com/GoogleCloudPlatform/open-knowledge-format))
 · **Profile:** `ecommerce-geo/1.10`
 
 ## 1. Problem

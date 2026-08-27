@@ -5,7 +5,7 @@ description: Mummy-style 650-fill down sleeping bag with a -7 °C (20 °F) EN li
 resource: https://www.alpinepeakoutfitters.example/products/ridgeline-20-sleeping-bag
 tags: [sleeping-bags, backpacking, down, three-season]
 status: stable
-stale_after: 2026-11-02
+stale_after: 2027-11-02
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:24:58Z

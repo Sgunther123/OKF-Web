@@ -5,7 +5,7 @@ description: Two-person, three-season freestanding backpacking tent with a 1.9 k
 resource: https://www.alpinepeakoutfitters.example/products/alpine-2-tent
 tags: [tents, backpacking, three-season, two-person]
 status: stable
-stale_after: 2026-11-02
+stale_after: 2027-11-02
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:21:36Z

@@ -5,7 +5,7 @@ description: Returns current availability and estimated dispatch time for a SKU.
 resource: https://www.alpinepeakoutfitters.example/api/v1/stock
 tags: [capability, inventory, api]
 status: stable
-stale_after: 2027-02-01
+stale_after: 2028-02-01
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:34:41Z

@@ -5,7 +5,7 @@ description: Which Ridgeline 20 length fits your height, and what fits side by s
 resource: https://www.alpinepeakoutfitters.example/size-guide
 tags: [fit, sizing, size-guide, pairing]
 status: stable
-stale_after: 2026-11-02
+stale_after: 2027-11-02
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-15T08:40:22Z

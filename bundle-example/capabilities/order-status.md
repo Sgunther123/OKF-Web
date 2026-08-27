@@ -5,7 +5,7 @@ description: Returns the fulfillment status of an order to a requester holding t
 resource: https://www.alpinepeakoutfitters.example/api/v1/orders
 tags: [capability, orders, api]
 status: stable
-stale_after: 2027-02-01
+stale_after: 2028-02-01
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:36:02Z

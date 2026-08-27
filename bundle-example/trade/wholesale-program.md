@@ -5,7 +5,7 @@ description: Who qualifies for wholesale, the opening-order minimum, payment ter
 resource: https://www.alpinepeakoutfitters.example/trade
 tags: [wholesale, trade, b2b, procurement]
 status: stable
-stale_after: 2027-02-01
+stale_after: 2028-02-01
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-17T01:12:40Z

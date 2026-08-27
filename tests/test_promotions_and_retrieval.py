@@ -102,13 +102,13 @@ def test_select_publishable_honors_pinned_today(bundle_copy):
     bundle = load_bundle(bundle_copy)
     active_include, _ = select_publishable(bundle, today=dt.date(2026, 8, 5))
     expired_include, expired_withheld = select_publishable(
-        bundle, today=dt.date(2027, 1, 1)
+        bundle, today=dt.date(2028, 1, 15)
     )
     assert "promotions/fall-clearance.md" in active_include
     assert "promotions/fall-clearance.md" not in expired_include
     assert "promotions/fall-clearance.md" in expired_withheld
     # published_view mirrors the same clock.
-    view = published_view(bundle, today=dt.date(2027, 1, 1))
+    view = published_view(bundle, today=dt.date(2028, 1, 15))
     assert "promotions/fall-clearance.md" not in view.concepts
 
 

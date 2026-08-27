@@ -4,7 +4,7 @@ title: Answerability evaluation — 2026-08-17
 description: Machine-generated answerability scorecard for this bundle; see x_geo.metrics for the numbers.
 tags: [evaluation, geo]
 status: stable
-stale_after: 2026-09-16
+stale_after: 2027-09-16
 generated:
   by: okf-web-evaluator/claude-sonnet-5
   at: 2026-08-17T00:20:44Z

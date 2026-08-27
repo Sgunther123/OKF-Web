@@ -7,7 +7,7 @@ from okf_web.publisher import publish, published_view, select_publishable
 from okf_web.surveyor import stable_page_hash
 
 TODAY = dt.date(2026, 8, 5)
-FUTURE = dt.date(2027, 6, 1)  # past every stale_after in the example bundle
+FUTURE = dt.date(2028, 12, 1)  # past every stale_after in the example bundle
 SITE = "https://www.alpinepeakoutfitters.example"
 
 _STALE_FAQ = (

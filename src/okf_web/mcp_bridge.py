@@ -36,6 +36,7 @@ Claude Desktop config (``claude_desktop_config.json``)::
 from __future__ import annotations
 
 import datetime as _dt
+import ipaddress
 import json
 import sys
 import urllib.parse
@@ -60,12 +61,37 @@ def _http_get(url: str, timeout: float = 15.0) -> tuple[int, str]:
         return response.status, response.read().decode(charset, errors="replace")
 
 
+def _is_private_host(hostname: str) -> bool:
+    """True for hosts okf_execute must not fetch by default: loopback
+    and mDNS-style names, and literal IPs in loopback, private,
+    link-local, reserved, multicast, or unspecified ranges. Checks the
+    URL's literal host only — a public name that *resolves* to a
+    private address is not caught here (DNS rebinding); merchants
+    running against such setups opt in with --allow-private-hosts."""
+    host = hostname.lower().rstrip(".")
+    if host == "localhost" or host.endswith(".localhost") or host.endswith(".local"):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return (
+        ip.is_loopback
+        or ip.is_private
+        or ip.is_link_local
+        or ip.is_reserved
+        or ip.is_multicast
+        or ip.is_unspecified
+    )
+
+
 @dataclass
 class BridgeState:
     bundle: Bundle
     retriever: Callable[[Bundle, str, int], list[Concept]]
     top_k: int = 4
     http_get: Callable[[str], tuple[int, str]] = field(default=_http_get)
+    allow_private_hosts: bool = False
 
 
 def build_state(
@@ -77,6 +103,7 @@ def build_state(
     http_get: Callable[[str], tuple[int, str]] | None = None,
     today: _dt.date | None = None,
     lang: str | None = None,
+    allow_private_hosts: bool = False,
 ) -> BridgeState:
     bundle = load_bundle(bundle_root)
     if lang:
@@ -88,6 +115,7 @@ def build_state(
         retriever=retriever or evaluator.retrieve,
         top_k=top_k,
         http_get=http_get or _http_get,
+        allow_private_hosts=allow_private_hosts,
     )
 
 
@@ -209,6 +237,20 @@ def _tool_execute(state: BridgeState, args: dict) -> dict[str, Any]:
     # as DNS noise from a literal `{region}` hostname.
     if "{" in url:
         raise ValueError(f"executor template has undeclared placeholders: {url}")
+
+    # A bundle is data; the hosts it names must not become a bridge into
+    # the operator's own network (READINESS A4). Loopback, private, and
+    # link-local targets are refused unless the merchant opted in for
+    # self-testing against a dev host.
+    host = urllib.parse.urlsplit(url).hostname or ""
+    if not host:
+        raise ValueError(f"{path} executor URL has no host: {url}")
+    if not state.allow_private_hosts and _is_private_host(host):
+        raise ValueError(
+            f"{path} executor points at a private or local host ({host}); "
+            "refusing to fetch. Run `okf-web mcp` with "
+            "--allow-private-hosts to permit this for local testing."
+        )
 
     status, body = state.http_get(url)
     return {

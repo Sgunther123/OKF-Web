@@ -5,7 +5,7 @@ description: Backpacking and camping tents sold by Alpine Peak Outfitters, curre
 resource: https://www.alpinepeakoutfitters.example/collections/tents
 tags: [collection, tents, backpacking]
 status: stable
-stale_after: 2026-11-02
+stale_after: 2027-11-02
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:18:12Z

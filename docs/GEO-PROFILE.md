@@ -1,7 +1,7 @@
 # The `ecommerce-geo/1.10` Profile for OKF v0.2
 
 This profile specializes the
-[Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
+[Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format)
 for storefront companion bundles. It adds **no breaking changes**: a
 profile bundle is a fully conformant OKF v0.2 bundle (unknown types
 and keys are legal for OKF consumers), and any OKF reader can consume
@@ -222,6 +222,14 @@ for public storefront endpoints:
 - Etiquette in `x_geo`: `rate_limit`, `auth`. Endpoints exposed here
   MUST be safe for anonymous automated callers: read-only, no PII
   beyond token-gated fulfillment state, rate-limited server-side.
+- **Endpoint locality.** Capability endpoints are expected on the
+  declared site's own domain; the linter flags an executor host
+  outside it (W037) so a delegation — or bait aimed at whoever
+  executes the bundle — is conspicuous before publishing. Executors,
+  in turn, refuse loopback/private/link-local targets by default
+  (`okf-web mcp --allow-private-hosts` opts a local dev server back
+  in): a bundle is data, and the hosts it names must not become a
+  bridge into the operator's network.
 - **Mutating flows are never capabilities.** Registration, claim
   filing, ordering — anything that changes state — is described in
   concept bodies with links to the store's own pages, not exposed as
@@ -357,6 +365,7 @@ path position is the binding.
 | W034 | warn | `Policy`/`Promotion`/`Store Identity` declaring a risk below the type table's `a` floor — a lower declared risk would unlock batch approval |
 | W035 | warn | Malformed source credibility signal (SPEC §5.1): `usage_count` not a non-negative integer, `last_modified` not a date, or `usage_window` without `from`/`to` dates |
 | W036 | warn | `attester.resource` names an endpoint instead of deterministic verifier code, or a bundle-relative attester artifact missing from the bundle |
+| W037 | warn | Capability `executor.resource` host lies outside the declared site's domain — a delegation worth a human glance before publishing (legitimate ones exist; they must be conspicuous) |
 | W040 | warn | (`--strict-okf` only) declared base-spec deviation: index frontmatter beyond SPEC §8's allowance (§7) |
 
 Errors block publishing; `--strict` promotes warnings for CI.

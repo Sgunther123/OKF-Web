@@ -333,3 +333,39 @@ def test_feed_source_carries_last_modified(tmp_path):
     feed.ingest_feed(feed_path, root)
     concept = load_bundle(root).concepts["catalog/products/mug.md"]
     dt.date.fromisoformat(concept.sources[0]["last_modified"])  # a real date
+
+
+# --- R1.2: spec rev ad30107 — ISO datetime stamps are read ----------------
+
+def test_datetime_freshness_stamps_are_read():
+    """SPEC (open-knowledge-format@ad30107) makes every timestamp key an
+    ISO 8601 datetime. The reader accepts both forms; comparison stays
+    date-granular, erring toward staleness for mid-day instants (the
+    conservative direction). Writing instants is FIDELITY F5."""
+    utc = dt.timezone.utc
+    for stamp in (
+        "2026-09-23T14:00:00Z",                       # quoted string form
+        dt.datetime(2026, 9, 23, 14, tzinfo=utc),     # YAML-parsed form
+        "2026-09-23",                                 # old date form
+        dt.date(2026, 9, 23),
+    ):
+        concept = Concept("c.md", {"type": "FAQ", "stale_after": stamp}, "\nbody\n")
+        assert concept.is_stale(dt.date(2026, 9, 23)), stamp
+        assert not concept.is_stale(dt.date(2026, 9, 22)), stamp
+
+
+def test_datetime_credibility_signals_validate(tmp_path):
+    (tmp_path / "c.md").write_text(
+        "---\n"
+        "type: FAQ\n"
+        "title: Signals\n"
+        "sources:\n"
+        "  - id: s\n"
+        "    resource: https://www.shop.example/faq\n"
+        "    last_modified: 2026-06-18T00:00:00Z\n"
+        "    usage_count: 40\n"
+        "usage_window: { from: 2026-06-01T00:00:00Z, to: 2026-06-30T00:00:00Z }\n"
+        "---\n\nAnswer.[^s]\n\n[^s]: s.\n"
+    )
+    _, findings = lint_bundle(tmp_path)
+    assert not any(f.code == "W035" for f in findings)

@@ -5,7 +5,7 @@ description: How to wash, dry, store, and get warranty help for the Ridgeline 20
 resource: https://www.alpinepeakoutfitters.example/care/ridgeline-20
 tags: [care, washing, storage, warranty, owners]
 status: stable
-stale_after: 2027-02-01
+stale_after: 2028-02-01
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-16T09:05:12Z

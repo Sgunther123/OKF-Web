@@ -5,7 +5,7 @@ description: Returns the current status of a filed warranty claim, given the cla
 resource: https://www.alpinepeakoutfitters.example/api/v1/warranty-claim
 tags: [capability, warranty, support, api]
 status: stable
-stale_after: 2027-02-01
+stale_after: 2028-02-01
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-16T09:08:47Z

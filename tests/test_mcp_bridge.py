@@ -163,3 +163,69 @@ def test_serve_stdio_round_trip(example_bundle):
     assert lines[0]["id"] == 1 and "result" in lines[0]
     assert lines[1]["error"]["code"] == -32700
     assert lines[2]["id"] == 2 and len(lines[2]["result"]["tools"]) == 5
+
+
+# --- R1: private-host refusal in okf_execute ------------------------------
+
+def _private_cap_bundle(tmp_path, url):
+    (tmp_path / "cap.md").write_text(
+        "---\n"
+        "type: Attested Computation\n"
+        "title: Local check\n"
+        "runtime: http\n"
+        "executor:\n"
+        f"  resource: {url}\n"
+        "---\n\nLive value.\n"
+    )
+    return tmp_path
+
+
+def test_execute_refuses_private_hosts(tmp_path):
+    calls = []
+    for url in (
+        "http://127.0.0.1/price",
+        "http://localhost:8080/price",
+        "http://10.0.0.1/price",
+        "http://169.254.169.254/latest/meta-data/",
+        "http://[::1]/price",
+        "http://0.0.0.0/price",
+        "http://printer.local/price",
+    ):
+        bundle_dir = tmp_path / url.replace("/", "_").replace(":", "_")
+        bundle_dir.mkdir()
+        _private_cap_bundle(bundle_dir, url)
+        state = build_state(
+            bundle_dir, working=True, http_get=lambda u: calls.append(u) or (200, "{}")
+        )
+        result, text = _call(state, "okf_execute", {"path": "cap.md"})
+        assert result["isError"], url
+        assert "private or local host" in text, url
+        assert "--allow-private-hosts" in text, url
+    assert calls == []  # the guard fires before any fetch
+
+
+def test_allow_private_hosts_opts_in(tmp_path):
+    seen = {}
+    bundle_dir = _private_cap_bundle(tmp_path, "http://127.0.0.1:9000/price")
+    state = build_state(
+        bundle_dir,
+        working=True,
+        http_get=lambda u: (seen.setdefault("url", u), (200, "{}"))[1],
+        allow_private_hosts=True,
+    )
+    result, text = _call(state, "okf_execute", {"path": "cap.md"})
+    assert not result.get("isError")
+    assert seen["url"].startswith("http://127.0.0.1:9000/")
+
+
+def test_public_hosts_still_execute(tmp_path):
+    seen = {}
+    bundle_dir = _private_cap_bundle(tmp_path, "https://api.shop.example/price")
+    state = build_state(
+        bundle_dir,
+        working=True,
+        http_get=lambda u: (seen.setdefault("url", u), (200, "{}"))[1],
+    )
+    result, _ = _call(state, "okf_execute", {"path": "cap.md"})
+    assert not result.get("isError")
+    assert seen["url"] == "https://api.shop.example/price"

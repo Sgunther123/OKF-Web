@@ -5,7 +5,7 @@ description: Store-branded gear carries a two-year warranty against manufacturin
 resource: https://www.alpinepeakoutfitters.example/policies/warranty
 tags: [policy, warranty]
 status: draft
-stale_after: 2027-02-01
+stale_after: 2028-02-01
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:16:44Z

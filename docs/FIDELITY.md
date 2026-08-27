@@ -3,16 +3,28 @@
 **Status:** measured audit, 2026-08-17 · Companion to [DESIGN.md](DESIGN.md),
 [GEO-PROFILE.md](GEO-PROFILE.md), and [EXPANSION.md](EXPANSION.md).
 
-**Reference:** the Open Knowledge Format specification published in
-[`GoogleCloudPlatform/knowledge-catalog`](https://github.com/GoogleCloudPlatform/knowledge-catalog)
-at `okf/SPEC.md` (OKF **v0.2** — the same version this project targets),
-audited at upstream commit `fe3268a` (2026-08-14). That repository also
-carries a reference implementation (`okf/src`) and sample bundles
-(`okf/bundles/stackoverflow`, `okf/bundles/acme_retail`) which were used to
-check conventions the prose leaves loose. Code findings below were verified
-against this repository's source at profile 1.9 with the full verification
-loop green (173 tests twice, `lint --strict` 0/0, dry-run at the reference
-numbers) — every finding is latent, none is a current regression.
+**Reference:** the Open Knowledge Format specification's canonical home,
+[`GoogleCloudPlatform/open-knowledge-format`](https://github.com/GoogleCloudPlatform/open-knowledge-format)
+at `SPEC.md` (OKF **v0.2** — the same version this project targets),
+re-audited at upstream commit `ad30107` (2026-08-27). The original audit ran
+against the spec's prior location, `GoogleCloudPlatform/knowledge-catalog`
+at `okf/SPEC.md`, commit `fe3268a` (2026-08-14); that copy is now declared a
+frozen, unmaintained snapshot by its own README, and this document tracks
+the living repository instead (READINESS R1.2). The reference repository
+also carries the implementation and sample bundles
+(`bundles/stackoverflow`, `bundles/acme_retail`) used to check conventions
+the prose leaves loose. Code findings below were verified against this
+repository's source at profile 1.9 with the full verification loop green
+(173 tests twice, `lint --strict` 0/0, dry-run at the reference numbers) —
+every finding is latent, none is a current regression.
+
+**Delta at re-audit (fe3268a → ad30107):** exactly one normative change —
+every timestamp-valued key (`stale_after`, `sources[].last_modified`,
+`usage_window.from/to`) is now an ISO 8601 datetime with an explicit UTC
+offset, and staleness reads `now >= stale_after`; §5/§11 also drop a
+duplicated timestamp-conformance bullet. Every §2 verdict below survives
+the rev; the format change is recorded as **D15** and its writer-side
+migration as **F5** (§4).
 
 ## 1. Verdict
 
@@ -23,7 +35,8 @@ tolerant consumption of unknown types and keys; `sources` with keyed footnote
 attribution; `generated`/`verified` with the actor convention and the
 three trust tiers keyed on the `human:` prefix; bare-mapping `verified`
 normalized to a one-element list (a consumer MUST); `status` defaulting to
-`stable`; absolute-date `stale_after`; bundle-absolute and relative links
+`stable`; absolute `stale_after` (read at date granularity — D15);
+bundle-absolute and relative links
 with broken links tolerated; reserved `index.md`/`log.md`; `okf_version`
 read from the root index; and the full Attested Computation contract
 (`runtime` required and lint-enforced as E011, `parameters` as
@@ -35,10 +48,13 @@ invites, the profile only *tightens* producer requirements (consumers stay
 permissive), and the live-values rule is a domain-correct application of
 §10's "record the computation, not the value."
 
-The deviations that do exist are enumerated below: two spec-conformance
-deviations (D5, D12), one weak convention (D13), one unexercised spec family
-(D14), and ten code-level findings (D1–D4, D6–D11) where the implementation
-undercuts its own invariants or its consumer surfaces.
+The deviations the original audit found are enumerated below: two
+spec-conformance deviations (D5, D12), one weak convention (D13), one
+unexercised spec family (D14), and ten code-level findings (D1–D4, D6–D11)
+where the implementation undercut its own invariants or its consumer
+surfaces. All fourteen are closed by the shipped phases F1–F4. The
+re-audit at `ad30107` opened one new finding, **D15** (timestamp
+precision), whose writer-side migration is the open Phase F5.
 
 ## 2. Conformance audit by spec section
 
@@ -49,17 +65,17 @@ undercuts its own invariants or its consumer surfaces.
 | §4.1 | `type` required; unknown types/keys tolerated | ✓ | linter E001-family (producer gate only); loader is permissive |
 | §4.1 | Extensions via producer-defined keys | ✓ | the `x_geo` namespace |
 | §5.1 | `sources[].resource` required; keyed footnote attribution | ✓ | linter source/footnote checks; `feed.item_to_document` |
-| §5.1 | Source credibility signals (`author`, `usage_count`, `last_modified`, `usage_window`) | **gap** | D14 — neither emitted nor consumed |
+| §5.1 | Source credibility signals (`author`, `usage_count`, `last_modified`, `usage_window`) — datetimes since ad30107 | ✓ (closed, F4) | D14 — W035 validates, feed/example emit, retrieval surfaces; datetime values read (D15 test) |
 | §5.2 | `generated {by, at}`; `verified` list; bare mapping = one-element list (MUST) | ✓ | `model.Concept.verified_entries` |
 | §5.3 | Trust tiers from `verified` + `human:` prefix | ✓ | `model.Concept.trust_tier` |
 | §5.4 | `status` absent ⇒ `stable` | ✓ | `model.Concept.status` |
-| §5.5 | Stale when `today >= stale_after` | **deviation** | D5 — implemented as strict `>` |
+| §5.5 | Stale when `now >= stale_after` (datetime since ad30107) | **deviation** | D5 (closed, F1) — `>=` shipped; date-granular reading of instants is D15, conservative |
 | §6 | `/`-absolute + relative links; broken links tolerated | ✓ | `model.Bundle.resolve_link`; W-codes warn, never reject |
 | §7 | Actor convention (`producer/version`, `human:`, `process:`) | ✓ | surveyor/feed stamps; trust tiers |
-| §8 | Index frontmatter: only `okf_version`, root only | **deviation** | D12 — root index also carries `title`/`description`/`x_geo` |
+| §8 | Index frontmatter: only `okf_version`, root only | **deviation, declared** | D12 (declared, F4) — root index carries the site binding; W040 reports under `--strict-okf` |
 | §9 | `log.md`: ISO date headings, newest first | ✓ | `bundle-example/log.md` |
 | §10.2 | Attested Computation: `runtime` REQUIRED; `parameters` typed; `executor.receipt` | ✓ | E011; `bundle-example/capabilities/*` |
-| §10.2 | `attester.resource` names deterministic verifier code | **weak** | D13 — points at the endpoint itself |
+| §10.2 | `attester.resource` names deterministic verifier code | ✓ (closed, F4) | D13 — W036 enforces; `/attesters/http_refetch.py` ships in the example |
 | §11 | Consumer permissiveness (no rejection for optional families) | ✓ | loader + evaluator + publisher |
 | §12 | `okf_version` declared in root index | ✓ | `bundle-example/index.md`, `model.Bundle.okf_version` |
 
@@ -131,6 +147,18 @@ with file/line anchors; D5, D12–D14 are the spec-conformance items.
   trust-inference machinery — precisely the GEO use case — yet the surveyor
   prompt requests only `last_modified`, the feed emits none, the linter
   validates none, and no consumer surface reads them.
+
+- **D15 — Timestamp precision (spec rev ad30107).** The spec now makes
+  every timestamp-valued key an ISO 8601 datetime with an explicit UTC
+  offset (`2026-06-30T14:00:00Z`), staleness reading `now >= stale_after`.
+  The **reader side already conforms**: `model._as_date` accepts datetime
+  objects and ISO datetime strings alongside bare dates (tested in
+  `test_fidelity.py`), truncating to date precision — which marks a mid-day
+  instant stale from the start of its day, the conservative direction. The
+  **writer side deviates, declared**: this profile emits date-precision
+  stamps (`stale_after`, feed `last_modified`) and its own `x_geo` date
+  keys, which new-spec strict consumers will read (tolerantly, per §11) as
+  midnight instants. Migration to instant-precision emission is Phase F5.
 
 Minor doc drift, folded into Phase F1 chores: the evaluator module
 docstring still says "seven shopping intents" (there are thirteen
@@ -214,10 +242,25 @@ missing artifact); the reference comparator lives at
 `/attesters/http_refetch.py` in the example bundle and publishes with
 it; `lint --strict-okf` reports W040; the example FAQ and Store
 Identity sources carry live signals; the feed stamps `last_modified`
-from the file itself. All four phases of this plan are complete — the
-audit table in §2 should be re-run against the next OKF spec revision
-when one lands (the reference repo is versioned; MEMORY records the
-audited commit).
+from the file itself.
+
+### Phase F5 — Instant-precision timestamps (D15) — planned
+
+Emit ISO 8601 datetime stamps wherever the base spec now expects them:
+`stale_after` in generated concepts and the surveyor prompt contract,
+feed-derived `sources[].last_modified`, and the example bundle's stamps,
+with `is_stale` gaining instant-granular comparison when given a
+datetime clock. Profile-owned `x_geo` date keys (`ends_at`,
+`source_fetched_at`) migrate together or are declared date-precision in
+GEO-PROFILE §7 — decided when the phase is implemented. Reader
+tolerance for both forms already ships and is pinned by tests (D15), so
+this phase is writer-side only and additive; it lands as a normal
+feature commit when scheduled.
+
+F1–F4 are complete; F5 is open. The audit table in §2 should be re-run
+against the next OKF spec revision when one lands (the reference repo
+is versioned; MEMORY records the audited commit — currently `ad30107`
+in `GoogleCloudPlatform/open-knowledge-format`).
 
 ## 5. Why fidelity is the adoption lever
 

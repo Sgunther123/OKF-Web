@@ -5,7 +5,7 @@ description: Returns whether a SKU is currently stocked at a specific physical s
 resource: https://www.alpinepeakoutfitters.example/api/v1/store-stock
 tags: [capability, stock, stores, pickup, api]
 status: stable
-stale_after: 2027-02-01
+stale_after: 2028-02-01
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-16T23:44:51Z

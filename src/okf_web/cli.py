@@ -459,6 +459,7 @@ def cmd_mcp(args) -> int:
         retriever=retriever,
         top_k=args.top_k,
         lang=args.lang,
+        allow_private_hosts=args.allow_private_hosts,
     )
     view = "working copy (drafts included)" if args.working else "published view"
     print(
@@ -771,6 +772,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--lang",
         help="serve the localized view (l10n/<lang>/ overlaid on the default)",
+    )
+    p.add_argument(
+        "--allow-private-hosts",
+        action="store_true",
+        help="let okf_execute fetch loopback/private/link-local hosts — "
+        "for testing capabilities against a local dev server only",
     )
     _add_retriever_args(p)
     p.set_defaults(func=cmd_mcp)

@@ -5,7 +5,7 @@ description: Returns the current price, currency, and any active promotion for a
 resource: https://www.alpinepeakoutfitters.example/api/v1/price
 tags: [capability, pricing, api]
 status: stable
-stale_after: 2027-02-01
+stale_after: 2028-02-01
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:33:20Z

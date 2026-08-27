@@ -19,6 +19,7 @@ about those anyway — producers should ship clean bundles.
 from __future__ import annotations
 
 import datetime as _dt
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -49,6 +50,20 @@ def _valid_usage_window(value) -> bool:
         and _as_date(value.get("from")) is not None
         and _as_date(value.get("to")) is not None
     )
+
+
+def _site_host(bundle: Bundle) -> str:
+    """Hostname of the bundle's declared site (`index.md` x_geo.site),
+    lowercased; empty when no site is declared (nothing to judge
+    endpoint locality against)."""
+    root_index = bundle.indexes.get("index.md")
+    if root_index is None:
+        return ""
+    x_geo = root_index.frontmatter.get("x_geo")
+    site = x_geo.get("site") if isinstance(x_geo, dict) else None
+    if not isinstance(site, str):
+        return ""
+    return (urllib.parse.urlsplit(site).hostname or "").lower()
 
 
 @dataclass
@@ -626,6 +641,38 @@ def lint_bundle(
                         rel,
                         "base-spec deviation (SPEC §8): non-root index carries "
                         "frontmatter",
+                    )
+                )
+
+    # Capability endpoints are expected on the store's own domain: an
+    # executor pointing elsewhere is either a delegation worth a human
+    # glance or bait aimed at whoever executes the bundle's capabilities
+    # (READINESS A4). Warn, don't error — legitimate delegations exist
+    # (a payments processor's status endpoint) but must be conspicuous.
+    site_host = _site_host(bundle)
+    if site_host:
+        base_host = site_host.removeprefix("www.")
+        for rel, concept in sorted(bundle.concepts.items()):
+            if concept.type != "Attested Computation":
+                continue
+            executor = concept.frontmatter.get("executor")
+            resource = executor.get("resource") if isinstance(executor, dict) else None
+            if not isinstance(resource, str) or not resource.startswith(
+                ("http://", "https://")
+            ):
+                continue
+            host = (urllib.parse.urlsplit(resource).hostname or "").lower()
+            if host and host != site_host and host != base_host and not host.endswith(
+                "." + base_host
+            ):
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W037",
+                        rel,
+                        f"capability endpoint host `{host}` is outside the "
+                        f"declared site's domain (`{site_host}`); verify the "
+                        "delegation is intentional before publishing",
                     )
                 )
 

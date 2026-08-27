@@ -1,7 +1,7 @@
 # OKF-Web
 
 **A companion knowledge layer for ecommerce GEO** — survey a
-storefront into an [Open Knowledge Format (OKF) v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
+storefront into an [Open Knowledge Format (OKF) v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format)
 bundle with an LLM, verify it with a human in the loop, measure its
 answerability for generative engines, and publish it alongside the
 site at `/.well-known/okf/`.

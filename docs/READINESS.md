@@ -295,7 +295,7 @@ Four phases, ordered by "what breaks if we do nothing" rather than by
 ambition. R1 is same-day. R2 is the one that changes the project's
 odds.
 
-### R1 — Stop the clock (same day, no design change)
+### R1 — Stop the clock (same day, no design change) — **shipped**
 
 Closes: **A1, A2, A4**.
 
@@ -321,6 +321,25 @@ Closes: **A1, A2, A4**.
 Exit: `lint --strict` clean at any plausible future date; FIDELITY
 aimed at the living spec; no capability can point somewhere surprising
 without saying so.
+
+Shipped form, with two refinements over the plan text. (1) The fuse
+was five waves, not one — every freshness stamp in the example moved
+one year forward (earliest is now 2027-09-16), the es translation's
+`l10n_source_hash` re-pinned — and the guard is a **rolling canary**,
+not the fixed-pin test planned above: `test_linter.py` lints the
+example at `today + 60 days`, so an approaching expiry fails pytest
+with two months' lead time (a fixed release-date pin would only fail
+on content changes and would miss the calendar entirely — the very
+failure A1 describes). (2) The re-audit found the spec had actually
+revved: `knowledge-catalog` is frozen and the canonical
+`open-knowledge-format` repo (audited `ad30107`) makes every timestamp
+an ISO 8601 datetime — readers here already tolerate both forms
+(tested), and the writer-side migration is recorded as FIDELITY
+**D15/F5**. A4's fix shipped as planned: lint **W037** flags capability
+endpoints outside the declared site's domain, and `okf_execute`
+refuses loopback/private/link-local hosts unless
+`--allow-private-hosts` is passed (literal-host check; the DNS-rebinding
+limitation is documented at the guard).
 
 ### R2 — Value that does not wait for engines (the pivot)
 
