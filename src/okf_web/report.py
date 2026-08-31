@@ -93,7 +93,46 @@ def _pct(value) -> str:
     return f"{round(float(value) * 100)}%"
 
 
-def _question_detail(bundle: Bundle, by_archetype: dict | None) -> str:
+_GAP_ID = re.compile(r"^\*\s*`([^`]+)`")
+
+
+def _judged_verdicts(scorecard: Concept) -> dict[str, bool]:
+    """Per-question judged verdicts, read only from what the recorded
+    scorecard states: the results table's ``answered`` column (located
+    by header, so older five-column tables parse too), plus the gap
+    bullets' question ids, since a recorded gap is a recorded
+    non-answer. Nothing is inferred; a question the scorecard does not
+    pronounce on stays absent."""
+    verdicts: dict[str, bool] = {}
+    answered_col: int | None = None
+    in_gaps = False
+    for line in scorecard.body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            in_gaps = stripped.strip("# ").lower().startswith("knowledge gaps")
+            answered_col = None
+            continue
+        if in_gaps:
+            match = _GAP_ID.match(stripped)
+            if match:
+                verdicts.setdefault(match.group(1), False)
+            continue
+        if not stripped.startswith("|"):
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if "answered" in cells:
+            answered_col = cells.index("answered")
+            continue
+        if answered_col is None or len(cells) <= answered_col:
+            continue
+        verdict = cells[answered_col].lower()
+        if verdict in ("yes", "no"):
+            verdicts[cells[0].strip("`")] = verdict == "yes"
+    return verdicts
+
+
+def _question_detail(bundle: Bundle, by_archetype: dict | None,
+                     verdicts: dict[str, bool] | None = None) -> str:
     """The detail tier: one row per question in the committed pack,
     recomputed by the evaluator's deterministic retrieval pass at
     render time. Shows facts that can be measured without an LLM —
@@ -123,6 +162,11 @@ def _question_detail(bundle: Bundle, by_archetype: dict | None) -> str:
         rows = []
         for r in results:
             cell = e(r.question.question)
+            if (verdicts or {}).get(r.question.id) is False:
+                cell += (
+                    '<div class="judged">judged not answered in the '
+                    "recorded evaluation (see the gaps above)</div>"
+                )
             if r.retrieved_paraphrase is not None:
                 if set(r.retrieved_paraphrase) & set(r.retrieved):
                     para = "the same knowledge was found"
@@ -174,8 +218,9 @@ def _question_detail(bundle: Bundle, by_archetype: dict | None) -> str:
         "that was not measured. Finding knowledge is necessary, not "
         "sufficient: a question can find the right file and still lose "
         "its point from the judge, which is why each topic shows both "
-        "counts; when they differ, the recorded knowledge gaps above say "
-        "what was missing.</p>" + "".join(blocks)
+        "counts; where the recorded scorecard names the question that "
+        "lost its point, its row is marked, and the knowledge gaps above "
+        "say what was missing.</p>" + "".join(blocks)
     )
 
 
@@ -349,6 +394,8 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   .qtable .para {{ color: #7a8894; font-size: .82rem; margin-top: .15rem; }}
   .qtable .more {{ color: #7a8894; font-size: .82rem; white-space: nowrap; }}
   .qtable .miss {{ color: #b3261e; }}
+  .qtable .judged {{ color: #b3261e; font-size: .82rem; font-weight: 600;
+                     margin-top: .15rem; }}
   footer {{ color: #7a8894; font-size: .85rem; margin-top: 2.5rem; }}
 </style>
 </head>
@@ -363,7 +410,8 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   <table>{''.join(rows) or '<tr><td>No per-topic data in this scorecard.</td><td>—</td></tr>'}</table>
   <h2>What the store still can't answer</h2>
   <ul>{gaps_html}</ul>
-  {_question_detail(bundle, metrics.get("by_archetype"))}
+  {_question_detail(bundle, metrics.get("by_archetype"),
+                    _judged_verdicts(scorecard))}
   <h2>Why these answers can be trusted</h2>
   <p class="meaning">Of {len(concepts)} knowledge entries: {human} were
   read and approved individually by a named person, and {attested} were

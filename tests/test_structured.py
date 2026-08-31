@@ -217,6 +217,13 @@ def test_report_carries_question_detail(example_bundle):
     assert text.count("judged answers 2 / 3 (recorded)") == 2
     assert text.count("judged answers 3 / 3 (recorded)") == 11
     assert "Finding knowledge is necessary, not sufficient" in text
+    # The exact rows that lost their point are marked, read from the
+    # recorded results table / gap ids (pol-3, cap-3) — never inferred.
+    marker = "judged not answered in the recorded evaluation"
+    assert text.count(marker) == 2
+    detail = text.split("The detail behind the numbers")[1]
+    warranty_row = detail.split("own-brand gear?")[1][:200]
+    assert marker in warranty_row
     # The paraphrase column reports the phrasing-gap outcome per row.
     assert "asked in a shopper's own words" in text
     # Deterministic: rendering twice is byte-identical.
