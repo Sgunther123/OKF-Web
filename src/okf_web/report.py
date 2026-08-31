@@ -13,6 +13,14 @@ The report never invents numbers: everything shown is read from the
 GEO Scorecard concept and the bundle itself. A dry-run scorecard
 renders honestly as retrieval-only coverage with a pointer to the
 full evaluation.
+
+Beneath the summary the report carries a detail tier: per-question
+rows recomputed at render time by the evaluator's deterministic
+retrieval pass over the bundle's committed question pack — the exact
+question, the knowledge file it finds, the reading cost, and how the
+shopper-vocabulary paraphrase fared. No LLM is involved and no grade
+is displayed that was not measured: judged verdicts exist only as the
+recorded aggregates.
 """
 
 from __future__ import annotations
@@ -22,6 +30,7 @@ import html
 import re
 from pathlib import Path
 
+from .evaluator import evaluate as _dry_evaluate, load_questions
 from .model import (
     Bundle,
     Concept,
@@ -82,6 +91,79 @@ def _gaps(scorecard: Concept) -> list[str]:
 
 def _pct(value) -> str:
     return f"{round(float(value) * 100)}%"
+
+
+def _question_detail(bundle: Bundle) -> str:
+    """The detail tier: one row per question in the committed pack,
+    recomputed by the evaluator's deterministic retrieval pass at
+    render time. Shows facts that can be measured without an LLM —
+    which knowledge file the question finds, the reading cost, the
+    paraphrase's fate — and displays no per-question grade, because
+    none is recorded."""
+    pack = bundle.root / "evaluations" / "questions.yaml"
+    if not pack.exists():
+        return ""
+    questions = load_questions(pack)
+    if not questions:
+        return ""
+    dry = _dry_evaluate(bundle, questions)
+    e = html.escape
+
+    grouped: dict[str, list] = {}
+    for result in dry.results:
+        grouped.setdefault(result.question.archetype, []).append(result)
+
+    blocks: list[str] = []
+    for archetype, results in grouped.items():
+        label = ARCHETYPE_LABELS.get(archetype, archetype)
+        found = sum(1 for r in results if r.retrieved)
+        rows = []
+        for r in results:
+            cell = e(r.question.question)
+            if r.retrieved_paraphrase is not None:
+                if set(r.retrieved_paraphrase) & set(r.retrieved):
+                    para = "the same knowledge was found"
+                elif r.retrieved_paraphrase:
+                    para = "different knowledge was found"
+                else:
+                    para = "nothing was found"
+                cell += (
+                    '<div class="para">asked in a shopper\'s own words: '
+                    f"{para}</div>"
+                )
+            if r.retrieved:
+                top = r.retrieved[0]
+                concept = bundle.get(top)
+                title = f" &middot; {e(concept.title)}" if concept else ""
+                more = (
+                    f' <span class="more">+{len(r.retrieved) - 1} more</span>'
+                    if len(r.retrieved) > 1 else ""
+                )
+                found_cell = f"<code>/{e(top)}</code>{title}{more}"
+            else:
+                found_cell = '<span class="miss">no matching knowledge</span>'
+            rows.append(
+                f"<tr><td>{cell}</td><td>{found_cell}</td>"
+                f'<td class="num">{r.context_tokens:,}</td></tr>'
+            )
+        blocks.append(
+            f'<details class="arch"><summary>{e(label)} '
+            f'<span class="count">{found} / {len(results)} questions found '
+            "knowledge</span></summary>"
+            '<table class="qtable"><thead><tr><th>Question</th>'
+            "<th>Knowledge found (top match)</th><th>Tokens</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></details>"
+        )
+    return (
+        "<h2>The detail behind the numbers</h2>"
+        '<p class="meaning">Each row below is recomputed from the committed '
+        "bundle and its question pack every time this report renders: the "
+        "exact question asked, the knowledge file it finds, and the reading "
+        "cost in tokens. This pass is deterministic and involves no AI "
+        "model. Judged verdicts (answered, grounded, cited) are recorded "
+        "only as the aggregates above, so no per-question grade is shown "
+        "that was not measured.</p>" + "".join(blocks)
+    )
 
 
 def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
@@ -240,6 +322,20 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   ul {{ background: #fff; border: 1px solid #e1e7ec; border-radius: 10px;
         margin: 0; padding: .8rem 1.1rem .8rem 2.2rem; }}
   li {{ margin: .3rem 0; }}
+  details.arch {{ background: #fff; border: 1px solid #e1e7ec;
+                  border-radius: 10px; margin: .6rem 0; }}
+  details.arch summary {{ cursor: pointer; padding: .65rem 1rem;
+                          font-weight: 600; }}
+  details.arch summary .count {{ color: #7a8894; font-weight: 400;
+                                 font-size: .88rem; }}
+  details.arch .qtable {{ border: none; border-top: 1px solid #eef2f5;
+                          border-radius: 0; }}
+  .qtable th {{ text-align: left; color: #7a8894; font-weight: 600;
+                font-size: .85rem; padding: .45rem .9rem; border-top: none; }}
+  .qtable td {{ vertical-align: top; }}
+  .qtable .para {{ color: #7a8894; font-size: .82rem; margin-top: .15rem; }}
+  .qtable .more {{ color: #7a8894; font-size: .82rem; white-space: nowrap; }}
+  .qtable .miss {{ color: #b3261e; }}
   footer {{ color: #7a8894; font-size: .85rem; margin-top: 2.5rem; }}
 </style>
 </head>
@@ -254,6 +350,7 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   <table>{''.join(rows) or '<tr><td>No per-topic data in this scorecard.</td><td>—</td></tr>'}</table>
   <h2>What the store still can't answer</h2>
   <ul>{gaps_html}</ul>
+  {_question_detail(bundle)}
   <h2>Why these answers can be trusted</h2>
   <p class="meaning">Of {len(concepts)} knowledge entries: {human} were
   read and approved individually by a named person, and {attested} were

@@ -194,6 +194,27 @@ def test_report_handles_dry_run_scorecards(tmp_path):
     assert "retrieval-only dry run" in html
     assert "100%" in html
     assert "None found in the last evaluation." in html
+    # No committed question pack → the detail tier is honestly absent.
+    assert "The detail behind the numbers" not in html
+
+
+def test_report_carries_question_detail(example_bundle):
+    """The detail tier: per-question retrieval rows recomputed
+    deterministically at render time from the committed pack — access
+    to the detail, never an invented per-question grade."""
+    bundle = load_bundle(example_bundle)
+    text = build_report(bundle)
+    assert "The detail behind the numbers" in text
+    # One collapsible block per archetype in the pack, no scripts.
+    assert text.count('<details class="arch"') == 13
+    assert "<script" not in text
+    # A real question row: top match named by path, tokens shown.
+    assert "questions found knowledge" in text
+    assert "no per-question grade is shown that was not measured" in text
+    # The paraphrase column reports the phrasing-gap outcome per row.
+    assert "asked in a shopper's own words" in text
+    # Deterministic: rendering twice is byte-identical.
+    assert text == build_report(bundle)
 
 
 # --- R3: honest defaults --------------------------------------------------
