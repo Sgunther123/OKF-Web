@@ -132,7 +132,8 @@ def _judged_verdicts(scorecard: Concept) -> dict[str, bool]:
 
 
 def _question_detail(bundle: Bundle, by_archetype: dict | None,
-                     verdicts: dict[str, bool] | None = None) -> str:
+                     verdicts: dict[str, bool] | None = None,
+                     gap_ids: set[str] | None = None) -> str:
     """The detail tier: one row per question in the committed pack,
     recomputed by the evaluator's deterministic retrieval pass at
     render time. Shows facts that can be measured without an LLM —
@@ -163,9 +164,17 @@ def _question_detail(bundle: Bundle, by_archetype: dict | None,
         for r in results:
             cell = e(r.question.question)
             if (verdicts or {}).get(r.question.id) is False:
+                # The pointer is a working link: to this question's own
+                # gap bullet when the scorecard recorded one, else to
+                # the gaps section itself.
+                if r.question.id in (gap_ids or set()):
+                    where = (f'<a href="#gap-{e(r.question.id)}">'
+                             "see the gap above</a>")
+                else:
+                    where = '<a href="#gaps">see the gaps above</a>'
                 cell += (
                     '<div class="judged">judged not answered in the '
-                    "recorded evaluation (see the gaps above)</div>"
+                    f"recorded evaluation ({where})</div>"
                 )
             if r.retrieved_paraphrase is not None:
                 if set(r.retrieved_paraphrase) & set(r.retrieved):
@@ -317,8 +326,19 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
         )
 
     gaps = _gaps(scorecard)
+    # Gap bullets open with the question id (write_scorecard's format),
+    # so each list item can carry an anchor the detail rows link to.
+    gap_ids: set[str] = set()
+
+    def gap_li(gap: str) -> str:
+        match = re.match(r"([A-Za-z0-9_-]+)\s*\(", gap)
+        if match:
+            gap_ids.add(match.group(1))
+            return f'<li id="gap-{e(match.group(1))}">{e(gap)}</li>'
+        return f"<li>{e(gap)}</li>"
+
     gaps_html = (
-        "".join(f"<li>{e(g)}</li>" for g in gaps)
+        "".join(gap_li(g) for g in gaps)
         if gaps
         else "<li>None found in the last evaluation.</li>"
     )
@@ -396,6 +416,8 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   .qtable .miss {{ color: #b3261e; }}
   .qtable .judged {{ color: #b3261e; font-size: .82rem; font-weight: 600;
                      margin-top: .15rem; }}
+  .qtable .judged a {{ color: inherit; }}
+  li:target, tr:target td {{ background: #fdf3d7; }}
   footer {{ color: #7a8894; font-size: .85rem; margin-top: 2.5rem; }}
 </style>
 </head>
@@ -408,10 +430,10 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   <p class="meaning">{e(meaning)}</p>
   <h2>Coverage by topic</h2>
   <table>{''.join(rows) or '<tr><td>No per-topic data in this scorecard.</td><td>—</td></tr>'}</table>
-  <h2>What the store still can't answer</h2>
+  <h2 id="gaps">What the store still can't answer</h2>
   <ul>{gaps_html}</ul>
   {_question_detail(bundle, metrics.get("by_archetype"),
-                    _judged_verdicts(scorecard))}
+                    _judged_verdicts(scorecard), gap_ids)}
   <h2>Why these answers can be trusted</h2>
   <p class="meaning">Of {len(concepts)} knowledge entries: {human} were
   read and approved individually by a named person, and {attested} were

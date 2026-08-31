@@ -222,8 +222,14 @@ def test_report_carries_question_detail(example_bundle):
     marker = "judged not answered in the recorded evaluation"
     assert text.count(marker) == 2
     detail = text.split("The detail behind the numbers")[1]
-    warranty_row = detail.split("own-brand gear?")[1][:200]
+    warranty_row = detail.split("own-brand gear?")[1][:300]
     assert marker in warranty_row
+    # The pointer is actionable: each marked row links to its own gap
+    # bullet's anchor (and the gaps heading is itself an anchor).
+    assert 'id="gaps"' in text
+    for qid in ("pol-3", "cap-3"):
+        assert f'id="gap-{qid}"' in text
+        assert f'href="#gap-{qid}"' in text
     # The paraphrase column reports the phrasing-gap outcome per row.
     assert "asked in a shopper's own words" in text
     # Deterministic: rendering twice is byte-identical.
