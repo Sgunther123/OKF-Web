@@ -93,13 +93,16 @@ def _pct(value) -> str:
     return f"{round(float(value) * 100)}%"
 
 
-def _question_detail(bundle: Bundle) -> str:
+def _question_detail(bundle: Bundle, by_archetype: dict | None) -> str:
     """The detail tier: one row per question in the committed pack,
     recomputed by the evaluator's deterministic retrieval pass at
     render time. Shows facts that can be measured without an LLM —
     which knowledge file the question finds, the reading cost, the
     paraphrase's fate — and displays no per-question grade, because
-    none is recorded."""
+    none is recorded. Each block's summary carries both counts where a
+    full evaluation was recorded: knowledge found (this pass) beside
+    judged answers (the scorecard), so the two measurements cannot be
+    mistaken for one another when they differ."""
     pack = bundle.root / "evaluations" / "questions.yaml"
     if not pack.exists():
         return ""
@@ -146,10 +149,16 @@ def _question_detail(bundle: Bundle) -> str:
                 f"<tr><td>{cell}</td><td>{found_cell}</td>"
                 f'<td class="num">{r.context_tokens:,}</td></tr>'
             )
+        recorded = (by_archetype or {}).get(archetype) or {}
+        judged = (
+            f' &middot; judged answers {recorded.get("answered", 0)} / '
+            f'{recorded["questions"]} (recorded)'
+            if recorded.get("questions") else ""
+        )
         blocks.append(
             f'<details class="arch"><summary>{e(label)} '
-            f'<span class="count">{found} / {len(results)} questions found '
-            "knowledge</span></summary>"
+            f'<span class="count">knowledge found for {found} / '
+            f"{len(results)}{judged}</span></summary>"
             '<table class="qtable"><thead><tr><th>Question</th>'
             "<th>Knowledge found (top match)</th><th>Tokens</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody></table></details>"
@@ -162,7 +171,11 @@ def _question_detail(bundle: Bundle) -> str:
         "cost in tokens. This pass is deterministic and involves no AI "
         "model. Judged verdicts (answered, grounded, cited) are recorded "
         "only as the aggregates above, so no per-question grade is shown "
-        "that was not measured.</p>" + "".join(blocks)
+        "that was not measured. Finding knowledge is necessary, not "
+        "sufficient: a question can find the right file and still lose "
+        "its point from the judge, which is why each topic shows both "
+        "counts; when they differ, the recorded knowledge gaps above say "
+        "what was missing.</p>" + "".join(blocks)
     )
 
 
@@ -350,7 +363,7 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   <table>{''.join(rows) or '<tr><td>No per-topic data in this scorecard.</td><td>—</td></tr>'}</table>
   <h2>What the store still can't answer</h2>
   <ul>{gaps_html}</ul>
-  {_question_detail(bundle)}
+  {_question_detail(bundle, metrics.get("by_archetype"))}
   <h2>Why these answers can be trusted</h2>
   <p class="meaning">Of {len(concepts)} knowledge entries: {human} were
   read and approved individually by a named person, and {attested} were

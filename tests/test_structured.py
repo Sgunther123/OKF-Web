@@ -209,8 +209,14 @@ def test_report_carries_question_detail(example_bundle):
     assert text.count('<details class="arch"') == 13
     assert "<script" not in text
     # A real question row: top match named by path, tokens shown.
-    assert "questions found knowledge" in text
+    assert "knowledge found for 3 / 3" in text
     assert "no per-question grade is shown that was not measured" in text
+    # The two measurements sit side by side per topic, so the recorded
+    # judged score (2/3 on policy and capability) can never be mistaken
+    # for the deterministic found-knowledge count (3/3 everywhere).
+    assert text.count("judged answers 2 / 3 (recorded)") == 2
+    assert text.count("judged answers 3 / 3 (recorded)") == 11
+    assert "Finding knowledge is necessary, not sufficient" in text
     # The paraphrase column reports the phrasing-gap outcome per row.
     assert "asked in a shopper's own words" in text
     # Deterministic: rendering twice is byte-identical.
