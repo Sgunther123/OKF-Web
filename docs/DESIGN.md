@@ -346,15 +346,20 @@ The bundle is static files — publishable to the same CDN as the site:
   published-but-unreachable bundle is the silent failure mode of this
   whole section.
 
-Example nginx:
+Example nginx (one tested recipe per hosting type, from shared hosting
+to Cloudflare Pages, the delegated route on hosted platforms, and the
+bot gates that sit above `robots.txt`, is in [HOSTING.md](HOSTING.md)):
 
 ```nginx
-location /.well-known/okf/ {
+location ^~ /.well-known/okf/ {
     alias /srv/okf-dist/;
+    types {
+        application/json  json;
+        text/plain        txt yaml py;
+    }
     default_type "text/markdown; charset=utf-8";
-    add_header Access-Control-Allow-Origin "*";
-    add_header Cache-Control "public, max-age=300, must-revalidate";
-    types { application/json json; text/markdown md; text/plain txt yaml; }
+    add_header Access-Control-Allow-Origin "*" always;
+    add_header Cache-Control "public, max-age=300, must-revalidate" always;
 }
 ```
 

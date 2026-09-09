@@ -17,9 +17,10 @@ run in one command:
    count, profile, signature presence, and every problem in plain
    words.
 
-Signature *presence* is reported here; verifying the signer identity
-needs `okf-web verify` with the expected identity, because only the
-consumer knows which identity they trust.
+Signature *presence* is reported here (a 200 whose body is a JSON
+object; an HTML fallback page does not count); verifying the signer
+identity needs `okf-web verify` with the expected identity, because only
+the consumer knows which identity they trust.
 """
 
 from __future__ import annotations
@@ -88,6 +89,17 @@ def _try_manifest(fetch, bundle_url: str) -> dict | None:
     return manifest if isinstance(manifest, dict) and "files" in manifest else None
 
 
+def _is_json_object(text: str) -> bool:
+    """A sigstore bundle is a JSON object. Hosts that answer every missing
+    path with a 200 HTML page (the single-page-app fallback; observed on
+    a static host's emulator, docs/HOSTING.md §3.1) must not read as
+    signed."""
+    try:
+        return isinstance(json.loads(text), dict)
+    except ValueError:
+        return False
+
+
 def discover(store_url: str, fetch=None, timeout: float = 15.0) -> DiscoveryReport:
     fetch = fetch or (lambda url: _fetch(url, timeout=timeout))
     origin = _origin(store_url)
@@ -134,8 +146,8 @@ def discover(store_url: str, fetch=None, timeout: float = 15.0) -> DiscoveryRepo
 
     report.files = len(report.manifest.get("files", {}))
     try:
-        sig_status, _ = fetch(report.bundle_url.rstrip("/") + "/" + SIGNATURE_NAME)
-        report.signed = sig_status == 200
+        sig_status, sig_text = fetch(report.bundle_url.rstrip("/") + "/" + SIGNATURE_NAME)
+        report.signed = sig_status == 200 and _is_json_object(sig_text)
     except Exception:
         report.signed = False
 

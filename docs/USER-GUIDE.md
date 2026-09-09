@@ -239,6 +239,11 @@ automated visitors know to look. Your web person will recognize it;
 the technical details they need are in
 [DESIGN.md, section 8](DESIGN.md#8-hosting-and-discovery).)
 
+If they ask which recipe applies to your host, [HOSTING.md](HOSTING.md)
+has one per hosting type, from shared hosting to Cloudflare Pages,
+along with the checks to run afterwards and a note on the bot settings
+that can block AI visitors no matter what `robots.txt` says.
+
 ### Step 7 — Keep it fresh
 
 When your site changes, run the survey again. Two nice properties:
@@ -469,7 +474,8 @@ you one line to paste into your storefront's theme (every platform's
 theme editor allows it): a small tag that tells AI systems where
 your fact folder lives. Because the tag sits on *your* domain and
 the folder names *your* store inside it, AI systems can verify the
-two belong together.
+two belong together. The step-by-step, per platform and per host, is
+[HOSTING.md, section 4](HOSTING.md#4-hosted-commerce-platforms-delegated-hosting).
 
 **Q: Can I see it working with an AI assistant right now, before any
 search engine picks it up?**

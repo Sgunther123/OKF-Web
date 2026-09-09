@@ -64,6 +64,7 @@ your `llms.txt`, and your own bots.
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phased tooling roadmap, ranked by adoption leverage |
 | [`docs/EXPANSION.md`](docs/EXPANSION.md) | Value expansion plan: fit, ownership, passports, omnichannel, B2B |
 | [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md) | Seeing engines consume the bundle (logscan + log recipes) |
+| [`docs/HOSTING.md`](docs/HOSTING.md) | Hosting matrix: a tested recipe per hosting type (own server, static hosts, hosted platforms, containers, CI) and the bot-gate note |
 | [`docs/FIDELITY.md`](docs/FIDELITY.md) | Audit against the published OKF v0.2 spec + the shipped hardening phases |
 | [`docs/READINESS.md`](docs/READINESS.md) | Adversarial readiness review: suitability and adoption findings, remediation phases R1–R4 |
 | [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md) | Distribution plan: audiences, PyPI strategy, the MCP assistant channel, release gates |
@@ -155,8 +156,11 @@ edition is developed as
 tier**: `jsonld/` (schema.org markup from human-verified concepts,
 one file per concept, `subjectOf` linking back to its source) and a
 complete `llms.txt`. Serve it from the same CDN as the site at
-`/.well-known/okf/`; config snippets are in
-[docs/DESIGN.md §8](docs/DESIGN.md#8-hosting-and-discovery).
+`/.well-known/okf/`; the serving rules are in
+[docs/DESIGN.md §8](docs/DESIGN.md#8-hosting-and-discovery), and a
+tested recipe per hosting type (nginx, Apache, Caddy, Cloudflare Pages,
+Netlify, Vercel, GitHub Pages, S3, containers, CI) is in
+[docs/HOSTING.md](docs/HOSTING.md).
 
 **On a hosted platform that can't serve root paths** (Shopify and
 friends): publish with `--bundle-url https://<any-host>/<path>`, host
