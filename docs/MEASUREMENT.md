@@ -16,6 +16,17 @@ reports bundle fetches by known AI agents (the same
 read, and the time window. Works on Combined Log Format (Apache,
 nginx, most CDN exports) and JSON-lines logs, auto-detected.
 
+For a page instead of a terminal, the bundle viewer carries a
+read-activity panel drawn from the same scan:
+
+```bash
+okf-web view my-bundle --access-log access.log     # agents, files, fetches per day
+```
+
+Without a log the panel says so and explains what evidence would look
+like; with a log and no AI-agent fetches it says that too (zero is a
+finding, see below) and names the checks to run.
+
 No tool at hand? The one-liner version:
 
 ```bash

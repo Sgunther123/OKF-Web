@@ -365,6 +365,18 @@ location ^~ /.well-known/okf/ {
 
 ## 9. Operations
 
+- **Seeing it whole:** `okf-web view` renders the bundle viewer, one
+  self-contained page for the operator: every concept with its tier,
+  risk, freshness and connections; what a publish would ship and hold
+  back; the three stages an engine walks (discover, interpret,
+  surface) with this bundle's own facts in each; the purchase moment
+  each question archetype serves beside what the bundle holds for it
+  and what the last evaluation measured; the live-value lookups; the
+  derived JSON-LD; the retrieval rows the report also shows; and,
+  given access logs, the read-activity panel (which AI agents fetched
+  which files on which days). Like the report it invents no number and
+  carries no script; unlike the report it is not a consumer surface
+  (it shows drafts and logs), so it writes outside the bundle.
 - **Cadence:** survey on content deploys (CMS webhook) plus nightly;
   evaluate weekly and after any large merge; humans review on their
   own schedule — the queue holds.

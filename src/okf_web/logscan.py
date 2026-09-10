@@ -103,6 +103,11 @@ class LogScanReport:
     by_file: Counter = field(default_factory=Counter)
     first_seen: _dt.datetime | None = None
     last_seen: _dt.datetime | None = None
+    # AI-agent fetches per calendar day (ISO date → count) and the
+    # most recent fetch per agent: the viewer's read-activity panel
+    # draws its timeline and "last seen" column from these.
+    by_day: Counter = field(default_factory=Counter)
+    agent_last_seen: dict = field(default_factory=dict)
 
 
 def scan_lines(lines, base_path: str = "/.well-known/okf") -> LogScanReport:
@@ -128,4 +133,8 @@ def scan_lines(lines, base_path: str = "/.well-known/okf") -> LogScanReport:
                 report.first_seen = when
             if report.last_seen is None or when > report.last_seen:
                 report.last_seen = when
+            report.by_day[when.date().isoformat()] += 1
+            previous = report.agent_last_seen.get(agent)
+            if previous is None or when > previous:
+                report.agent_last_seen[agent] = when
     return report

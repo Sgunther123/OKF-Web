@@ -100,6 +100,7 @@ okf-web survey my-bundle --sitemap https://www.example-store.com --limit 25
 okf-web questions my-bundle --pack outdoor   # or apparel/electronics/grocery (+ .es variants); no LLM
 okf-web evaluate my-bundle --write-scorecard
 okf-web report my-bundle                     # scorecard → shareable HTML report; no LLM
+okf-web view my-bundle --access-log access.log   # bundle viewer: what's inside, how engines use it, who read it; no LLM
 
 # Keep it honest over time (all LLM-free — nightly-cheap)
 okf-web drift my-bundle                          # did source pages change?

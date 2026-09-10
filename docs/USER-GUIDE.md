@@ -209,6 +209,23 @@ store, what it can't yet, and why the answers can be trusted. Open it
 in a browser, or email the file as-is; it needs nothing else to
 display.
 
+A companion page shows the folder itself rather than the score:
+
+```
+okf-web view my-store
+```
+
+writes `bundle-viewer.html` next to where you ran it (deliberately
+outside the folder, because it shows drafts still waiting for you):
+every fact sheet with who approved it and when it goes stale, what a
+publish would hold back, the live lookups that stand in for prices
+and stock, the shopper questions each sheet answers and why each kind
+matters to sales, and, once your site is live, a "read activity"
+panel. Give that panel your web server's access log
+(`okf-web view my-store --access-log access.log`) and it shows which
+AI systems fetched which files on which days, so you can see for
+yourself that they are reading.
+
 ### Step 6 — Publish
 
 ```
@@ -516,6 +533,7 @@ technical docs live alongside this guide:
 | Do the whole first run at once (free) | `okf-web init my-store --feed products.csv --by you@store.com --pack outdoor` |
 | Get the report card | `okf-web evaluate my-store --write-scorecard --llm claude-code` |
 | Turn it into a shareable page (free) | `okf-web report my-store` |
+| See what's in the folder, how AI uses it, and who read it (free) | `okf-web view my-store --access-log access.log` |
 | Build the publishable folder | `okf-web publish my-store dist` |
 | See if source pages changed (free) | `okf-web drift my-store` |
 | Leave stale sheets out when publishing | `okf-web publish my-store dist --freshness withhold` |

@@ -623,6 +623,50 @@ def cmd_report(args) -> int:
     return 0
 
 
+def cmd_view(args) -> int:
+    from . import viewer as viewer_mod
+
+    logs = None
+    if args.access_log:
+        from . import logscan
+
+        def _lines():
+            for name in args.access_log:
+                with open(name, "r", encoding="utf-8", errors="replace") as fh:
+                    yield from fh
+
+        logs = logscan.scan_lines(_lines(), base_path=args.base_path)
+    try:
+        out = viewer_mod.write_viewer(
+            args.bundle,
+            out=args.out,
+            access_logs=logs,
+            log_sources=list(args.access_log or []),
+            base_path=args.base_path,
+        )
+    except viewer_mod.ViewerError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    print(f"viewer written to {out}")
+    print(
+        "it is a single self-contained HTML file, kept outside the bundle "
+        "on purpose: it shows drafts and read logs meant for you"
+    )
+    if logs is None:
+        print(
+            "no access log given — the read-activity panel explains how to "
+            "add one (--access-log access.log)"
+        )
+    elif logs.ai_hits == 0:
+        print("access log read, but no fetch of the bundle by a named AI agent")
+    else:
+        print(
+            f"read activity: {logs.ai_hits} AI-agent fetch(es) by "
+            f"{len(logs.by_agent)} agent(s)"
+        )
+    return 0
+
+
 def cmd_mcp(args) -> int:
     from . import mcp_bridge
 
@@ -923,6 +967,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="output path (default: <bundle>/evaluations/geo-report.html)",
     )
     p.set_defaults(func=cmd_report)
+
+    p = sub.add_parser(
+        "view",
+        help="render the bundle viewer: what is inside, how AI engines "
+        "discover, interpret and surface it, and (with --access-log) who "
+        "has read it (no LLM)",
+    )
+    p.add_argument("bundle")
+    p.add_argument(
+        "--out",
+        help="output path (default: ./bundle-viewer.html — outside the "
+        "bundle, since the page shows drafts and read logs)",
+    )
+    p.add_argument(
+        "--access-log",
+        nargs="+",
+        metavar="FILE",
+        help="server/CDN access log(s) to draw the read-activity panel from "
+        "(Combined Log Format or JSON lines, as for `okf-web logscan`)",
+    )
+    p.add_argument("--base-path", default="/.well-known/okf")
+    p.set_defaults(func=cmd_view)
 
     p = sub.add_parser("sign", help="sigstore-sign a published bundle's manifest.json")
     p.add_argument("dist", help="published bundle directory (from `okf-web publish`)")

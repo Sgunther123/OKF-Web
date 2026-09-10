@@ -131,24 +131,19 @@ def _judged_verdicts(scorecard: Concept) -> dict[str, bool]:
     return verdicts
 
 
-def _question_detail(bundle: Bundle, by_archetype: dict | None,
+def _question_blocks(bundle: Bundle, by_archetype: dict | None,
                      verdicts: dict[str, bool] | None = None,
-                     gap_ids: set[str] | None = None) -> str:
-    """The detail tier: one row per question in the committed pack,
-    recomputed by the evaluator's deterministic retrieval pass at
-    render time. Shows facts that can be measured without an LLM —
-    which knowledge file the question finds, the reading cost, the
-    paraphrase's fate — and displays no per-question grade, because
-    none is recorded. Each block's summary carries both counts where a
-    full evaluation was recorded: knowledge found (this pass) beside
-    judged answers (the scorecard), so the two measurements cannot be
-    mistaken for one another when they differ."""
+                     gap_ids: set[str] | None = None) -> list[str]:
+    """One collapsible block per archetype, each a table of the
+    committed pack's questions recomputed by the evaluator's
+    deterministic retrieval pass at render time. Shared by the report
+    and the bundle viewer; empty when the bundle has no pack."""
     pack = bundle.root / "evaluations" / "questions.yaml"
     if not pack.exists():
-        return ""
+        return []
     questions = load_questions(pack)
     if not questions:
-        return ""
+        return []
     dry = _dry_evaluate(bundle, questions)
     e = html.escape
 
@@ -216,6 +211,24 @@ def _question_detail(bundle: Bundle, by_archetype: dict | None,
             "<th>Knowledge found (top match)</th><th>Tokens</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody></table></details>"
         )
+    return blocks
+
+
+def _question_detail(bundle: Bundle, by_archetype: dict | None,
+                     verdicts: dict[str, bool] | None = None,
+                     gap_ids: set[str] | None = None) -> str:
+    """The detail tier: one row per question in the committed pack,
+    recomputed by the evaluator's deterministic retrieval pass at
+    render time. Shows facts that can be measured without an LLM —
+    which knowledge file the question finds, the reading cost, the
+    paraphrase's fate — and displays no per-question grade, because
+    none is recorded. Each block's summary carries both counts where a
+    full evaluation was recorded: knowledge found (this pass) beside
+    judged answers (the scorecard), so the two measurements cannot be
+    mistaken for one another when they differ."""
+    blocks = _question_blocks(bundle, by_archetype, verdicts, gap_ids)
+    if not blocks:
+        return ""
     return (
         "<h2>The detail behind the numbers</h2>"
         '<p class="meaning">Each row below is recomputed from the committed '
