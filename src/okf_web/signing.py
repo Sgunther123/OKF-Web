@@ -42,6 +42,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from .publisher import _file_digest
+
 SIGNATURE_NAME = "manifest.json.sigstore.json"
 
 _LABEL_RE = __import__("re").compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
@@ -174,16 +176,34 @@ def verify_integrity(dist: Path | str) -> tuple[list[str], list[str]]:
     if not isinstance(files, dict):
         return ["manifest.json has no `files` mapping"], []
 
+    dist_resolved = dist.resolve()
     for rel, meta in sorted(files.items()):
+        # A third-party manifest is untrusted input: every listed path
+        # must stay a regular file inside the dist, or the verifier
+        # becomes an oracle for (and a reader of) files outside it.
+        parts = Path(rel).parts
+        if not rel or Path(rel).is_absolute() or ".." in parts:
+            errors.append(f"invalid manifest path (must be relative, inside the dist): {rel}")
+            continue
         path = dist / rel
+        try:
+            resolved = path.resolve()
+        except OSError:
+            errors.append(f"invalid manifest path (unresolvable): {rel}")
+            continue
+        if dist_resolved not in resolved.parents:
+            errors.append(f"invalid manifest path (escapes the dist): {rel}")
+            continue
         if not path.exists():
             errors.append(f"listed in manifest but missing from dist: {rel}")
             continue
-        data = path.read_bytes()
-        digest = hashlib.sha256(data).hexdigest()
+        if not path.is_file():
+            errors.append(f"not a regular file: {rel}")
+            continue
+        digest, size = _file_digest(path)
         if digest != meta.get("sha256"):
             errors.append(f"hash mismatch (file modified after publish): {rel}")
-        elif meta.get("bytes") not in (None, len(data)):
+        elif meta.get("bytes") not in (None, size):
             errors.append(f"size mismatch: {rel}")
 
     for path in sorted(dist.rglob("*.md")):

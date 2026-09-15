@@ -290,3 +290,15 @@ Closes A4, A5, A6, A7. Per-page exception isolation in `survey`; UTC clocks thro
 ### Acceptance
 
 Every phase: the verification loop (suite twice, lint 0/0, dry-run at the reference numbers) plus the phase's own tests; no measured number changes hand-edited; MEMORY updated in the same commit. After E1 to E5 the suite gains roughly forty tests. The reference bundle and the profile do not change.
+
+## 6. Progress
+
+### E1 landed (2026-09-15)
+
+Closes U1, U2, A1, U8, S4 and S10 as planned; `tests/test_edge_e1.py` adds 26 tests. Where the shipped code differs from the plan above, on purpose:
+
+- `UnsafeDist` subclasses `PublishError`, so library callers that already catch the latter keep working, while the CLI maps it to exit 2 (a refusal, distinct from a failed publish at exit 1). A non-empty foreign directory is refused with `--force` named in the message; the bundle itself and any directory containing it are refused even with `--force`.
+- The missing-bundle error (`model.BundleNotFound`, a `FileNotFoundError`) is raised by `load_bundle` and mapped once in `cli.main`, so every command that loads a bundle exits 2 naming the path, including `lint`, `review`, `drift`, `evaluate`, `publish` and `view`. An existing but empty directory publishes nothing: `publish` refuses it as "nothing to publish".
+- The `.okf-dist` marker is a hidden file, so it never enters the manifest or a re-publish; a marker at the root of the directory being loaded is ignored, since loading a dist as a bundle (`verify`, tests) is legitimate. `model.marked_dists` serves both the loader and the publisher, which warns once per skipped copy.
+- The publisher records every non-markdown file it ships in `PublishResult.assets` and the CLI prints them; the viewer page and `.csv`/`.tsv` files are skipped with a warning.
+- `verify_integrity` reuses the publisher's chunked digest helper instead of growing its own, and rejects absolute, `..`, unresolvable and escaping (symlinked) manifest paths before reading anything.

@@ -820,8 +820,15 @@ def write_viewer(
     the bundle on purpose, since the page shows drafts and read logs
     meant for the operator, and the publisher ships every non-hidden
     asset it finds inside a bundle."""
-    bundle = load_bundle(Path(bundle_root))
+    bundle_root = Path(bundle_root)
+    bundle = load_bundle(bundle_root)
     target = Path(out) if out else Path("bundle-viewer.html")
+    if target.resolve().is_relative_to(bundle_root.resolve()):
+        raise ViewerError(
+            f"refusing to write the viewer inside the bundle ({target}): the "
+            f"page shows drafts and read logs and would be published with "
+            f"the bundle; choose a path outside {bundle_root}"
+        )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
         build_viewer(bundle, today=today, access_logs=access_logs,

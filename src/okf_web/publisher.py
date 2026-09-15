@@ -37,7 +37,7 @@ from urllib.robotparser import RobotFileParser
 
 from . import OKF_VERSION, PROFILE
 from .linter import has_errors, lint_bundle
-from .model import Bundle, INTERNAL_DIRS, load_bundle
+from .model import Bundle, DIST_MARKER, INTERNAL_DIRS, _linked, load_bundle, marked_dists
 from .structured import write_llms_txt, write_structured
 
 
@@ -48,10 +48,54 @@ class PublishResult:
     withheld: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     structured: list[str] = field(default_factory=list)
+    # Non-markdown files shipped from the bundle (spec sheets, attester
+    # code): named in the output so nothing rides along unnoticed.
+    assets: list[str] = field(default_factory=list)
 
 
 class PublishError(RuntimeError):
     pass
+
+
+class UnsafeDist(PublishError):
+    """The dist path would destroy something: the bundle itself, a
+    directory containing it, or a directory that is not a previous
+    publish (EDGE-CASES U1, A1)."""
+
+
+# Operator files that belong beside a bundle but never in a published
+# one: the bundle viewer (drafts and read logs) and feed exports (prices
+# and costs the live-values rule keeps out of concepts).
+_OPERATOR_FILES = {"bundle-viewer.html"}
+_OPERATOR_SUFFIXES = {".csv", ".tsv"}
+
+
+def check_dist(bundle_root: Path | str, dist: Path | str, force: bool = False) -> None:
+    """Refuse a dist that publishing would wrongly empty. Publishing
+    deletes the target first, so the target must be outside the bundle,
+    must not contain it, and must be either empty, a previous publish
+    (it carries ``manifest.json``), or explicitly forced."""
+    bundle_root, dist = Path(bundle_root), Path(dist)
+    root, target = bundle_root.resolve(), dist.resolve()
+    if target == root or root in target.parents:
+        raise UnsafeDist(
+            f"refusing to publish into the bundle itself ({dist}); choose a "
+            f"directory outside {bundle_root}"
+        )
+    if target in root.parents:
+        raise UnsafeDist(
+            f"refusing to publish into {dist}: it contains the bundle "
+            f"{bundle_root}, and publishing empties the target first"
+        )
+    if not dist.exists():
+        return
+    if not dist.is_dir():
+        raise UnsafeDist(f"{dist} exists and is not a directory")
+    if any(dist.iterdir()) and not (dist / "manifest.json").exists() and not force:
+        raise UnsafeDist(
+            f"refusing to empty {dist}: it is not empty and carries no "
+            "manifest.json from a previous publish (pass --force to replace it)"
+        )
 
 
 def select_publishable(
@@ -120,6 +164,7 @@ def publish(
     site: str | None = None,
     bundle_url: str | None = None,
     structured: bool = True,
+    force: bool = False,
 ) -> PublishResult:
     """Build the static bundle.
 
@@ -138,12 +183,18 @@ def publish(
         bundle_url = site + base_path
     bundle_url = bundle_url.rstrip("/") if bundle_url else None
 
+    check_dist(bundle_root, dist, force=force)
     _, findings = lint_bundle(bundle_root)
     if has_errors(findings):
         details = "\n".join(str(f) for f in findings if f.severity == "error")
         raise PublishError(f"bundle has lint errors; refusing to publish:\n{details}")
 
     bundle = load_bundle(bundle_root)
+    if not bundle.concepts and not bundle.indexes:
+        raise PublishError(
+            f"nothing to publish: {bundle_root} holds no OKF documents "
+            "(is the path right?)"
+        )
     result = PublishResult(dist=dist)
 
     concept_include, result.withheld = select_publishable(
@@ -179,21 +230,50 @@ def publish(
     if dist.exists():
         shutil.rmtree(dist)
     dist.mkdir(parents=True)
+    (dist / DIST_MARKER).write_text(
+        "published by okf-web: a copy of a bundle, never bundle knowledge\n",
+        encoding="utf-8",
+    )
 
     # Copy selected markdown plus any non-markdown assets (question sets,
-    # spec sheets) that live outside internal dirs.
+    # spec sheets) that live outside internal dirs. A published copy left
+    # inside the bundle is skipped whole, like the loader skips it.
+    marked = marked_dists(bundle_root)
+    skipped_dists: set[Path] = set()
     for path in sorted(bundle_root.rglob("*")):
-        if not path.is_file():
-            continue
         rel = path.relative_to(bundle_root).as_posix()
         if rel.split("/", 1)[0] in INTERNAL_DIRS:
+            continue
+        copy = next((d for d in marked if d in path.parents), None)
+        if copy is not None:
+            if copy not in skipped_dists:
+                skipped_dists.add(copy)
+                result.warnings.append(
+                    f"{copy.relative_to(bundle_root).as_posix()}/ is a "
+                    f"published copy ({DIST_MARKER} marker); not published"
+                )
             continue
         # Hidden files are working state (embedding caches, editor
         # droppings), never published knowledge.
         if any(part.startswith(".") for part in rel.split("/")):
             continue
-        if path.suffix == ".md" and rel not in include:
+        if _linked(bundle_root, path):
+            if path.is_symlink():
+                result.warnings.append(f"{rel} is a symlink; not published")
             continue
+        if not path.is_file():
+            continue
+        if path.name in _OPERATOR_FILES or path.suffix.lower() in _OPERATOR_SUFFIXES:
+            result.warnings.append(
+                f"{rel} is an operator file (viewer page or feed export); "
+                "not published"
+            )
+            continue
+        if path.suffix == ".md":
+            if rel not in include:
+                continue
+        else:
+            result.assets.append(rel)
         target = dist / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, target)

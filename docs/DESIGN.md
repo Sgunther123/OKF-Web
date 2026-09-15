@@ -281,6 +281,14 @@ The bundle is static files — publishable to the same CDN as the site:
 
 - **Path:** `/.well-known/okf/` (works today; requires nothing from
   the OKF spec). `okf-web publish bundle/ dist/` emits the tree.
+  Publishing empties `dist/` first, so `publisher.check_dist` refuses
+  a dist that is the bundle, sits inside it, contains it, or is a
+  non-empty directory without a previous `manifest.json` (`--force`
+  overrides only the last). Every dist carries a hidden `.okf-dist`
+  marker; the loader and the publisher skip any marked directory
+  found inside a bundle, so a published copy left there never
+  becomes knowledge. Symlinks are never bundle content: the loader
+  ignores them and the publisher warns and skips them.
 - **Discovery, four redundant routes:**
   1. `llms.txt` gains the `## Knowledge` block from
      `llms-snippet.txt`.

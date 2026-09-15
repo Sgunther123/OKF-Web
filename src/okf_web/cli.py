@@ -24,7 +24,7 @@ from pathlib import Path
 from . import drift as drift_mod
 from . import report as report_mod
 from . import evaluator, linter, publisher, review, signing, surveyor
-from .model import load_bundle
+from .model import BundleNotFound, load_bundle
 
 
 def _build_retriever(args, bundle_dir):
@@ -333,11 +333,20 @@ def cmd_publish(args) -> int:
             site=site,
             bundle_url=args.bundle_url,
             structured=not args.no_structured,
+            force=args.force,
         )
+    except publisher.UnsafeDist as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     except publisher.PublishError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     print(f"published {len(result.published)} file(s) to {result.dist}")
+    if result.assets:
+        print(
+            f"shipped {len(result.assets)} non-concept asset(s): "
+            + ", ".join(result.assets)
+        )
     if result.structured:
         print(
             f"derived tier: {len(result.structured) - 1} JSON-LD file(s) "
@@ -575,7 +584,11 @@ def cmd_init(args) -> int:
         print("[6/7] skipped scorecard — no question set")
 
     site = args.site or _bundle_site(bundle_root)
-    pub = publisher.publish(bundle_root, dist, site=site)
+    try:
+        pub = publisher.publish(bundle_root, dist, site=site, force=args.force)
+    except publisher.UnsafeDist as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     print(
         f"[7/7] published {len(pub.published)} file(s) to {dist} "
         f"({len(pub.withheld)} withheld"
@@ -932,6 +945,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="skip the derived tier (jsonld/ + llms.txt) — bundle-only publish",
     )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="empty a non-empty dist directory that is not a previous publish "
+        "(the bundle itself, and any directory containing it, are always refused)",
+    )
     p.set_defaults(func=cmd_publish)
 
     p = sub.add_parser(
@@ -954,6 +973,11 @@ def build_parser() -> argparse.ArgumentParser:
         "+ .es variants) for the dry-run scorecard and report",
     )
     p.add_argument("--dist", default="dist", help="publish output directory (default: dist)")
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="empty a non-empty --dist directory that is not a previous publish",
+    )
     p.set_defaults(func=cmd_init)
 
     p = sub.add_parser(
@@ -1091,7 +1115,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except BundleNotFound as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

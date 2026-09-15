@@ -236,6 +236,15 @@ This builds the final folder (called `dist`) — and here the safety
 net shows itself: anything high-stakes that a person hasn't approved
 is **withheld**, and the tool tells you what it held back.
 
+Keep `dist` outside your store folder. Publishing empties the target
+first, so the tool refuses to publish into the folder it is reading
+from, into any folder that contains it, or over a folder full of
+something else (a `dist` from an earlier publish is fine; `--force`
+replaces any other folder, deliberately). It also leaves your own
+working files behind: the viewer page (`bundle-viewer.html`) and any
+`.csv` or `.tsv` export are never published, and it names every other
+non-fact-sheet file it did ship, so nothing rides along unnoticed.
+
 The folder also includes two bonuses your web person will want
 regardless of AI bundles: a `jsonld/` folder of **structured data**
 (the machine-readable labels search and shopping engines already read
@@ -394,6 +403,20 @@ The publish step runs the full check first and stops if anything
 fails. Run `okf-web lint <folder>` to see the list, fix the items
 (most fixes are an approval or a re-survey), publish again.
 
+**"refusing to publish into the bundle itself"** / **"refusing to empty
+…"**
+Publishing empties the target folder before filling it, so the tool
+will not aim at your store folder, at a folder that contains it, or
+at a folder holding something other than an earlier publish. Point it
+at an empty or previously published folder outside the store (or add
+`--force` for a folder you really do want replaced; the store folder
+itself can never be forced).
+
+**"bundle directory not found"**
+The folder you named does not exist, usually a typo. Nothing was
+checked, approved or published: a folder that isn't there is an error,
+never an empty store.
+
 **"review queue is empty"**
 Good news, not an error. Nothing is waiting on a human.
 
@@ -537,6 +560,7 @@ technical docs live alongside this guide:
 | Build the publishable folder | `okf-web publish my-store dist` |
 | See if source pages changed (free) | `okf-web drift my-store` |
 | Leave stale sheets out when publishing | `okf-web publish my-store dist --freshness withhold` |
+| Replace a folder that is not an earlier publish | `okf-web publish my-store dist --force` |
 | Let Claude use your folder today | `okf-web mcp my-store` |
 | Draft products from a feed export (free) | `okf-web survey my-store --feed products.csv` |
 | Start with ready-made questions (free) | `okf-web questions my-store --pack outdoor` |

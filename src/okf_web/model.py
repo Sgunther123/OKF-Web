@@ -33,6 +33,43 @@ _CACHE_VERSION = 1
 # They live inside the bundle checkout but are never published.
 INTERNAL_DIRS = {"_quarantine", "_review"}
 
+# The publisher drops this marker into every dist it writes. A dist that
+# ends up inside a bundle (E1 forbids creating one there, but older
+# publishes and hand-moved directories exist) is a published copy, not
+# bundle knowledge, and the loader skips anything under it.
+DIST_MARKER = ".okf-dist"
+
+
+class BundleNotFound(FileNotFoundError):
+    """The bundle root is not a directory. Raised instead of returning an
+    empty bundle, so a mistyped path cannot lint clean, review clean, or
+    publish a dist from nothing (EDGE-CASES U2)."""
+
+
+def marked_dists(root: Path) -> set[Path]:
+    """Directories under ``root`` that carry the dist marker: published
+    copies left inside a bundle (moved by hand, or written before the
+    publisher learned to refuse the location). The loader and the
+    publisher both skip everything beneath them. A marker at the root
+    itself is ignored: loading a dist as a bundle (verify, tests) is
+    legitimate."""
+    return {p.parent for p in root.rglob(DIST_MARKER) if p.parent != root}
+
+
+def _linked(root: Path, path: Path) -> bool:
+    """True when ``path`` or any directory between ``root`` and it is a
+    symlink. Links are never bundle content: git stores them, and a link
+    to a file outside the bundle would otherwise be read, published, and
+    signed as if it were knowledge (EDGE-CASES S4)."""
+    if path.is_symlink():
+        return True
+    for parent in path.relative_to(root).parents:
+        if parent == Path("."):
+            break
+        if (root / parent).is_symlink():
+            return True
+    return False
+
 # Reserved root directory for translations: l10n/<lang>/<rel-path>
 # mirrors the default-language concept at <rel-path> (profile 1.3).
 L10N_DIR = "l10n"
@@ -618,15 +655,25 @@ def load_bundle(
     never to an error — and a read-only bundle simply skips the rewrite.
     """
     root = Path(root)
+    if not root.is_dir():
+        raise BundleNotFound(f"bundle directory not found: {root}")
     bundle = Bundle(root=root)
     cache_path = root / CONCEPT_CACHE_NAME
     cached = _read_parse_cache(cache_path) if use_cache else {}
     fresh: dict[str, dict] = {}
     dirty = False
+    # Published dists left inside the bundle are skipped wholesale (the
+    # marker at the root itself means the caller is loading a dist as a
+    # bundle on purpose, which is fine).
+    marked = marked_dists(root)
     for path in sorted(root.rglob("*.md")):
         rel = path.relative_to(root).as_posix()
         top = rel.split("/", 1)[0]
         if top in INTERNAL_DIRS and not include_internal:
+            continue
+        if marked and any(parent in marked for parent in path.parents):
+            continue
+        if _linked(root, path):
             continue
         name = path.name
         if name == "log.md":
