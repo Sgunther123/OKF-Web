@@ -67,6 +67,7 @@ your `llms.txt`, and your own bots.
 | [`docs/HOSTING.md`](docs/HOSTING.md) | Hosting matrix: a tested recipe per hosting type (own server, static hosts, hosted platforms, containers, CI) and the bot-gate note |
 | [`docs/FIDELITY.md`](docs/FIDELITY.md) | Audit against the published OKF v0.2 spec + the shipped hardening phases |
 | [`docs/READINESS.md`](docs/READINESS.md) | Adversarial readiness review: suitability and adoption findings, remediation phases R1–R4 |
+| [`docs/EDGE-CASES.md`](docs/EDGE-CASES.md) | Edge-case review: UI, automation and security findings with the E1–E5 remediation plan |
 | [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md) | Distribution plan: audiences, PyPI strategy, the MCP assistant channel, release gates |
 | [`bundle-example/`](bundle-example/index.md) | Complete conformant companion bundle for a fictional store |
 | [`src/okf_web/`](src/okf_web/) | Reference implementation (`okf-web` CLI) |
