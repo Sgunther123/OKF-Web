@@ -30,7 +30,6 @@ import hashlib
 import json
 import shutil
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.robotparser import RobotFileParser
@@ -38,6 +37,7 @@ from urllib.robotparser import RobotFileParser
 from . import OKF_VERSION, PROFILE
 from .linter import has_errors, lint_bundle
 from .model import Bundle, DIST_MARKER, INTERNAL_DIRS, _linked, load_bundle, marked_dists
+from .net import ROBOTS_POLICY, FetchPolicy, fetch_text
 from .structured import write_llms_txt, write_structured
 
 
@@ -402,21 +402,28 @@ def evaluate_robots(robots_txt: str, site: str, base_path: str) -> list[str]:
 
 
 def check_robots(
-    site: str, base_path: str, timeout: float = 15.0
+    site: str,
+    base_path: str,
+    timeout: float = 15.0,
+    allow_private: bool = False,
+    policy: FetchPolicy | None = None,
 ) -> tuple[list[str], str | None]:
     """Fetch the live robots.txt and report blocked AI agents.
 
-    Returns ``(blocked_agents, fetch_error)``; a fetch error means the
-    check was inconclusive, not that agents are allowed.
+    Returns ``(blocked_agents, fetch_error)``; a fetch error (including
+    a refused host or a robots.txt over the 256 KiB cap) means the check
+    was inconclusive, not that agents are allowed.
     """
     robots_url = site.rstrip("/") + "/robots.txt"
+    policy = policy or FetchPolicy(
+        max_bytes=ROBOTS_POLICY.max_bytes,
+        timeout=timeout,
+        deadline=ROBOTS_POLICY.deadline,
+        allow_private=allow_private,
+        user_agent="okf-web-publisher/0.1",
+    )
     try:
-        request = urllib.request.Request(
-            robots_url, headers={"User-Agent": "okf-web-publisher/0.1"}
-        )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            charset = response.headers.get_content_charset() or "utf-8"
-            robots_txt = response.read().decode(charset, errors="replace")
+        robots_txt = fetch_text(robots_url, policy)
     except OSError as exc:
         return [], f"could not fetch {robots_url}: {exc}"
     return evaluate_robots(robots_txt, site, base_path), None

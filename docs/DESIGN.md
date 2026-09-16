@@ -353,6 +353,26 @@ The bundle is static files — publishable to the same CDN as the site:
   ClaudeBot, PerplexityBot, …) are blocked from the bundle path — a
   published-but-unreachable bundle is the silent failure mode of this
   whole section.
+- **Outbound fetches (EDGE-CASES E2):** every URL the toolchain fetches
+  is someone else's data — a surveyed page, a sitemap, a capability
+  concept's `executor.resource`, a store's `<link rel="okf-bundle">`,
+  a concept's `resource` — so every fetch goes through one boundary,
+  `net.safe_fetch`, under a `FetchPolicy`: `http`/`https` only;
+  loopback, private, link-local (the cloud metadata service), reserved,
+  multicast and unspecified hosts refused in every literal spelling
+  (`127.1`, `0x7f000001`, `2130706433`, `017700000001`, `0`, mapped
+  IPv6) and on every address the resolver returns, checked at
+  connection time so the socket connects to the address that was
+  vetted; each redirect hop re-checked, at most five; bodies capped
+  (pages 5 MiB, robots.txt 256 KiB, capability responses 1 MiB) under
+  a deadline. The surveyor, the sitemap reader, `discover`, `drift`,
+  `publish --check-robots` and the MCP bridge's `okf_execute` all use
+  it; `--allow-private-hosts` is the single, explicit opt-out, for a
+  local dev or staging host, never the default. The subscription LLM
+  path (`--llm claude-code`) runs the agent CLI with every tool
+  disabled and the extraction rules as its system prompt, in an empty
+  working directory, and refuses a CLI that lacks those flags: page
+  text is untrusted and must not steer an agent with tools.
 
 Example nginx (one tested recipe per hosting type, from shared hosting
 to Cloudflare Pages, the delegated route on hosted platforms, and the

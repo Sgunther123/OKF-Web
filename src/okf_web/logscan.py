@@ -110,12 +110,19 @@ class LogScanReport:
     agent_last_seen: dict = field(default_factory=dict)
 
 
+# A log line longer than this is not a request record; it is skipped
+# before the regex sees it, so a hostile log cannot make matching slow.
+MAX_LINE_LENGTH = 16 * 1024
+
+
 def scan_lines(lines, base_path: str = "/.well-known/okf") -> LogScanReport:
     report = LogScanReport()
     prefix = base_path.rstrip("/")
     for line in lines:
-        parsed = _parse_line(line)
         report.lines += 1
+        if len(line) > MAX_LINE_LENGTH:
+            continue
+        parsed = _parse_line(line)
         if parsed is None:
             continue
         path, ua, when = parsed

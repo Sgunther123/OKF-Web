@@ -18,6 +18,7 @@ a user message in, text out. Any provider can sit behind
 from __future__ import annotations
 
 import subprocess
+import tempfile
 from typing import Protocol
 
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -57,13 +58,41 @@ class AnthropicClient:
         )
 
 
+class LLMUnavailable(RuntimeError):
+    """The requested LLM path cannot run safely on this machine; the
+    message says what to change."""
+
+
+# Flags the agent CLI must offer before untrusted page text is allowed
+# anywhere near it: no tools, and the rules delivered out of band.
+_REQUIRED_CLI_FLAGS = ("--tools", "--system-prompt")
+_OPTIONAL_CLI_FLAGS = ("--strict-mcp-config",)
+
+
+def probe_cli_help(executable: str, timeout: float = 30.0) -> str | None:
+    """``<executable> --help`` as text, or ``None`` when the binary is
+    missing or the probe fails; it never raises, because a missing
+    binary gets its own actionable error at the first completion."""
+    try:
+        proc = subprocess.run(
+            [executable, "--help"], capture_output=True, text=True, timeout=timeout
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return (proc.stdout or "") + (proc.stderr or "")
+
+
 class SubscriptionCLIClient:
     """Run prompts through a local agent CLI on the user's subscription.
 
-    The command receives the combined system + user prompt on stdin and
-    must print the completion to stdout — the contract of Claude Code's
-    print mode (``claude -p``), and equally of other agent CLIs, so the
-    open tooling stays provider-neutral.
+    Without ``system_flag`` the command receives the combined system +
+    user prompt on stdin and must print the completion to stdout — the
+    contract of Claude Code's print mode (``claude -p``), and equally of
+    other agent CLIs, so the open tooling stays provider-neutral. With
+    ``system_flag`` the system text travels as that flag's value and
+    only the user text (page content, untrusted) goes to stdin. Every
+    run happens in an empty temporary working directory, so an agent
+    CLI sees no project files whatever the prompt asks for.
 
     Scope: **interactive, human-initiated runs only.** Consumer LLM
     subscriptions are personal and rate-limited in rolling windows;
@@ -74,22 +103,35 @@ class SubscriptionCLIClient:
     """
 
     def __init__(self, command: list[str], model: str = "subscription-cli",
-                 timeout: float = 600.0):
+                 timeout: float = 600.0, system_flag: str | None = None):
         self.command = list(command)
         self.model = model
         self._timeout = timeout
+        self.system_flag = system_flag
+
+    def argv(self, system: str) -> list[str]:
+        """The exact command a completion runs: the system text rides
+        on ``system_flag`` when there is one."""
+        if self.system_flag:
+            return self.command + [self.system_flag, system.strip()]
+        return list(self.command)
 
     def complete(self, system: str, user: str, max_tokens: int = 4096) -> str:
         # Agent CLIs take one prompt; max_tokens is not applicable.
-        prompt = f"{system.strip()}\n\n---\n\n{user}"
+        if self.system_flag:
+            argv, prompt = self.argv(system), user
+        else:
+            argv, prompt = list(self.command), f"{system.strip()}\n\n---\n\n{user}"
         try:
-            proc = subprocess.run(
-                self.command,
-                input=prompt,
-                text=True,
-                capture_output=True,
-                timeout=self._timeout,
-            )
+            with tempfile.TemporaryDirectory(prefix="okf-web-llm-") as workdir:
+                proc = subprocess.run(
+                    argv,
+                    input=prompt,
+                    text=True,
+                    capture_output=True,
+                    timeout=self._timeout,
+                    cwd=workdir,
+                )
         except FileNotFoundError as exc:
             raise RuntimeError(
                 f"{self.command[0]!r} not found on PATH; install it and log "
@@ -108,13 +150,40 @@ class SubscriptionCLIClient:
         return proc.stdout
 
 
-def claude_code_client(model: str | None = None, timeout: float = 600.0) -> SubscriptionCLIClient:
+def claude_code_client(
+    model: str | None = None, timeout: float = 600.0, help_text: str | None = None
+) -> SubscriptionCLIClient:
     """Claude Code in print mode, authenticated however the local
-    ``claude`` install is — including a Claude Pro/Max subscription."""
-    command = ["claude", "-p"]
+    ``claude`` install is — including a Claude Pro/Max subscription —
+    with every tool disabled and the rules as its system prompt.
+
+    The installed CLI is probed once (``claude --help``; pass
+    ``help_text`` to skip the probe). A CLI without the tool-disabling
+    or system-prompt flag is refused with an explanation rather than run
+    with tools on: surveyed pages are untrusted text and must never
+    steer an agent that can touch the operator's machine. A missing
+    binary is not a refusal here; the first completion reports it."""
+    if help_text is None:
+        help_text = probe_cli_help("claude")
+    command = ["claude", "-p", "--tools", ""]
+    if help_text is not None:
+        missing = [flag for flag in _REQUIRED_CLI_FLAGS if flag not in help_text]
+        if missing:
+            raise LLMUnavailable(
+                "the installed `claude` CLI does not support "
+                + ", ".join(missing)
+                + ": okf-web runs Claude Code with all tools disabled and the "
+                "extraction rules as its system prompt, so text from surveyed "
+                "pages cannot steer an agent that has tools. Update Claude Code "
+                "(`claude update`), or use the API path instead (drop "
+                "--llm claude-code and set ANTHROPIC_API_KEY)"
+            )
+        command += [flag for flag in _OPTIONAL_CLI_FLAGS if flag in help_text]
     if model:
         command += ["--model", model]
-    return SubscriptionCLIClient(command, model=model or "claude-code", timeout=timeout)
+    return SubscriptionCLIClient(
+        command, model=model or "claude-code", timeout=timeout, system_flag="--system-prompt"
+    )
 
 
 class StaticClient:

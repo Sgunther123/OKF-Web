@@ -36,17 +36,16 @@ Claude Desktop config (``claude_desktop_config.json``)::
 from __future__ import annotations
 
 import datetime as _dt
-import ipaddress
 import json
 import sys
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
 from . import evaluator
 from .model import Bundle, Concept, load_bundle, localized_view
+from .net import CAPABILITY_POLICY, FetchPolicy, is_private_host, safe_fetch
 from .publisher import published_view
 
 USER_AGENT = "okf-web-mcp/0.1"
@@ -54,35 +53,31 @@ _DEFAULT_PROTOCOL = "2025-03-26"
 _BODY_LIMIT = 4000  # chars of capability response echoed back
 
 
-def _http_get(url: str, timeout: float = 15.0) -> tuple[int, str]:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        charset = response.headers.get_content_charset() or "utf-8"
-        return response.status, response.read().decode(charset, errors="replace")
-
-
-def _is_private_host(hostname: str) -> bool:
-    """True for hosts okf_execute must not fetch by default: loopback
-    and mDNS-style names, and literal IPs in loopback, private,
-    link-local, reserved, multicast, or unspecified ranges. Checks the
-    URL's literal host only — a public name that *resolves* to a
-    private address is not caught here (DNS rebinding); merchants
-    running against such setups opt in with --allow-private-hosts."""
-    host = hostname.lower().rstrip(".")
-    if host == "localhost" or host.endswith(".localhost") or host.endswith(".local"):
-        return True
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return (
-        ip.is_loopback
-        or ip.is_private
-        or ip.is_link_local
-        or ip.is_reserved
-        or ip.is_multicast
-        or ip.is_unspecified
+def _http_get(
+    url: str,
+    timeout: float = 15.0,
+    allow_private: bool = False,
+    policy: FetchPolicy | None = None,
+) -> tuple[int, str]:
+    """Fetch a capability endpoint under the capability policy (1 MiB
+    cap, deadline, redirect re-check, private hosts refused on every
+    resolved address unless the merchant opted in). Any HTTP status is
+    an answer the assistant gets to see."""
+    policy = policy or FetchPolicy(
+        max_bytes=CAPABILITY_POLICY.max_bytes,
+        timeout=timeout,
+        deadline=CAPABILITY_POLICY.deadline,
+        allow_private=allow_private,
+        user_agent=USER_AGENT,
     )
+    result = safe_fetch(url, policy)
+    return result.status, result.text
+
+
+# The literal-host fast path (local names, every spelling of a loopback,
+# private, link-local, reserved, multicast or unspecified literal). A name
+# that *resolves* privately is refused at connection time by safe_fetch.
+_is_private_host = is_private_host
 
 
 @dataclass
@@ -114,7 +109,7 @@ def build_state(
         bundle=bundle,
         retriever=retriever or evaluator.retrieve,
         top_k=top_k,
-        http_get=http_get or _http_get,
+        http_get=http_get or (lambda url: _http_get(url, allow_private=allow_private_hosts)),
         allow_private_hosts=allow_private_hosts,
     )
 

@@ -35,8 +35,10 @@ from .model import load_bundle
 from .surveyor import fetch, html_to_text, stable_page_hash
 
 
-def _fetch_page_text(url: str, timeout: float = 30.0) -> str:
-    return html_to_text(fetch(url, timeout=timeout))
+def _fetch_page_text(
+    url: str, timeout: float = 30.0, allow_private: bool = False, policy=None
+) -> str:
+    return html_to_text(fetch(url, timeout=timeout, allow_private=allow_private, policy=policy))
 
 
 @dataclass
@@ -55,13 +57,22 @@ def check_bundle(
     bundle_root: Path | str,
     fetch_text=None,
     timeout: float = 30.0,
+    allow_private: bool = False,
+    policy=None,
 ) -> DriftReport:
     """Compare every surveyed concept's source page against its hash.
 
     Pages are fetched once per URL even when several concepts were
-    extracted from the same page.
+    extracted from the same page. Fetches run under the page policy
+    (private hosts refused unless ``allow_private``) or an explicit
+    ``policy``.
     """
-    fetch_text = fetch_text or (lambda url: _fetch_page_text(url, timeout=timeout))
+    if fetch_text is None:
+        if policy is not None:
+            fetch_text = lambda url: _fetch_page_text(url, policy=policy)  # noqa: E731
+        else:
+            extra = {"allow_private": True} if allow_private else {}
+            fetch_text = lambda url: _fetch_page_text(url, timeout=timeout, **extra)  # noqa: E731
     bundle = load_bundle(bundle_root)
     report = DriftReport()
 

@@ -36,7 +36,6 @@ from __future__ import annotations
 
 import datetime as _dt
 import re
-import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
@@ -54,6 +53,7 @@ from .model import (
     render_document,
     sha256_text,
 )
+from .net import PAGE_POLICY, FetchPolicy, UnsafeURL, check_url, fetch_text
 
 USER_AGENT = "okf-web-surveyor/0.1 (+https://github.com/sgunther123/okf-web)"
 _CONCEPT_BLOCK_RE = re.compile(
@@ -106,17 +106,51 @@ def html_to_text(html: str) -> str:
     return parser.text()
 
 
-def fetch(url: str, timeout: float = 30.0) -> str:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        charset = response.headers.get_content_charset() or "utf-8"
-        return response.read().decode(charset, errors="replace")
+def page_policy(timeout: float = 30.0, allow_private: bool = False) -> FetchPolicy:
+    """The policy every page fetch runs under: the 5 MiB page cap, the
+    caller's socket timeout, a deadline of at least a minute, and private
+    hosts refused unless the operator opted in for a staging host."""
+    return FetchPolicy(
+        max_bytes=PAGE_POLICY.max_bytes,
+        timeout=timeout,
+        deadline=max(PAGE_POLICY.deadline, timeout * 2),
+        allow_private=allow_private,
+        user_agent=USER_AGENT,
+    )
 
 
-def discover_sitemap(base_url: str, timeout: float = 30.0) -> list[str]:
-    """Return page URLs from ``<base>/sitemap.xml`` (one level of nesting)."""
+def fetch(
+    url: str,
+    timeout: float = 30.0,
+    allow_private: bool = False,
+    policy: FetchPolicy | None = None,
+) -> str:
+    """A page as text, through the shared safe fetcher: http(s) only,
+    private hosts refused, redirects re-checked, 5 MiB cap, deadline; a
+    non-2xx status is a fetch failure. An explicit ``policy`` replaces
+    the page policy built from ``timeout`` and ``allow_private``."""
+    return fetch_text(url, policy or page_policy(timeout, allow_private))
+
+
+def discover_sitemap(
+    base_url: str,
+    timeout: float = 30.0,
+    allow_private: bool = False,
+    policy: FetchPolicy | None = None,
+) -> list[str]:
+    """Return page URLs from ``<base>/sitemap.xml`` (one level of
+    nesting). Locations the fetch policy refuses (``file:``, private or
+    local hosts) are dropped: a sitemap is untrusted input."""
+    policy = policy or page_policy(timeout, allow_private)
     root_url = base_url.rstrip("/") + "/sitemap.xml"
     urls: list[str] = []
+
+    def _admissible(url: str) -> bool:
+        try:
+            check_url(url, policy)
+        except UnsafeURL:
+            return False
+        return True
 
     def _parse(xml_text: str, depth: int) -> None:
         try:
@@ -125,16 +159,16 @@ def discover_sitemap(base_url: str, timeout: float = 30.0) -> list[str]:
             return
         ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
         for loc in tree.findall(".//sm:url/sm:loc", ns):
-            if loc.text:
+            if loc.text and _admissible(loc.text.strip()):
                 urls.append(loc.text.strip())
         if depth > 0:
             for loc in tree.findall(".//sm:sitemap/sm:loc", ns):
-                if loc.text:
+                if loc.text and _admissible(loc.text.strip()):
                     try:
-                        _parse(fetch(loc.text.strip(), timeout=timeout), depth - 1)
+                        _parse(fetch(loc.text.strip(), policy=policy), depth - 1)
                     except OSError:
                         continue
-    _parse(fetch(root_url, timeout=timeout), depth=1)
+    _parse(fetch(root_url, policy=policy), depth=1)
     return urls
 
 
@@ -361,12 +395,23 @@ def survey(
     bundle_root: Path | str,
     llm,
     fetcher=None,
+    allow_private: bool = False,
+    policy: FetchPolicy | None = None,
 ) -> SurveyResult:
     bundle_root = Path(bundle_root)
     bundle_root.mkdir(parents=True, exist_ok=True)
-    fetcher = fetcher or (lambda u: html_to_text(fetch(u)))
+    policy = policy or page_policy(allow_private=allow_private)
+    fetcher = fetcher or (lambda u: html_to_text(fetch(u, policy=policy)))
     result = SurveyResult()
     for url in urls:
+        # The URL list is untrusted input (a sitemap, a --urls file): a
+        # refused URL is recorded and never fetched, whatever fetcher is
+        # in use, and never reaches the LLM.
+        try:
+            check_url(url, policy)
+        except UnsafeURL as exc:
+            result.errors.append(f"{url}: {exc}")
+            continue
         try:
             page_text = fetcher(url)
         except OSError as exc:

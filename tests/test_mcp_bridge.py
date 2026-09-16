@@ -190,6 +190,13 @@ def test_execute_refuses_private_hosts(tmp_path):
         "http://[::1]/price",
         "http://0.0.0.0/price",
         "http://printer.local/price",
+        # EDGE-CASES S1: every spelling the resolver accepts
+        "http://127.1/price",
+        "http://0x7f000001/price",
+        "http://2130706433/price",
+        "http://017700000001/price",
+        "http://0/price",
+        "http://[::ffff:127.0.0.1]/price",
     ):
         bundle_dir = tmp_path / url.replace("/", "_").replace(":", "_")
         bundle_dir.mkdir()

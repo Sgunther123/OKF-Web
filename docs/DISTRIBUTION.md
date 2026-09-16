@@ -85,11 +85,20 @@ What the plan does with that:
   evaluate bundles with. (Plan item; lands as a normal feature commit
   when scheduled.)
 - **Stay GET-only, stay free.** The bridge's safety posture (GET-only
-  execution, no undeclared arguments) is what makes "point your
-  assistant at any store" a responsible instruction; consuming a
-  bundle over MCP is free from every publisher, always — consumers
-  never pay. Hosted per-tenant MCP endpoints are the hosted edition's
-  channel and follow the same rule.
+  execution, no undeclared arguments, and since EDGE-CASES E2 the
+  shared fetch boundary: private, loopback and link-local hosts refused
+  on every resolved address and every literal spelling, redirects
+  re-checked, a 1 MiB response cap under a deadline, `http`/`https`
+  only, with `--allow-private-hosts` as the one explicit opt-out for a
+  local dev host) is what makes "point your assistant at any store" a
+  responsible instruction; consuming a bundle over MCP is free from
+  every publisher, always — consumers never pay. Hosted per-tenant MCP
+  endpoints are the hosted edition's channel and follow the same rule.
+  The subscription LLM path (`--llm claude-code`) is held to the same
+  standard from the other side: the agent CLI runs with all tools
+  disabled, the rules as its system prompt and an empty working
+  directory, and a CLI without those flags is refused, so a surveyed
+  page cannot steer an agent that could touch the operator's machine.
 
 ## 5. Versioning and support policy
 

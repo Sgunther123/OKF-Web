@@ -449,6 +449,22 @@ You asked for the subscription path but Claude Code isn't installed
 (or isn't logged in) on this computer. Install it from
 code.claude.com, run it once, log in, then retry.
 
+**"the installed `claude` CLI does not support --tools, --system-prompt"**
+The subscription path runs Claude Code with every tool switched off
+and the extraction rules delivered separately from the page text, so
+that nothing written on a web page can steer an assistant that could
+touch your files. Your installed Claude Code predates those switches.
+Run `claude update`, or use the API path instead (drop
+`--llm claude-code` and set `ANTHROPIC_API_KEY`).
+
+**"refusing to fetch …: … is a loopback address"** (or private,
+link-local, local name; also "only http and https are fetched")
+The tool only fetches public web addresses, because page, sitemap and
+pointer addresses come from outside and could otherwise point it at
+things on your own computer or network. For a staging site on your
+own network, add `--allow-private-hosts` to the command (survey, drift,
+discover, publish, mcp). A `file:` address is never fetched.
+
 **A survey stops partway with a limit or rate message**
 Subscriptions allow a generous but finite amount of AI use per
 window. Nothing is lost: re-run the same command later and it picks
@@ -567,3 +583,4 @@ technical docs live alongside this guide:
 | Approve all low-stakes drafts at once | `okf-web review batch-approve my-store --by you@yourstore.com` |
 | See which AI systems fetched your folder | `okf-web logscan access.log` |
 | Check your setup like an AI would | `okf-web discover https://yourstore.com` |
+| Check a staging site on your own network | `okf-web discover http://staging.local --allow-private-hosts` |

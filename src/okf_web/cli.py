@@ -24,6 +24,7 @@ from pathlib import Path
 from . import drift as drift_mod
 from . import report as report_mod
 from . import evaluator, linter, publisher, review, signing, surveyor
+from .llm import LLMUnavailable
 from .model import BundleNotFound, load_bundle
 
 
@@ -72,6 +73,16 @@ def _llm(args, model: str | None = None):
     from .llm import AnthropicClient
 
     return AnthropicClient(model=model)
+
+
+def _add_network_args(parser) -> None:
+    parser.add_argument(
+        "--allow-private-hosts",
+        action="store_true",
+        help="also fetch loopback, private and link-local hosts — for a "
+        "local dev or staging host only; never the default, because page, "
+        "sitemap and pointer URLs are untrusted input",
+    )
 
 
 def _add_llm_args(parser) -> None:
@@ -157,7 +168,9 @@ def cmd_review(args) -> int:
 def cmd_survey(args) -> int:
     urls: list[str] = []
     if args.sitemap:
-        urls.extend(surveyor.discover_sitemap(args.sitemap))
+        urls.extend(
+            surveyor.discover_sitemap(args.sitemap, allow_private=args.allow_private_hosts)
+        )
     if args.urls:
         urls.extend(
             line.strip()
@@ -184,7 +197,9 @@ def cmd_survey(args) -> int:
     if urls:
         if args.limit:
             urls = urls[: args.limit]
-        page_result = surveyor.survey(urls, args.bundle, _llm(args))
+        page_result = surveyor.survey(
+            urls, args.bundle, _llm(args), allow_private=args.allow_private_hosts
+        )
         for attr in ("written", "proposed", "skipped_unchanged",
                      "quarantined", "collisions", "errors",
                      "dropped_live_fields"):
@@ -385,7 +400,9 @@ def cmd_publish(args) -> int:
                 "x_geo.site on the root index.md)"
             )
         else:
-            blocked, error = publisher.check_robots(str(site), args.base_path)
+            blocked, error = publisher.check_robots(
+                str(site), args.base_path, allow_private=args.allow_private_hosts
+            )
             if error:
                 print(f"warning: robots check inconclusive — {error}")
             elif blocked:
@@ -400,7 +417,9 @@ def cmd_publish(args) -> int:
 
 
 def cmd_drift(args) -> int:
-    report = drift_mod.check_bundle(args.bundle, timeout=args.timeout)
+    report = drift_mod.check_bundle(
+        args.bundle, timeout=args.timeout, allow_private=args.allow_private_hosts
+    )
     for rel, url in report.drifted:
         print(f"drifted: {rel} ({url})")
     for rel, err in report.unreachable:
@@ -418,7 +437,9 @@ def cmd_drift(args) -> int:
 def cmd_discover(args) -> int:
     from . import discover as discover_mod
 
-    report = discover_mod.discover(args.store_url, timeout=args.timeout)
+    report = discover_mod.discover(
+        args.store_url, timeout=args.timeout, allow_private=args.allow_private_hosts
+    )
     print(f"store origin: {report.store_origin}")
     print(f"routes found: {', '.join(report.routes) or 'none'}")
     if report.bundle_url:
@@ -839,6 +860,7 @@ def build_parser() -> argparse.ArgumentParser:
         "live-values rule",
     )
     p.add_argument("--limit", type=int, default=0)
+    _add_network_args(p)
     _add_llm_args(p)
     p.set_defaults(func=cmd_survey)
 
@@ -918,6 +940,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="fetch the live site's robots.txt and warn if AI agents are "
         "blocked from the bundle path",
     )
+    _add_network_args(p)
     p.add_argument(
         "--site",
         help="storefront origin the bundle speaks for; recorded in "
@@ -1035,6 +1058,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("bundle")
     p.add_argument("--timeout", type=float, default=30.0)
+    _add_network_args(p)
     p.set_defaults(func=cmd_drift)
 
     p = sub.add_parser(
@@ -1045,6 +1069,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("store_url", help="storefront URL, e.g. https://www.example-store.com")
     p.add_argument("--timeout", type=float, default=15.0)
+    _add_network_args(p)
     p.set_defaults(func=cmd_discover)
 
     p = sub.add_parser(
@@ -1117,7 +1142,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except BundleNotFound as exc:
+    except (BundleNotFound, LLMUnavailable) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

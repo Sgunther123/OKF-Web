@@ -577,6 +577,12 @@ an engine does:
 okf-web discover https://www.store.example
 ```
 
+Against a server on your own machine or network (the transcripts
+below were taken on `127.0.0.1`), add `--allow-private-hosts`: the
+verifier, like every fetcher in the toolchain, refuses loopback,
+private and link-local hosts unless told otherwise (DESIGN §8,
+outbound fetches).
+
 Against the Caddy recipe on the test machine (§8), same-origin:
 
 ```

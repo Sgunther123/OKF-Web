@@ -101,7 +101,7 @@ def test_same_origin_recipe_serves_a_discoverable_bundle(example_bundle, tmp_pat
             example_bundle, root / ".well-known" / "okf", site=origin
         )
 
-        report = discover(origin)
+        report = discover(origin, allow_private=True)
         assert report.routes == ["well-known"]
         assert report.binding == "same-origin" and report.ok
         assert report.problems == []
@@ -138,7 +138,7 @@ def test_delegated_recipe_binds_the_bundle_to_the_store(example_bundle, tmp_path
             encoding="utf-8",
         )
 
-        report = discover(store)
+        report = discover(store, allow_private=True)
         assert report.routes == ["link-tag"]
         assert report.bundle_url == bundle_url
         assert report.binding == "bound" and report.ok
@@ -159,12 +159,12 @@ def test_delegated_recipe_rejects_a_bundle_that_names_another_store(
         publisher.publish(
             example_bundle, dist, site="https://other.example", bundle_url=bundle_url
         )
-        report = discover(store)
+        report = discover(store, allow_private=True)
         assert report.binding == "mismatch" and not report.ok
         assert any("does not speak for this store" in p for p in report.problems)
 
         publisher.publish(example_bundle, dist, bundle_url=bundle_url)  # no claim
-        report = discover(store)
+        report = discover(store, allow_private=True)
         assert report.binding == "missing" and not report.ok
 
 
@@ -184,7 +184,7 @@ def test_html_fallback_cannot_fake_a_signature(example_bundle, tmp_path):
         )
         assert status == 200 and headers["Content-Type"].startswith("text/html")
 
-        report = discover(origin)
+        report = discover(origin, allow_private=True)
         assert report.ok and report.binding == "same-origin"
         assert not report.signed
 
@@ -197,11 +197,11 @@ def test_check_robots_reads_the_served_robots_txt(tmp_path):
             "User-agent: *\nAllow: /\n",
             encoding="utf-8",
         )
-        blocked, error = publisher.check_robots(origin, "/.well-known/okf")
+        blocked, error = publisher.check_robots(origin, "/.well-known/okf", allow_private=True)
         assert error is None and blocked == ["GPTBot"]
 
         (root / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
-        assert publisher.check_robots(origin, "/.well-known/okf") == ([], None)
+        assert publisher.check_robots(origin, "/.well-known/okf", allow_private=True) == ([], None)
 
 
 # --- the document carries the rules the server implements ---------------------

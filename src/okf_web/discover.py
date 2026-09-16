@@ -26,11 +26,11 @@ the consumer knows which identity they trust.
 from __future__ import annotations
 
 import json
-import urllib.request
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from urllib.parse import urljoin
 
+from .net import PAGE_POLICY, FetchPolicy, UnsafeURL, check_url, safe_fetch
 from .publisher import _origin
 from .signing import SIGNATURE_NAME
 
@@ -38,11 +38,26 @@ USER_AGENT = "okf-web-discover/0.2"
 WELL_KNOWN_PATH = "/.well-known/okf"
 
 
-def _fetch(url: str, timeout: float = 15.0) -> tuple[int, str]:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        charset = response.headers.get_content_charset() or "utf-8"
-        return response.status, response.read().decode(charset, errors="replace")
+def _policy(timeout: float = 15.0, allow_private: bool = False) -> FetchPolicy:
+    return FetchPolicy(
+        max_bytes=PAGE_POLICY.max_bytes,
+        timeout=timeout,
+        deadline=max(PAGE_POLICY.deadline, timeout * 2),
+        allow_private=allow_private,
+        user_agent=USER_AGENT,
+    )
+
+
+def _fetch(
+    url: str,
+    timeout: float = 15.0,
+    allow_private: bool = False,
+    policy: FetchPolicy | None = None,
+) -> tuple[int, str]:
+    """Status and text through the shared safe fetcher; every status is
+    returned (a missing manifest is a 404, not an exception)."""
+    result = safe_fetch(url, policy or _policy(timeout, allow_private))
+    return result.status, result.text
 
 
 class _LinkTagParser(HTMLParser):
@@ -100,10 +115,28 @@ def _is_json_object(text: str) -> bool:
         return False
 
 
-def discover(store_url: str, fetch=None, timeout: float = 15.0) -> DiscoveryReport:
-    fetch = fetch or (lambda url: _fetch(url, timeout=timeout))
+def discover(
+    store_url: str,
+    fetch=None,
+    timeout: float = 15.0,
+    allow_private: bool = False,
+    policy: FetchPolicy | None = None,
+) -> DiscoveryReport:
+    explicit = policy
+    policy = policy or _policy(timeout, allow_private)
+    if fetch is None:
+        if explicit is not None:
+            fetch = lambda url: _fetch(url, policy=explicit)  # noqa: E731
+        else:
+            extra = {"allow_private": True} if allow_private else {}
+            fetch = lambda url: _fetch(url, timeout=timeout, **extra)  # noqa: E731
     origin = _origin(store_url)
     report = DiscoveryReport(store_origin=origin)
+    try:
+        check_url(store_url, policy)
+    except UnsafeURL as exc:
+        report.problems.append(str(exc))
+        return report
 
     # Route 1: the well-known location on the store's own origin.
     well_known = origin + WELL_KNOWN_PATH
@@ -127,15 +160,22 @@ def discover(store_url: str, fetch=None, timeout: float = 15.0) -> DiscoveryRepo
                 # directory-ified variant of it.
                 pointed = urljoin(store_url, parser.hrefs[0]).rstrip("/")
                 report.routes.append("link-tag")
-                if report.manifest is None:
-                    pointed_manifest = _try_manifest(fetch, pointed)
-                    if pointed_manifest is not None:
-                        report.bundle_url, report.manifest = pointed, pointed_manifest
-                    else:
-                        report.problems.append(
-                            f"link tag points at {pointed} but no readable "
-                            "manifest.json is there"
-                        )
+                # The pointer is the page's word, not the auditor's: a
+                # file: or private-host target is reported, never fetched.
+                try:
+                    check_url(pointed, policy)
+                except UnsafeURL as exc:
+                    report.problems.append(f"link tag points at {pointed}, not fetched: {exc}")
+                else:
+                    if report.manifest is None:
+                        pointed_manifest = _try_manifest(fetch, pointed)
+                        if pointed_manifest is not None:
+                            report.bundle_url, report.manifest = pointed, pointed_manifest
+                        else:
+                            report.problems.append(
+                                f"link tag points at {pointed} but no readable "
+                                "manifest.json is there"
+                            )
 
     if report.manifest is None:
         report.problems.append(
