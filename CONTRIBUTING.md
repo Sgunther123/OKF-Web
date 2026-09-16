@@ -53,7 +53,16 @@ the branch first; there is no route around the check, by design.
 ## Verifying the rule
 
 - The branches endpoint reports `protected: true` for `main` (the
-  session's GitHub `list_branches` tool shows the same field).
+  session's GitHub `list_branches` tool shows the same field). That flag
+  says a rule exists, not which one.
+- The rule contents are readable without administration rights:
+  `GET /repos/<owner>/<repo>/rules/branches/main` lists every active
+  rule on `main` (for a ruleset: `required_status_checks` with its
+  contexts and `strict_required_status_checks_policy`,
+  `required_linear_history`, `non_fast_forward`, `deletion`), and
+  `GET /repos/<owner>/<repo>/rulesets/<id>` shows the ruleset's
+  conditions and bypass list. Compare against the table above; a rule
+  missing from the list is not enforced.
 - A force push to `main` is refused.
 - A push to `main` of a commit whose check has not run is refused with
   a message naming the required check.
