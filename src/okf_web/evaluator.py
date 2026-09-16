@@ -43,6 +43,7 @@ from .model import (
     trust_mix,
     utc_instant,
     parse_document,
+    write_atomic,
 )
 
 ARCHETYPES = [
@@ -548,5 +549,5 @@ def write_scorecard(
     body = "\n" + "\n".join(lines) + "\n"
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_document(fm, body), encoding="utf-8")
+    write_atomic(out, render_document(fm, body))
     return out

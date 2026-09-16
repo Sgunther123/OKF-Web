@@ -43,6 +43,7 @@ from .model import (
     load_bundle,
     split_l10n,
     trust_mix,
+    utc_today,
 )
 from .publisher import AI_USER_AGENTS, select_publishable
 from .report import ARCHETYPE_LABELS, _gaps, _judged_verdicts, _question_blocks
@@ -295,7 +296,7 @@ def build_viewer(
     base_path: str = WELL_KNOWN_PATH,
 ) -> str:
     """Render the bundle viewer as a self-contained HTML page."""
-    today = today or _dt.date.today()
+    today = today or utc_today()
     e = _e
 
     concepts = {

@@ -36,7 +36,15 @@ from urllib.robotparser import RobotFileParser
 
 from . import OKF_VERSION, PROFILE
 from .linter import has_errors, lint_bundle
-from .model import Bundle, DIST_MARKER, INTERNAL_DIRS, _linked, load_bundle, marked_dists
+from .model import (
+    Bundle,
+    DIST_MARKER,
+    INTERNAL_DIRS,
+    _linked,
+    load_bundle,
+    marked_dists,
+    write_atomic,
+)
 from .net import ROBOTS_POLICY, FetchPolicy, fetch_text
 from .structured import write_llms_txt, write_structured
 
@@ -386,9 +394,7 @@ def _write_manifest(
         manifest["site"] = site
     if bundle_url:
         manifest["bundle_url"] = bundle_url
-    (dist / "manifest.json").write_text(
-        json.dumps(manifest, indent=2, sort_keys=False) + "\n", encoding="utf-8"
-    )
+    write_atomic(dist / "manifest.json", json.dumps(manifest, indent=2, sort_keys=False) + "\n")
 
 
 def _write_linkmap(dist: Path, bundle, published: list[str], prefix: str) -> None:

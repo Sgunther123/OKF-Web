@@ -8,10 +8,14 @@
   fast-forward push is made deliberately.
 - **Development happens on a working branch.** This project's is
   `claude/geo-ecommerce-evaluation-system-qzv3qn`. CI runs on every push
-  to every branch (`.github/workflows/okf-ci.yml`, job `test-and-lint`:
-  the suite, the strict lint of the example bundle, the dry-run
-  evaluation, and a publish smoke test), so a branch head always carries
-  the check that `main` requires.
+  to every branch (`.github/workflows/okf-ci.yml`: the `tests` job runs
+  the suite on every supported Python, 3.10 to 3.12, and the
+  `test-and-lint` job, which needs all of those legs, runs the strict
+  lint of the example bundle, the dry-run evaluation and a publish
+  smoke test), so a branch head always carries the check that `main`
+  requires. The required check is `test-and-lint` alone: it reports
+  only after every matrix leg passed, and its name never changes with
+  the versions tested, so the rule needs no edit when the matrix does.
 - **History stays linear.** No merge commits, no force pushes to `main`,
   and nothing already on `main` is ever rewritten. A mistake on `main` is
   corrected by a new commit.
@@ -28,7 +32,7 @@ Settings → Branches → Add branch protection rule, branch name pattern
 | Setting | Value | Why |
 | --- | --- | --- |
 | Require a pull request before merging | off | This project moves `main` by fast-forward on the maintainer's word. Turning this on moves the workflow to pull requests, which is a separate decision, and can be made later without touching anything else here. |
-| Require status checks to pass before merging | on, with the check `test-and-lint` selected and "Require branches to be up to date before merging" on | A commit reaches `main` only after the suite, the strict lint, the dry-run evaluation and the publish smoke test passed on that exact commit. |
+| Require status checks to pass before merging | on, with the check `test-and-lint` selected and "Require branches to be up to date before merging" on | A commit reaches `main` only after the suite (on every supported Python), the strict lint, the dry-run evaluation and the publish smoke test passed on that exact commit. |
 | Require linear history | on | Fast-forward only. |
 | Do not allow bypassing the above settings | on | Without it an administrator's push skips the check, and the rule protects nothing. |
 | Allow force pushes | off | Nothing on `main` is rewritten. |

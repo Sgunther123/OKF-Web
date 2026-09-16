@@ -456,6 +456,17 @@ location ^~ /.well-known/okf/ {
   `publish --freshness withhold` retires lapsed concepts outright —
   the graceful-degradation mode for a bundle nobody is maintaining,
   where the failure should be "says less" rather than "lies".
+- **Writes, locks, clocks:** every file the pipeline writes goes
+  through `model.write_atomic` (a hidden temporary sibling, fsynced,
+  then `os.replace`), so a cron timeout or SIGTERM mid-save leaves the
+  old concept, log, pack, scorecard or manifest whole rather than
+  truncated; writing commands hold `<bundle>/.okf-lock` for their
+  duration (`model.bundle_lock`), so two overlapping nightly runs
+  cannot interleave — the second exits 2 naming the holder, and a lock
+  left by a dead process is taken over; and every default clock is
+  UTC (`model.utc_now`/`utc_today`), matching the UTC instants the
+  stamps carry, so freshness never turns over early or late with the
+  host's time zone (EDGE-CASES A5, A6).
 - **Audit:** `log.md` (newest-first, per the spec) plus git history
   answer "who said this, when, and who approved it" for every claim —
   which is precisely the question a merchant's lawyer asks after an

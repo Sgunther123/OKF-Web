@@ -32,6 +32,7 @@ from .model import (
     concept_content_hash,
     load_bundle,
     split_l10n,
+    utc_today,
 )
 
 ERROR = "error"
@@ -268,7 +269,7 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                         "so the freshness machinery retires it with the sale",
                     )
                 )
-            if (today or _dt.date.today()) > ends:
+            if (today or utc_today()) > ends:
                 findings.append(
                     Finding(
                         WARNING,

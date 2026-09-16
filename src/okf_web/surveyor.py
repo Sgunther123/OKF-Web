@@ -52,6 +52,8 @@ from .model import (
     parse_document,
     render_document,
     sha256_text,
+    utc_now,
+    write_atomic,
 )
 from .net import PAGE_POLICY, FetchPolicy, UnsafeURL, check_url, fetch_text
 
@@ -106,6 +108,10 @@ def html_to_text(html: str) -> str:
     return parser.text()
 
 
+class SitemapError(ValueError):
+    """The sitemap could not be used at all (EDGE-CASES A4)."""
+
+
 def page_policy(timeout: float = 30.0, allow_private: bool = False) -> FetchPolicy:
     """The policy every page fetch runs under: the 5 MiB page cap, the
     caller's socket timeout, a deadline of at least a minute, and private
@@ -152,11 +158,11 @@ def discover_sitemap(
             return False
         return True
 
-    def _parse(xml_text: str, depth: int) -> None:
+    def _parse(xml_text: str, depth: int) -> bool:
         try:
             tree = ET.fromstring(xml_text)
         except ET.ParseError:
-            return
+            return False
         ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
         for loc in tree.findall(".//sm:url/sm:loc", ns):
             if loc.text and _admissible(loc.text.strip()):
@@ -168,7 +174,18 @@ def discover_sitemap(
                         _parse(fetch(loc.text.strip(), policy=policy), depth - 1)
                     except OSError:
                         continue
-    _parse(fetch(root_url, policy=policy), depth=1)
+        return True
+    if not _parse(fetch(root_url, policy=policy), depth=1):
+        raise SitemapError(
+            f"sitemap unparseable: {root_url} is not XML (an HTML page or a "
+            "single-page-app fallback?); pass --urls FILE with the page "
+            "addresses instead"
+        )
+    if not urls:
+        raise SitemapError(
+            f"sitemap empty: {root_url} lists no page locations the fetch "
+            "policy allows"
+        )
     return urls
 
 
@@ -402,11 +419,11 @@ def place_draft(
         # `human-batch:` sign-off included): file a drift proposal.
         proposal = bundle_root / "_review" / "proposed" / rel
         proposal.parent.mkdir(parents=True, exist_ok=True)
-        proposal.write_text(render_document(fm, body), encoding="utf-8")
+        write_atomic(proposal, render_document(fm, body))
         result.proposed.append(rel)
     else:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(render_document(fm, body), encoding="utf-8")
+        write_atomic(target, render_document(fm, body))
         result.written.append(rel)
         state.concepts[rel] = Concept(rel, fm, body, abs_path=target)
     return rel
@@ -436,7 +453,7 @@ def survey(
             continue
         try:
             page_text = fetcher(url)
-        except OSError as exc:
+        except Exception as exc:  # noqa: BLE001 — one page never aborts the run (A4)
             result.errors.append(f"{url}: fetch failed: {exc}")
             continue
         try:
@@ -449,11 +466,17 @@ def survey(
 def _quarantine(bundle_root: Path, url: str, payload: str, reason: str) -> None:
     qdir = bundle_root / "_quarantine"
     qdir.mkdir(parents=True, exist_ok=True)
-    stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%S")
+    stamp = utc_now().strftime("%Y%m%dT%H%M%S")
     slug = re.sub(r"[^a-z0-9]+", "-", url.lower())[-60:].strip("-")
-    (qdir / f"{stamp}-{slug}.txt").write_text(
-        f"reason: {reason}\nurl: {url}\n\n{payload}", encoding="utf-8"
-    )
+    # Unique per payload, and never overwritten: two bad blocks from one
+    # page in one second are two files (EDGE-CASES A6).
+    digest = sha256_text(payload)[7:15]
+    path = qdir / f"{stamp}-{slug}-{digest}.txt"
+    counter = 2
+    while path.exists():
+        path = qdir / f"{stamp}-{slug}-{digest}-{counter}.txt"
+        counter += 1
+    write_atomic(path, f"reason: {reason}\nurl: {url}\n\n{payload}")
 
 
 def _plural(type_name: str) -> str:
@@ -498,5 +521,5 @@ def rebuild_index(bundle_root: Path | str) -> str:
         lines.append("")
     body = "\n" + "\n".join(lines).strip() + "\n"
     text = render_document(fm, body)
-    (bundle_root / "index.md").write_text(text, encoding="utf-8")
+    write_atomic(bundle_root / "index.md", text)
     return text

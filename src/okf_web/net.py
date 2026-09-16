@@ -112,7 +112,12 @@ class FetchResult:
     @property
     def text(self) -> str:
         charset = self.headers.get_content_charset() or "utf-8"
-        return self.body.decode(charset, errors="replace")
+        try:
+            return self.body.decode(charset, errors="replace")
+        except LookupError:
+            # A charset Python does not know (EDGE-CASES A4): the page is
+            # still a page, so read it as UTF-8 rather than abort the run.
+            return self.body.decode("utf-8", errors="replace")
 
 
 # --- host classification -----------------------------------------------------

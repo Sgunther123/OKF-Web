@@ -533,7 +533,22 @@ up where it left off — already-drafted pages are skipped for free.
 Your website (or its firewall) declined the tool's visit, or an
 address was mistyped. Check the address; if your site blocks
 automated visitors, your web person can allow the tool's name
-(`okf-web-surveyor`).
+(`okf-web-surveyor`). One failed page never stops the run: the
+rest are still drafted, and the summary lists what failed.
+
+**"bundle … is locked by process …"**
+Another okf-web command is still writing to that folder (a
+scheduled run that has not finished, or a second terminal). Wait
+for it to end and try again. A lock left behind by a run that
+crashed is taken over automatically; delete the folder's
+`.okf-lock` file by hand only if the message names a run you know
+is dead.
+
+**"sitemap unparseable: … is not XML"** / **"sitemap empty: …"**
+The address you gave `--sitemap` answered with something other than
+a sitemap (often your site's normal home page) or with a sitemap
+that lists no pages. Open the address in a browser — it should show
+XML with `<loc>` lines — or pass the pages directly with `--urls`.
 
 ---
 
@@ -601,6 +616,12 @@ folder, read the sheets, and even call your store's live price/stock
 lookups — citing your verified facts instead of guessing from your
 web pages. It's also the best way to *feel* what the scorecard
 measures: ask the assistant the questions your customers ask.
+
+**Q: My scheduled runs use my local time zone. Which day do the dates use?**
+A: Every date the tool writes or checks is UTC (the `Z` on the
+stamps). A freshness date turns over at midnight UTC wherever the
+machine runs, and the review log files each entry under its UTC
+day, so two machines in different zones agree on what is fresh.
 
 **Q: What if I don't want to run any of this myself?**
 A: That's a fair choice — the open tool will always be able to do

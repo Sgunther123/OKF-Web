@@ -8,10 +8,13 @@ filenames (``index.md``, ``log.md``) kept separate from concepts.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as _dt
 import hashlib
 import json
+import os
 import re
+import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
@@ -186,6 +189,115 @@ def _as_instant(value: Any) -> _dt.datetime | None:
     return None
 
 
+def utc_now() -> _dt.datetime:
+    """The clock every default uses: a tz-aware UTC instant, so nothing
+    compares a host-local calendar date against the spec's UTC stamps
+    (EDGE-CASES A5)."""
+    return _dt.datetime.now(_dt.timezone.utc)
+
+
+def utc_today() -> _dt.date:
+    return utc_now().date()
+
+
+LOCK_NAME = ".okf-lock"
+
+
+class BundleLocked(RuntimeError):
+    """Another mutating command holds the bundle (EDGE-CASES A6)."""
+
+
+def _write_bytes(path: Path, data: bytes) -> None:
+    with open(path, "wb") as fh:
+        fh.write(data)
+        fh.flush()
+        os.fsync(fh.fileno())
+
+
+def write_atomic(path: Path | str, text: str) -> None:
+    """Write ``text`` so that ``path`` is either the old file or the
+    whole new one, never a truncated middle: a hidden temporary sibling
+    in the same directory, then ``os.replace`` (EDGE-CASES A6)."""
+    path = Path(path)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
+    try:
+        _write_bytes(tmp, text.encode("utf-8"))
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def _lock_holder(lock: Path) -> tuple[int, str] | None:
+    try:
+        pid_text, _, since = lock.read_text(encoding="utf-8").strip().partition(" ")
+        return int(pid_text), since or "?"
+    except (OSError, ValueError):
+        return None
+
+
+@contextlib.contextmanager
+def bundle_lock(root: Path | str, create: bool = False) -> Iterator[Path]:
+    """Hold ``<root>/.okf-lock`` for the duration of a mutating command.
+    A second run while the holder is alive is refused with
+    :class:`BundleLocked`; a lock left behind by a dead process is taken
+    over. ``create`` makes the bundle directory (for commands that build
+    a bundle from nothing) and removes it again if the command leaves it
+    empty, so a refused run leaves no trace."""
+    root = Path(root)
+    created = False
+    if create and not root.exists():
+        root.mkdir(parents=True)
+        created = True
+    if not root.is_dir():
+        raise BundleNotFound(f"bundle directory not found: {root}")
+    lock = root / LOCK_NAME
+    while True:
+        try:
+            fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        except FileExistsError:
+            holder = _lock_holder(lock)
+            if holder is not None and _pid_alive(holder[0]):
+                raise BundleLocked(
+                    f"bundle {root} is locked by process {holder[0]} since "
+                    f"{holder[1]}; wait for that okf-web run to finish, or "
+                    f"delete {lock} if it died"
+                )
+            try:
+                lock.unlink()
+            except FileNotFoundError:
+                pass
+            continue
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(f"{os.getpid()} {utc_instant()}\n")
+        break
+    try:
+        yield lock
+    finally:
+        try:
+            lock.unlink()
+        except FileNotFoundError:
+            pass
+        if created and not any(root.iterdir()):
+            # A run that refused before writing anything leaves no trace.
+            root.rmdir()
+
+
 def utc_instant(moment: _dt.datetime | None = None) -> str:
     """Now (or ``moment``) as the spec's timestamp form:
     ``2026-06-30T14:00:00Z`` — what every writer stamps since F5."""
@@ -287,10 +399,14 @@ class Concept:
                 else today.replace(tzinfo=_dt.timezone.utc)
             )
             return now >= instant
+        if today is None:
+            # No clock given: the exact UTC instant (the spec's semantics),
+            # never the host's local date (EDGE-CASES A5).
+            return self.is_stale(utc_now())
         stale_after = _as_date(raw)
         if stale_after is None:
             return False
-        return (today or _dt.date.today()) >= stale_after
+        return today >= stale_after
 
     # -- ecommerce-geo profile extensions ----------------------------------
     @property
@@ -419,7 +535,7 @@ class Concept:
 
     def promo_expired(self, today: _dt.date | None = None) -> bool:
         ends = self.promo_ends
-        return ends is not None and (today or _dt.date.today()) > ends
+        return ends is not None and (today or utc_today()) > ends
 
     # -- sources / citations ----------------------------------------------
     @property
@@ -464,7 +580,7 @@ class Concept:
     def save(self) -> None:
         if self.abs_path is None:
             raise ValueError("concept has no filesystem path")
-        self.abs_path.write_text(self.render(), encoding="utf-8")
+        write_atomic(self.abs_path, self.render())
 
 
 @dataclass
@@ -726,9 +842,8 @@ def load_bundle(
             bundle.concepts[rel] = concept
     if use_cache and (dirty or set(fresh) != set(cached)):
         try:
-            cache_path.write_text(
-                json.dumps({"version": _CACHE_VERSION, "entries": fresh}),
-                encoding="utf-8",
+            write_atomic(
+                cache_path, json.dumps({"version": _CACHE_VERSION, "entries": fresh})
             )
         except OSError:
             pass  # read-only checkout: the cache is a convenience, not state

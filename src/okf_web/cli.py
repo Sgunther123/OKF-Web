@@ -29,7 +29,15 @@ from . import evaluator, linter, publisher, review, signing, surveyor
 from .evaluator import QuestionSetError, ScorecardGuard
 from .feed import FeedError
 from .llm import LLMUnavailable
-from .model import RISK_LOW, RISK_MEDIUM, BundleNotFound, load_bundle
+from .model import (
+    RISK_LOW,
+    RISK_MEDIUM,
+    BundleLocked,
+    BundleNotFound,
+    bundle_lock,
+    load_bundle,
+    write_atomic,
+)
 from .net import FetchError
 from .review import ReviewError
 
@@ -295,7 +303,7 @@ def cmd_questions(args) -> int:
             )
             return 2
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(packs[args.pack], encoding="utf-8")
+        write_atomic(out, packs[args.pack])
         count = len(evaluator.load_questions(out))
         print(
             f"wrote {count} starter questions ({args.pack}) to {out} — "
@@ -321,7 +329,8 @@ def cmd_questions(args) -> int:
         )
         return 1
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(
+    write_atomic(
+        out,
         yaml.safe_dump(
             {
                 "questions": [
@@ -332,7 +341,6 @@ def cmd_questions(args) -> int:
             sort_keys=False,
             allow_unicode=True,
         ),
-        encoding="utf-8",
     )
     print(f"wrote {len(questions)} questions to {out}")
     return 0
@@ -639,9 +647,9 @@ def cmd_init(args) -> int:
         fm["title"] = title
         if args.site:
             fm["x_geo"] = {"site": args.site.rstrip("/")}
-        index_path.write_text(
+        write_atomic(
+            index_path,
             render_document(fm, "\n# " + title + "\n\nCatalog concepts live under /catalog/.\n"),
-            encoding="utf-8",
         )
         print(f"[2/7] wrote {index_path} (okf_version 0.2"
               + (f", site {args.site})" if args.site else ")"))
@@ -681,7 +689,7 @@ def cmd_init(args) -> int:
         packs = _question_packs()
         if args.pack in packs:
             questions_path.parent.mkdir(parents=True, exist_ok=True)
-            questions_path.write_text(packs[args.pack], encoding="utf-8")
+            write_atomic(questions_path, packs[args.pack])
             print(f"[5/7] wrote starter questions ({args.pack} pack)")
         else:
             print(f"[5/7] unknown pack {args.pack!r}; skipped questions")
@@ -733,9 +741,11 @@ def cmd_init(args) -> int:
     if report_path:
         print(f"  report:  {report_path}  (open in a browser, share as-is)")
     print("\nserve it to Claude Desktop/Code right now — add to the MCP config:")
+    # An absolute path: a desktop client does not share this shell's
+    # working directory (EDGE-CASES, "not counted").
     print(
         '  {"mcpServers": {"my-store": {"command": "okf-web", '
-        '"args": ["mcp", "' + str(bundle_root) + '"]}}}'
+        '"args": ["mcp", "' + str(bundle_root.resolve()) + '"]}}}'
     )
     if steps_skipped:
         print("\nskipped (and how to run them):")
@@ -1279,18 +1289,43 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# Commands that write into a bundle hold its lock for the run; the value
+# says whether the command may create the bundle directory.
+_MUTATING: dict[str, bool] = {"survey": True, "init": True, "index": False}
+
+
+def _lock_for(args) -> tuple[bool, bool]:
+    """(hold the bundle lock?, may create the bundle?) for this invocation."""
+    command = getattr(args, "command", None)
+    if command in _MUTATING:
+        return True, _MUTATING[command]
+    if command == "review":
+        return args.action != "list", False
+    if command == "questions":
+        return not args.list_packs, False
+    if command == "evaluate":
+        return bool(args.write_scorecard), False
+    return False, False
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        hold, create = _lock_for(args)
+        if hold:
+            with bundle_lock(args.bundle, create=create):
+                return args.func(args)
         return args.func(args)
     except (
         BundleNotFound,
+        BundleLocked,
         LLMUnavailable,
         FeedError,
         ReviewError,
         QuestionSetError,
         ScorecardGuard,
         FetchError,
+        surveyor.SitemapError,
     ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

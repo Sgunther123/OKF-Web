@@ -34,6 +34,8 @@ from .model import (
     TRUST_UNVERIFIED,
     load_bundle,
     utc_instant,
+    utc_today,
+    write_atomic,
 )
 
 STATUSES = ("draft", "stable", "deprecated")
@@ -183,7 +185,7 @@ def approve(
             new_date = _dt.date.fromisoformat(str(stale_after))
         except ValueError as exc:
             raise ReviewError(f"--stale-after must be YYYY-MM-DD, got {stale_after!r}") from exc
-        if new_date <= _dt.date.today():
+        if new_date <= utc_today():
             raise ReviewError(f"--stale-after must be a future date, got {stale_after}")
         concept.frontmatter["stale_after"] = utc_instant(
             _dt.datetime(new_date.year, new_date.month, new_date.day, tzinfo=_dt.timezone.utc)
@@ -296,14 +298,12 @@ def reject(bundle: Bundle, rel_path: str, reviewer: str, reason: str) -> Concept
 def append_log(root: Path, message: str, today: _dt.date | None = None) -> None:
     """Insert a bullet under today's heading in ``log.md`` (newest first)."""
     log_path = Path(root) / "log.md"
-    day = (today or _dt.date.today()).isoformat()
+    day = (today or utc_today()).isoformat()
     heading = f"## {day}"
     bullet = f"* {message}"
 
     if not log_path.exists():
-        log_path.write_text(
-            f"# Directory Update Log\n\n{heading}\n\n{bullet}\n", encoding="utf-8"
-        )
+        write_atomic(log_path, f"# Directory Update Log\n\n{heading}\n\n{bullet}\n")
         return
 
     lines = log_path.read_text(encoding="utf-8").splitlines()
@@ -326,7 +326,7 @@ def append_log(root: Path, message: str, today: _dt.date | None = None) -> None:
         while insert_at < len(lines) and lines[insert_at].strip() == "":
             insert_at += 1
         lines[insert_at:insert_at] = [heading, "", bullet, ""]
-    log_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    write_atomic(log_path, "\n".join(lines).rstrip() + "\n")
 
 
 def load(root: Path | str) -> Bundle:
