@@ -20,6 +20,6 @@ jobs:
       - name: Lint example bundle (strict)
         run: okf-web lint bundle-example --strict
       - name: Retrieval coverage (dry-run evaluation)
-        run: okf-web evaluate bundle-example --dry-run
+        run: okf-web evaluate bundle-example --dry-run --min-hit-rate 1.0
       - name: Publish smoke test
         run: okf-web publish bundle-example /tmp/okf-dist

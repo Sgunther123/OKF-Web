@@ -237,6 +237,15 @@ being made. Only `human-reviewed` satisfies E010's high-risk gate;
 both human tiers qualify for the derived JSON-LD (someone accountable
 vouched), and the scorecard's `trust_mix` reports the split.
 
+The reviewer's commands refuse what would mislead (EDGE-CASES E4):
+`batch-approve` never approves a draft a reviewer rejected (the
+rejection and its reason stay until someone reads the item), honours
+`--risk`, and has a `--dry-run`; `approve` on a concept past its
+`stale_after` needs a new freshness date, and approving a fresh, stable
+concept again by the same person changes nothing; a misspelled
+`status` is lint error E021 rather than a silent withholding; and the
+publisher's withheld list names each concept's actual status.
+
 Risk tiers decide *what humans must touch*:
 
 - **Risk `a`** (prices/promotions wording, legal and policy terms,
@@ -435,9 +444,12 @@ location ^~ /.well-known/okf/ {
 - **Drift:** `okf-web drift` re-fetches each surveyed concept's
   source page and compares its stabilized hash to the
   `x_geo.source_hash` the concept was extracted from — zero LLM
-  tokens, so it runs nightly; a non-zero exit means "these URLs
-  changed under the bundle: re-survey them" (the semantic
-  claim-vs-page check rides on that re-survey). `stale_after` is the
+  tokens, so it runs nightly; exit 1 means "these URLs changed under
+  the bundle: re-survey them" (the semantic claim-vs-page check rides
+  on that re-survey) and exit 3 means some pages could not be fetched
+  at all — a network or server problem, not a content change, so a
+  blip never pages the operator with a re-survey instruction
+  (EDGE-CASES A2). `stale_after` is the
   merchant's freshness SLA per content class (90 days for product
   facts, 6 months for policies in the reference bundle); the linter
   warns when it lapses, consuming engines can see it, and

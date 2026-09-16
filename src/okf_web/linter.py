@@ -86,6 +86,19 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
         findings.append(Finding(ERROR, "E002", rel, "frontmatter has no non-empty `type`"))
         return findings  # nothing profile-shaped to check without a type
 
+    raw_status = concept.frontmatter.get("status")
+    if raw_status is not None and str(raw_status) not in ("draft", "stable", "deprecated"):
+        findings.append(
+            Finding(
+                ERROR,
+                "E021",
+                rel,
+                f"`status` must be one of draft, stable, deprecated; got "
+                f"{raw_status!r} (a misspelling is withheld from publishing "
+                "and, on a high-risk concept, dodges the human-review gate)",
+            )
+        )
+
     # -- profile: human-in-the-loop gate -----------------------------------
     # Keyed on the *effective* classification: declared risk `a`, plus
     # types that are high-risk by definition (Product Passports carry

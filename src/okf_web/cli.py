@@ -21,11 +21,17 @@ import argparse
 import sys
 from pathlib import Path
 
+import yaml
+
 from . import drift as drift_mod
 from . import report as report_mod
 from . import evaluator, linter, publisher, review, signing, surveyor
+from .evaluator import QuestionSetError, ScorecardGuard
+from .feed import FeedError
 from .llm import LLMUnavailable
-from .model import BundleNotFound, load_bundle
+from .model import RISK_LOW, RISK_MEDIUM, BundleNotFound, load_bundle
+from .net import FetchError
+from .review import ReviewError
 
 
 def _build_retriever(args, bundle_dir):
@@ -140,16 +146,32 @@ def cmd_review(args) -> int:
             return 1
         return 0
     if args.action == "batch-approve":
-        if not args.by:
+        if not args.by and not args.dry_run:
             print("batch-approve needs --by <reviewer-id>", file=sys.stderr)
             return 2
+        risks = (args.risk,) if args.risk else (RISK_MEDIUM, RISK_LOW)
+        candidates, skipped = review.batch_candidates(
+            bundle, risks, only_machine_confirmed=args.only_machine_confirmed
+        )
+        for concept, why in skipped:
+            print(f"skipped {concept.rel_path}: {why}")
+        if args.dry_run:
+            for concept in candidates:
+                print(f"would approve {concept.rel_path} (risk {concept.risk}, {concept.trust_tier})")
+            print(
+                f"dry run: {len(candidates)} concept(s) would be batch-approved, "
+                f"{len(skipped)} skipped; nothing written"
+            )
+            return 0
         approved = review.batch_approve(
-            bundle, args.by, only_machine_confirmed=args.only_machine_confirmed
+            bundle, args.by, risks=risks, only_machine_confirmed=args.only_machine_confirmed
         )
         for concept in approved:
             print(f"approved {concept.rel_path} -> {concept.trust_tier}, status {concept.status}")
+        tiers = "/".join(risks)
         print(
-            f"{len(approved)} concept(s) batch-approved (risk b/c drafts only; "
+            f"{len(approved)} concept(s) batch-approved (risk {tiers} drafts only; "
+            f"{len(skipped)} rejected draft(s) skipped; "
             "risk a always needs individual review)"
         )
         return 0
@@ -157,7 +179,12 @@ def cmd_review(args) -> int:
         print("approve/reject need a concept path and --by <reviewer-id>", file=sys.stderr)
         return 2
     if args.action == "approve":
-        concept = review.approve(bundle, args.path, args.by)
+        rel = review.resolve_path(bundle, args.path)
+        note = review.approval_state(bundle.get(rel), args.by)
+        if note:
+            print(f"{rel}: {note}")
+            return 0
+        concept = review.approve(bundle, rel, args.by, stale_after=args.stale_after)
         print(f"approved {concept.rel_path} -> {concept.trust_tier}, status {concept.status}")
     else:
         concept = review.reject(bundle, args.path, args.by, args.reason or "no reason given")
@@ -166,6 +193,10 @@ def cmd_review(args) -> int:
 
 
 def cmd_survey(args) -> int:
+    for label, name in (("--urls", args.urls), ("--feed", args.feed)):
+        if name and not Path(name).is_file():
+            print(f"error: {label} file not found: {name}", file=sys.stderr)
+            return 2
     urls: list[str] = []
     if args.sitemap:
         urls.extend(
@@ -271,13 +302,25 @@ def cmd_questions(args) -> int:
             "customize the nouns to your catalog, then curate"
         )
         return 0
+    if out.exists() and not args.force:
+        print(
+            f"{out} already exists; pass --force to replace it with a freshly "
+            "generated set (curated questions are lost when you do)",
+            file=sys.stderr,
+        )
+        return 2
     bundle = load_bundle(args.bundle)
     questions = evaluator.generate_questions(
         bundle, _llm(args), per_archetype=args.per_archetype
     )
+    if not questions:
+        print(
+            "the model returned no parsable questions (expected a YAML "
+            f"`questions:` list); nothing written, {out} unchanged",
+            file=sys.stderr,
+        )
+        return 1
     out.parent.mkdir(parents=True, exist_ok=True)
-    import yaml
-
     out.write_text(
         yaml.safe_dump(
             {
@@ -312,6 +355,19 @@ def cmd_evaluate(args) -> int:
         print(f"question set not found: {questions_path}", file=sys.stderr)
         return 2
     questions = evaluator.load_questions(questions_path)
+    problems = evaluator.validate_questions(questions)
+    if problems:
+        print(f"question set {questions_path} cannot be evaluated:", file=sys.stderr)
+        for problem in problems:
+            print(f"  {problem}", file=sys.stderr)
+        return 2
+    if args.min_coverage is not None and args.dry_run:
+        print(
+            "--min-coverage needs a judged run: coverage is not measured in a "
+            "dry run (drop --dry-run and pass --llm)",
+            file=sys.stderr,
+        )
+        return 2
     retriever = _build_retriever(args, args.bundle)
     llm = None if args.dry_run else _llm(args)
     judge = None
@@ -331,9 +387,23 @@ def cmd_evaluate(args) -> int:
         for r in gaps:
             print(f"  {r.question.id} [{r.question.archetype}] {r.question.question}")
     if args.write_scorecard:
-        out = evaluator.write_scorecard(bundle, report)
+        out = evaluator.write_scorecard(bundle, report, force=args.force)
         print(f"\nscorecard written to {out}")
-    return 0
+    failed = False
+    if args.min_hit_rate is not None and metrics["retrieval_hit_rate"] < args.min_hit_rate:
+        print(
+            f"retrieval hit rate {metrics['retrieval_hit_rate']} is below "
+            f"--min-hit-rate {args.min_hit_rate}",
+            file=sys.stderr,
+        )
+        failed = True
+    if args.min_coverage is not None and metrics.get("coverage", 0.0) < args.min_coverage:
+        print(
+            f"coverage {metrics.get('coverage')} is below --min-coverage {args.min_coverage}",
+            file=sys.stderr,
+        )
+        failed = True
+    return 1 if failed else 0
 
 
 def cmd_publish(args) -> int:
@@ -369,14 +439,23 @@ def cmd_publish(args) -> int:
             "structured data engines read today, generated from the bundle"
         )
     if result.withheld:
-        print(
-            f"withheld {len(result.withheld)} concept(s) "
-            "(drafts, expired promotions, or stale under --freshness withhold):"
-        )
+        working = load_bundle(args.bundle)
+        print(f"withheld {len(result.withheld)} concept(s):")
         for rel in result.withheld:
-            print(f"  {rel}")
-    for warning in result.warnings:
-        print(f"warning: {warning}")
+            concept = working.get(rel)
+            reason = (
+                publisher.withhold_reason(
+                    concept,
+                    freshness=args.freshness,
+                    include_machine_confirmed=args.include_machine_confirmed,
+                )
+                if concept is not None
+                else "not in the bundle"
+            )
+            print(f"  {rel}: {reason}")
+    warnings = list(result.warnings)
+    for warning in warnings:
+        print(f"warning: {warning}", file=sys.stderr)
     if args.bundle_url:
         print(
             "delegated hosting: serve the dist at "
@@ -395,24 +474,33 @@ def cmd_publish(args) -> int:
               "--cert-identity <id> --cert-oidc-issuer <issuer>`)")
     if args.check_robots:
         if not site:
-            print(
-                "warning: --check-robots needs a site URL (pass --site or set "
+            warnings.append(
+                "--check-robots needs a site URL (pass --site or set "
                 "x_geo.site on the root index.md)"
             )
+            print(f"warning: {warnings[-1]}", file=sys.stderr)
         else:
             blocked, error = publisher.check_robots(
                 str(site), args.base_path, allow_private=args.allow_private_hosts
             )
             if error:
-                print(f"warning: robots check inconclusive — {error}")
+                warnings.append(f"robots check inconclusive — {error}")
+                print(f"warning: {warnings[-1]}", file=sys.stderr)
             elif blocked:
-                print(
-                    "warning: robots.txt blocks these AI agents from the bundle "
+                warnings.append(
+                    "robots.txt blocks these AI agents from the bundle "
                     f"path ({args.base_path}): {', '.join(blocked)} — the bundle "
                     "is published but unreachable for them"
                 )
+                print(f"warning: {warnings[-1]}", file=sys.stderr)
             else:
                 print("robots.txt: all checked AI agents may fetch the bundle")
+    if warnings and args.fail_on_warnings:
+        print(
+            f"{len(warnings)} warning(s) and --fail-on-warnings is set",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 
@@ -431,7 +519,15 @@ def cmd_drift(args) -> int:
     )
     if report.drifted:
         print("re-survey the drifted URLs to refresh those concepts")
-    return 0 if report.clean else 1
+        return 1
+    if report.unreachable:
+        print(
+            "some source pages could not be fetched; nothing is known to have "
+            "changed — retry later (exit 3)",
+            file=sys.stderr,
+        )
+        return 3
+    return 0
 
 
 def cmd_discover(args) -> int:
@@ -525,7 +621,16 @@ def cmd_init(args) -> int:
             + ", ".join(result.dropped_live_fields)
         )
     for line in result.errors[:5]:
-        print(f"      error: {line}")
+        print(f"      error: {line}", file=sys.stderr)
+    for line in result.collisions[:5]:
+        print(f"      note: {line}")
+    if not result.written and not result.skipped_unchanged:
+        print(
+            "      nothing was drafted from the feed; fix the errors above and "
+            "re-run (nothing was published)",
+            file=sys.stderr,
+        )
+        return 1
 
     index_path = bundle_root / "index.md"
     if not index_path.exists():
@@ -828,7 +933,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--by", help="reviewer id (becomes human:<id>)")
     p.add_argument("--reason", help="rejection reason")
     p.add_argument(
-        "--risk", choices=["a", "b", "c"], help="list: only show this risk tier"
+        "--risk",
+        choices=["a", "b", "c"],
+        help="list: only show this risk tier; batch-approve: only this tier "
+        "(a is never batchable)",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="batch-approve: show what would be approved and what is skipped, "
+        "without writing",
+    )
+    p.add_argument(
+        "--stale-after",
+        help="approve: the new freshness date (YYYY-MM-DD) for a concept past "
+        "its stale_after — required to approve a stale concept",
     )
     p.add_argument(
         "--fail-nonempty",
@@ -915,6 +1034,22 @@ def build_parser() -> argparse.ArgumentParser:
     _add_retriever_args(p)
     _add_llm_args(p)
     p.add_argument("--write-scorecard", action="store_true")
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="with --write-scorecard --dry-run: replace a judged scorecard "
+        "with the dry-run one (its graded numbers are lost)",
+    )
+    p.add_argument(
+        "--min-hit-rate",
+        type=float,
+        help="exit 1 when retrieval_hit_rate is below this (CI gate)",
+    )
+    p.add_argument(
+        "--min-coverage",
+        type=float,
+        help="exit 1 when judged coverage is below this (needs an LLM run)",
+    )
     p.set_defaults(func=cmd_evaluate)
 
     p = sub.add_parser("publish", help="build the static companion bundle")
@@ -939,6 +1074,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="fetch the live site's robots.txt and warn if AI agents are "
         "blocked from the bundle path",
+    )
+    p.add_argument(
+        "--fail-on-warnings",
+        action="store_true",
+        help="exit 1 when the publish produced any warning (withheld links, "
+        "off-origin resources, robots blocks) — for unattended runs",
     )
     _add_network_args(p)
     p.add_argument(
@@ -1142,8 +1283,24 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except (BundleNotFound, LLMUnavailable) as exc:
+    except (
+        BundleNotFound,
+        LLMUnavailable,
+        FeedError,
+        ReviewError,
+        QuestionSetError,
+        ScorecardGuard,
+        FetchError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except (FileNotFoundError, IsADirectoryError, NotADirectoryError, PermissionError) as exc:
+        detail = exc.strerror or exc.__class__.__name__
+        target = f": {exc.filename}" if exc.filename else ""
+        print(f"error: {detail}{target}", file=sys.stderr)
+        return 2
+    except yaml.YAMLError as exc:
+        print(f"error: invalid YAML: {exc}", file=sys.stderr)
         return 2
 
 

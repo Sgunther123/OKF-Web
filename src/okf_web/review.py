@@ -20,6 +20,7 @@ lints, merge publishes.
 from __future__ import annotations
 
 import datetime as _dt
+import difflib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -32,7 +33,73 @@ from .model import (
     TRUST_MACHINE,
     TRUST_UNVERIFIED,
     load_bundle,
+    utc_instant,
 )
+
+STATUSES = ("draft", "stable", "deprecated")
+
+
+class ReviewError(KeyError, ValueError):
+    """A review action that cannot proceed, with the reason in plain
+    words (a KeyError for callers that looked concepts up by path, a
+    ValueError for callers that validated arguments; EDGE-CASES U5/U7)."""
+
+    def __str__(self) -> str:  # KeyError would quote the message
+        return str(self.args[0]) if self.args else ""
+
+
+def resolve_path(bundle: Bundle, path: str) -> str:
+    """The bundle-relative path a reviewer meant: accepts the exact rel
+    path, ``./``-prefixed and bundle-prefixed spellings (what a shell's
+    tab completion produces), and absolute paths inside the bundle;
+    anything else raises :class:`ReviewError` with the closest matches."""
+    given = str(path).replace("\\", "/")
+    candidates = [given, given.removeprefix("./")]
+    p = Path(given)
+    for base in (bundle.root, Path(bundle.root.name)):
+        try:
+            candidates.append(p.relative_to(base).as_posix())
+        except ValueError:
+            pass
+    try:
+        candidates.append(p.resolve().relative_to(bundle.root.resolve()).as_posix())
+    except (ValueError, OSError):
+        pass
+    for candidate in candidates:
+        if candidate in bundle.concepts:
+            return candidate
+    matches = difflib.get_close_matches(candidates[-1], list(bundle.concepts), n=3, cutoff=0.5)
+    hint = f"; did you mean {', '.join(matches)}?" if matches else ""
+    raise ReviewError(f"no such concept in bundle: {path}{hint}")
+
+
+def _actor_for(reviewer: str, actor_prefix: str) -> str:
+    return (
+        reviewer
+        if reviewer.startswith(("human:", "human-batch:"))
+        else f"{actor_prefix}{reviewer}"
+    )
+
+
+def _verified_entries(concept: Concept) -> list[dict]:
+    existing = concept.frontmatter.get("verified")
+    if isinstance(existing, dict):
+        return [existing]
+    if isinstance(existing, list):
+        return [e for e in existing if isinstance(e, dict)]
+    return []
+
+
+def approval_state(concept: Concept, reviewer: str, actor_prefix: str = "human:") -> str | None:
+    """Why approving ``concept`` again would change nothing, or ``None``
+    when an approval is due: a stable, fresh concept already verified by
+    this actor is a no-op (EDGE-CASES U5)."""
+    actor = _actor_for(reviewer, actor_prefix)
+    if concept.status == "stable" and not concept.is_stale():
+        for entry in _verified_entries(concept):
+            if entry.get("by") == actor:
+                return f"already approved by {actor} on {entry.get('at', '?')} (no change)"
+    return None
 
 _RISK_ORDER = {RISK_HIGH: 0, RISK_MEDIUM: 1}
 
@@ -79,7 +146,11 @@ def pending(bundle: Bundle) -> list[ReviewItem]:
 
 
 def approve(
-    bundle: Bundle, rel_path: str, reviewer: str, actor_prefix: str = "human:"
+    bundle: Bundle,
+    rel_path: str,
+    reviewer: str,
+    actor_prefix: str = "human:",
+    stale_after: str | None = None,
 ) -> Concept:
     """Record a human verification event and promote the concept to stable.
 
@@ -88,15 +159,35 @@ def approve(
     wholesale attestation (``human-batch:``, stamped by batch-approve):
     both name an accountable person, but only one means each item was
     read.
+
+    A concept past its ``stale_after`` is queued for exactly that reason,
+    so approving it needs a new freshness date (``stale_after``,
+    ``YYYY-MM-DD``, in the future); without one the call refuses rather
+    than leave the concept in the queue. Approving a stable, fresh
+    concept again by the same actor changes nothing (EDGE-CASES U5).
     """
+    rel_path = resolve_path(bundle, rel_path)
     concept = bundle.get(rel_path)
-    if concept is None:
-        raise KeyError(f"no such concept in bundle: {rel_path}")
-    actor = (
-        reviewer
-        if reviewer.startswith(("human:", "human-batch:"))
-        else f"{actor_prefix}{reviewer}"
-    )
+    if approval_state(concept, reviewer, actor_prefix) is not None:
+        return concept
+    actor = _actor_for(reviewer, actor_prefix)
+    if concept.is_stale():
+        if not stale_after:
+            raise ReviewError(
+                f"{rel_path} is past its stale_after "
+                f"({concept.frontmatter.get('stale_after')}); approving it "
+                "needs a new freshness date: pass --stale-after YYYY-MM-DD "
+                "after re-checking the fact against the source"
+            )
+        try:
+            new_date = _dt.date.fromisoformat(str(stale_after))
+        except ValueError as exc:
+            raise ReviewError(f"--stale-after must be YYYY-MM-DD, got {stale_after!r}") from exc
+        if new_date <= _dt.date.today():
+            raise ReviewError(f"--stale-after must be a future date, got {stale_after}")
+        concept.frontmatter["stale_after"] = utc_instant(
+            _dt.datetime(new_date.year, new_date.month, new_date.day, tzinfo=_dt.timezone.utc)
+        )
     entry = {"by": actor, "at": _now_iso()}
 
     existing = concept.frontmatter.get("verified")
@@ -119,6 +210,42 @@ def approve(
     return concept
 
 
+def batch_candidates(
+    bundle: Bundle,
+    risks: tuple[str, ...] = (RISK_MEDIUM, RISK_LOW),
+    only_machine_confirmed: bool = False,
+) -> tuple[list[Concept], list[tuple[Concept, str]]]:
+    """What ``batch_approve`` would approve, and what it skips with the
+    reason: a draft a reviewer already rejected stays rejected until
+    someone reads it again (EDGE-CASES U4). Raises :class:`ReviewError`
+    for risk ``a``."""
+    if RISK_HIGH in risks:
+        raise ReviewError("risk-a concepts cannot be batch-approved; review them individually")
+    candidates: list[Concept] = []
+    skipped: list[tuple[Concept, str]] = []
+    for item in pending(bundle):
+        concept = item.concept
+        if concept.status != "draft" or concept.risk not in risks:
+            continue
+        # Declared risk is not the last word: types that are high-risk
+        # by definition (Product Passports) never batch, whatever
+        # their frontmatter claims.
+        if concept.is_high_risk:
+            continue
+        if only_machine_confirmed and concept.trust_tier != TRUST_MACHINE:
+            continue
+        marker = concept.x_geo.get("review")
+        if isinstance(marker, dict) and marker.get("rejected_by"):
+            reason = str(marker.get("reason") or "").strip()
+            skipped.append((
+                concept,
+                f"rejected by {marker['rejected_by']}" + (f": {reason}" if reason else ""),
+            ))
+            continue
+        candidates.append(concept)
+    return candidates, skipped
+
+
 def batch_approve(
     bundle: Bundle,
     reviewer: str,
@@ -137,20 +264,9 @@ def batch_approve(
     carry a machine verification event (e.g. a faithfulness check),
     leaving wholly unverified drafts in the queue.
     """
-    if RISK_HIGH in risks:
-        raise ValueError("risk-a concepts cannot be batch-approved; review them individually")
+    candidates, _skipped = batch_candidates(bundle, risks, only_machine_confirmed)
     approved: list[Concept] = []
-    for item in pending(bundle):
-        concept = item.concept
-        if concept.status != "draft" or concept.risk not in risks:
-            continue
-        # Declared risk is not the last word: types that are high-risk
-        # by definition (Product Passports) never batch, whatever
-        # their frontmatter claims.
-        if concept.is_high_risk:
-            continue
-        if only_machine_confirmed and concept.trust_tier != TRUST_MACHINE:
-            continue
+    for concept in candidates:
         # Wholesale attestation, not per-item review: the stamp says so
         # (`human-batch:` → trust tier "human-attested"), so a reader of
         # the published concept — or of the scorecard's trust mix — can
@@ -163,9 +279,8 @@ def batch_approve(
 
 def reject(bundle: Bundle, rel_path: str, reviewer: str, reason: str) -> Concept:
     """Keep the concept in draft and record why it was not approved."""
+    rel_path = resolve_path(bundle, rel_path)
     concept = bundle.get(rel_path)
-    if concept is None:
-        raise KeyError(f"no such concept in bundle: {rel_path}")
     actor = reviewer if reviewer.startswith("human:") else f"human:{reviewer}"
     concept.frontmatter["status"] = "draft"
     x_geo = concept.frontmatter.setdefault("x_geo", {})

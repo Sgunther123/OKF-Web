@@ -44,6 +44,14 @@ from .surveyor import SurveyResult, place_draft, stable_page_hash
 
 FEED_ACTOR = "process:okf-web-feed-ingest"
 
+# Columns a delimited feed must carry for a row to become a concept.
+REQUIRED_COLUMNS = ("title", "link")
+
+
+class FeedError(ValueError):
+    """The feed file as a whole cannot be used, with the reason in plain
+    words (EDGE-CASES U6)."""
+
 # Volatile transactional fields a feed carries that must never become
 # static claims (the live-values rule). Everything else is fair game.
 DROPPED_FIELDS = {
@@ -100,15 +108,31 @@ def _clean_key(key: str) -> str:
 
 
 def parse_feed(path: Path | str) -> list[FeedItem]:
-    """Parse a Google Merchant XML feed or a CSV/TSV feed into items."""
-    text = Path(path).read_text(encoding="utf-8", errors="replace")
+    """Parse a Google Merchant XML feed or a CSV/TSV feed into items.
+
+    Reads ``utf-8-sig`` so an Excel-style byte-order mark never becomes
+    part of the first column's name; an empty feed, a feed without the
+    required columns or an XML feed without ``<item>`` entries raise
+    :class:`FeedError` once, up front, instead of one error per row."""
+    path = Path(path)
+    if not path.is_file():
+        raise FeedError(f"feed file not found: {path}")
+    text = path.read_text(encoding="utf-8-sig", errors="replace")
+    if not text.strip():
+        raise FeedError(f"feed is empty: {path}")
     if text.lstrip().startswith("<"):
-        return _parse_merchant_xml(text)
+        items = _parse_merchant_xml(text)
+        if not items:
+            raise FeedError(f"no <item> entries found in {path}")
+        return items
     return _parse_delimited(text)
 
 
 def _parse_merchant_xml(text: str) -> list[FeedItem]:
-    root = ET.fromstring(text)
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as exc:
+        raise FeedError(f"feed XML does not parse: {exc}") from exc
     items: list[FeedItem] = []
     for node in root.iter("item"):
         fields: dict[str, str] = {}
@@ -121,9 +145,20 @@ def _parse_merchant_xml(text: str) -> list[FeedItem]:
 
 
 def _parse_delimited(text: str) -> list[FeedItem]:
-    sample = text[:4096]
-    delimiter = "\t" if sample.count("\t") > sample.count(",") else ","
+    # The header line decides the delimiter: a TSV whose descriptions
+    # carry commas is still a TSV.
+    header = text.lstrip("\ufeff").splitlines()[0]
+    delimiter = "\t" if header.count("\t") > header.count(",") else ","
     reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+    columns = [_clean_key(name) for name in (reader.fieldnames or []) if name is not None]
+    missing = [name for name in REQUIRED_COLUMNS if name not in columns]
+    if missing:
+        raise FeedError(
+            f"column {missing[0]!r} not found in the feed header "
+            f"(have: {', '.join(columns) or 'nothing'}); a Google Merchant "
+            "export or a CSV/TSV with id, title, description and link columns "
+            "is expected"
+        )
     items: list[FeedItem] = []
     for row in reader:
         fields = {
@@ -257,6 +292,7 @@ def ingest_feed(
     )
 
     now = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
+    seen_links: dict[str, str] = {}
     for item in parse_feed(feed_path):
         for name in item.dropped:
             if name not in result.dropped_live_fields:
@@ -266,6 +302,18 @@ def ingest_feed(
                 f"feed item {item.id or '?'!s}: missing link or title; skipped"
             )
             continue
+        # One page, one concept: a second row for the same link (a
+        # variant sharing the product page) would overwrite the first,
+        # so it is recorded and skipped instead (EDGE-CASES U6).
+        first = seen_links.get(item.link)
+        if first is not None:
+            result.collisions.append(
+                f"feed item {item.id or '?'}: link {item.link} already used by "
+                f"item {first} in this feed; skipped (variants sharing one page "
+                "need distinct links, or one row per page)"
+            )
+            continue
+        seen_links[item.link] = item.id or "?"
         source_hash = stable_page_hash(item_text(item))
         existing = by_resource.get(item.link)
         if existing is not None and existing.source_hash == source_hash:

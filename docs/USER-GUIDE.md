@@ -286,7 +286,9 @@ okf-web drift my-store
 ```
 
 checks — without any AI cost — whether the pages your fact sheets
-came from have changed since, and names the ones to re-survey. And if
+came from have changed since, and names the ones to re-survey; it
+exits 1 when pages changed and 3 when some could not be fetched at all
+(a network problem, not a change). And if
 life gets busy, publish with `--freshness withhold`: fact sheets past
 their freshness date are quietly left out of the public folder
 instead of shipped stale. A neglected folder then *says less* rather
@@ -433,6 +435,56 @@ Your website changed *after* a person approved the old fact sheet.
 The tool refuses to silently overwrite approved facts, so it filed
 the new draft in a `_review/proposed` folder. Compare the two, then
 approve the update if it's right.
+
+**"already exists; pass --force to replace it"** (questions)
+Your curated question set would be overwritten. Re-run with `--force`
+only if you really want a fresh set; the curated one is gone when you
+do.
+
+**"the model returned no parsable questions … nothing written"**
+The AI answered in prose instead of the expected list. Your existing
+question file is untouched; try again, or start from a starter pack
+(`--pack`).
+
+**"already approved by … (no change)"**
+That person already approved this fact sheet and it is still fresh, so
+nothing was written twice. Approving it again is only needed after it
+goes stale.
+
+**"is past its stale_after … pass --stale-after YYYY-MM-DD"**
+The fact sheet is in the queue because its freshness date passed.
+Re-check the fact against the source, then approve it with a new date:
+`--stale-after 2027-06-30`.
+
+**"column 'link' not found in the feed header"** / **"feed is empty"**
+The feed file is not shaped like a product feed: a column is missing
+or renamed, or the file has no rows. The message lists the columns it
+found; nothing was drafted.
+
+**"no such concept in bundle: … did you mean …?"**
+The path was mistyped. The suggestion is the closest fact sheet; paths
+copied with the store folder in front, or with `./`, are accepted as
+they are.
+
+**"E021 … `status` must be one of draft, stable, deprecated"**
+A hand edit misspelled the status (`Stable`, `published`, …). Fix the
+word; until then the fact sheet is withheld, and the withheld list
+names the value it found.
+
+**"refusing to replace the judged scorecard … with a dry-run one"**
+A `--dry-run` scorecard has no graded numbers; writing it would erase
+the ones your report shows. Run the full evaluation with an AI, or pass
+`--force` if losing them is intended.
+
+**"retrieval hit rate … is below --min-hit-rate"** (exit 1)
+The gate you asked for tripped: fewer questions found any fact sheet
+than the threshold allows. The scorecard, if requested, was still
+written.
+
+**`okf-web drift` exits 3**
+Some source pages could not be fetched at all (a network or server
+problem), and nothing is known to have changed. Exit 1 means pages
+changed: re-survey those.
 
 **"E020 … `resource` must be an http(s) URL"**
 A fact sheet's web address isn't a web address (a `javascript:` or
@@ -588,6 +640,9 @@ technical docs live alongside this guide:
 | Draft products from a feed export (free) | `okf-web survey my-store --feed products.csv` |
 | Start with ready-made questions (free) | `okf-web questions my-store --pack outdoor` |
 | Approve all low-stakes drafts at once | `okf-web review batch-approve my-store --by you@yourstore.com` |
+| See what a batch approval would do first | `okf-web review batch-approve my-store --dry-run` |
+| Fail an unattended publish on any warning | `okf-web publish my-store dist --fail-on-warnings` |
+| Gate CI on retrieval coverage (free) | `okf-web evaluate my-store --dry-run --min-hit-rate 1.0` |
 | See which AI systems fetched your folder | `okf-web logscan access.log` |
 | Check your setup like an AI would | `okf-web discover https://yourstore.com` |
 | Check a staging site on your own network | `okf-web discover http://staging.local --allow-private-hosts` |

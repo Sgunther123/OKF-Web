@@ -406,7 +406,9 @@ def test_scorecard_carries_instant_sla(tmp_path, example_bundle):
     bundle = load_bundle(root)
     questions = evaluator.load_questions(root / "evaluations" / "questions.yaml")[:3]
     report = evaluator.evaluate(bundle, questions)
-    out = evaluator.write_scorecard(bundle, report)
+    # A dry-run report over the example's judged scorecard: the guard
+    # (EDGE-CASES A3) is bypassed on purpose here; this test is about the SLA stamp.
+    out = evaluator.write_scorecard(bundle, report, force=True)
     fresh = load_bundle(root, use_cache=False)
     scorecard = fresh.concepts["evaluations/geo-scorecard.md"]
     stamp = scorecard.frontmatter["stale_after"]

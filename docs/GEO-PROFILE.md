@@ -378,6 +378,7 @@ path position is the binding.
 | E018 | error | Stable `Store Location` missing `x_geo.entity` or `location.address` |
 | E019 | error | Stable `Trade Program` missing `trade.payment_terms`/`min_order` |
 | E020 | error | `resource` is not an `http(s)` URL — a non-web scheme (`javascript:`, `file:`, `data:`) is never a page ↔ concept binding, and the viewer, `linkmap.json` and the JSON-LD `url` do not link it |
+| E021 | error | `status` outside `draft`, `stable`, `deprecated` — a misspelling (`Stable`) would be withheld silently and, on a high-risk concept, would dodge E010 |
 | W032 | warn | Compatibility/Ownership Guide/Passport draft missing its refs, or a `fits`/`works_with`/`covers`/`passport_for` id that resolves to no concept's `entity` |
 | W033 | warn | `Compatibility`/`Ownership Guide`/`Store Location` classified risk `c`, or `Product Passport`/`Trade Program` declaring anything but `a` (both are gated as `a` regardless) |
 | W034 | warn | `Policy`/`Promotion`/`Store Identity` declaring a risk below the type table's `a` floor — a lower declared risk would unlock batch approval |
@@ -391,9 +392,9 @@ Errors block publishing; `--strict` promotes warnings for CI.
 
 ## 10. Versioning
 
-Lint-only additions do not bump the profile: E020 and W038 (2026-09-16,
-EDGE-CASES E3) extend the vocabulary in §9 without changing a key or a
-type.
+Lint-only additions do not bump the profile: E020 and W038 (EDGE-CASES
+E3) and E021 (EDGE-CASES E4), all 2026-09-16, extend the vocabulary in
+§9 without changing a key or a type.
 
 **1.10** (current) closes the spec-coverage gaps found by the
 fidelity audit ([FIDELITY.md](FIDELITY.md), Phase F4): source

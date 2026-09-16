@@ -42,6 +42,7 @@ from .model import (
     split_l10n,
     trust_mix,
     utc_instant,
+    parse_document,
 )
 
 ARCHETYPES = [
@@ -186,6 +187,33 @@ class Report:
 # ---------------------------------------------------------------------------
 # Question sets
 # ---------------------------------------------------------------------------
+
+class QuestionSetError(ValueError):
+    """The question set cannot be evaluated as it stands (EDGE-CASES A3)."""
+
+
+class ScorecardGuard(ValueError):
+    """A dry-run scorecard would replace a judged one (EDGE-CASES A3)."""
+
+
+def validate_questions(questions: list[Question]) -> list[str]:
+    """Problems that make a question set unfit to gate on: empty,
+    duplicate ids, archetypes outside ``ARCHETYPES``. Empty when fine."""
+    problems: list[str] = []
+    if not questions:
+        problems.append("the question set is empty")
+    seen: set[str] = set()
+    for q in questions:
+        if q.id in seen:
+            problems.append(f"duplicate question id {q.id!r}")
+        seen.add(q.id)
+        if q.archetype not in ARCHETYPES:
+            problems.append(
+                f"question {q.id!r}: unknown archetype {q.archetype!r} "
+                f"(known: {', '.join(ARCHETYPES)})"
+            )
+    return problems
+
 
 def load_questions(path: Path | str) -> list[Question]:
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
@@ -443,11 +471,36 @@ def evaluate(
 # Scorecard
 # ---------------------------------------------------------------------------
 
+def _is_judged_scorecard(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    try:
+        fm, _ = parse_document(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 — an unreadable scorecard guards nothing
+        return False
+    x_geo = fm.get("x_geo") if isinstance(fm, dict) else None
+    metrics = x_geo.get("metrics") if isinstance(x_geo, dict) else None
+    return isinstance(metrics, dict) and "coverage" in metrics
+
+
 def write_scorecard(
     bundle: Bundle,
     report: Report,
     rel_path: str = "evaluations/geo-scorecard.md",
+    force: bool = False,
 ) -> Path:
+    """Write the scorecard concept. A dry-run report never silently
+    replaces a judged scorecard (one carrying ``coverage``): that would
+    erase the graded numbers the report and the viewer show; pass
+    ``force`` to do it on purpose (EDGE-CASES A3)."""
+    out = bundle.root / rel_path
+    if report.dry_run and not force and _is_judged_scorecard(out):
+        raise ScorecardGuard(
+            f"refusing to replace the judged scorecard {out} with a dry-run "
+            "one (its coverage, groundedness and citability would be lost); "
+            "run the full evaluation with an LLM, or pass --force to overwrite "
+            "it deliberately"
+        )
     now = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
     metrics = report.metrics(bundle)
     fm = {
@@ -494,7 +547,6 @@ def write_scorecard(
         lines.append("None found in this run.")
     body = "\n" + "\n".join(lines) + "\n"
 
-    out = bundle.root / rel_path
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_document(fm, body), encoding="utf-8")
     return out

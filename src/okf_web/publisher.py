@@ -134,6 +134,30 @@ def select_publishable(
     return include, withheld
 
 
+def withhold_reason(
+    concept,
+    today: _dt.date | None = None,
+    freshness: str = "warn",
+    include_machine_confirmed: bool = False,
+) -> str:
+    """Why ``select_publishable`` withholds ``concept``, in the words the
+    operator needs (EDGE-CASES U9): the actual status, never a generic
+    "drafts or stale"."""
+    if concept.type == "Promotion" and concept.promo_expired(today):
+        return "expired promotion"
+    if freshness == "withhold" and concept.is_stale(today):
+        return "stale (--freshness withhold)"
+    if concept.status == "stable":
+        return "published"
+    if concept.status == "draft":
+        if concept.is_high_risk:
+            return "draft, high-risk: needs `okf-web review approve`"
+        if include_machine_confirmed:
+            return "draft"
+        return "draft (low-risk; --include-machine-confirmed would ship it)"
+    return f"status {concept.status!r}: only stable concepts publish"
+
+
 def published_view(
     bundle: Bundle,
     include_machine_confirmed: bool = False,
