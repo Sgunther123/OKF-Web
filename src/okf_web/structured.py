@@ -39,6 +39,27 @@ from pathlib import Path
 from .model import Bundle, Concept, TRUST_HUMAN, TRUST_HUMAN_BATCH, split_l10n
 
 _CONTEXT = "https://schema.org"
+_HTTP = ("http://", "https://")
+
+
+def _is_http(url: object) -> bool:
+    return isinstance(url, str) and url.startswith(_HTTP)
+
+
+def dumps_script_safe(obj: object) -> str:
+    """JSON that is inert inside an HTML ``<script>`` element: ``<``,
+    ``>`` and ``&`` become ``\\u`` escapes, so a body containing
+    ``</script>`` cannot close the element the merchant pastes it into,
+    and U+2028/U+2029 are escaped for JavaScript's sake. Still valid
+    JSON; ``json.loads`` returns the same object (EDGE-CASES S2)."""
+    text = json.dumps(obj, indent=2, ensure_ascii=False)
+    return (
+        text.replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 # How many individual products llms.txt lists before pointing at the
 # manifest instead — a 5,000-SKU catalog must not become a 5,000-line
@@ -95,7 +116,7 @@ def _product(concept: Concept, base: str) -> dict:
         "name": concept.title,
         "description": _plain(str(concept.frontmatter.get("description") or "")),
     }
-    if concept.resource:
+    if _is_http(concept.resource):
         obj["url"] = concept.resource
     brand = concept.x_geo.get("brand")
     if brand:
@@ -129,7 +150,7 @@ def _faq(concept: Concept, base: str) -> dict | None:
         "name": concept.title,
         "mainEntity": questions,
     }
-    if concept.resource:
+    if _is_http(concept.resource):
         obj["url"] = concept.resource
     obj["subjectOf"] = _subject_of(concept.rel_path, base)
     return obj
@@ -144,7 +165,7 @@ def _organization(concept: Concept, base: str, site: str | None) -> dict:
     }
     if site:
         obj["url"] = site
-    elif concept.resource:
+    elif _is_http(concept.resource):
         obj["url"] = concept.resource
     obj["subjectOf"] = _subject_of(concept.rel_path, base)
     return obj
@@ -176,7 +197,7 @@ def _local_business(concept: Concept, base: str) -> dict:
         "name": concept.title,
         "description": _plain(str(concept.frontmatter.get("description") or "")),
     }
-    if concept.resource:
+    if _is_http(concept.resource):
         obj["url"] = concept.resource
     location = concept.x_geo.get("location")
     if isinstance(location, dict):
@@ -205,7 +226,7 @@ def _return_policy(concept: Concept, base: str) -> dict:
         "name": concept.title,
         "description": _plain(str(concept.frontmatter.get("description") or "")),
     }
-    if concept.resource:
+    if _is_http(concept.resource):
         obj["url"] = concept.resource
     obj["subjectOf"] = _subject_of(concept.rel_path, base)
     return obj
@@ -256,7 +277,7 @@ def write_structured(
         out_rel = "jsonld/" + rel[:-3] + ".json" if rel.endswith(".md") else f"jsonld/{rel}.json"
         target = dist / out_rel
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(obj, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        target.write_text(dumps_script_safe(obj) + "\n", encoding="utf-8")
         written.append(out_rel)
     return written
 

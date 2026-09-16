@@ -22,12 +22,12 @@ RESERVED_FILENAMES = {"index.md", "log.md"}
 
 # Parse cache (READINESS R4): YAML frontmatter parsing dominates
 # bundle-load time (7–10 s at 5,000 concepts), so parsed documents are
-# cached in one hidden JSON file keyed by (mtime_ns, size). JSON, never
+# cached in one hidden JSON file keyed by a content hash. JSON, never
 # pickle — a bundle cloned from someone else must not be able to
 # execute code through its working-state files. Hidden ⇒ the publisher
 # never ships it; gitignored ⇒ it never reaches a commit.
 CONCEPT_CACHE_NAME = ".concepts-cache.json"
-_CACHE_VERSION = 1
+_CACHE_VERSION = 2
 
 # Directories the surveyor/review tooling uses for not-yet-accepted content.
 # They live inside the bundle checkout but are never published.
@@ -639,6 +639,28 @@ def _parse_entry(name: str, text: str) -> dict:
     return {"fm": _cache_encode(fm), "body": body, "broken": None}
 
 
+def _cache_hit(entry: Any, digest: str) -> dict | None:
+    """The cached entry for a file whose bytes hash to ``digest``, or
+    ``None`` when the entry is missing, stale, or not shaped like one of
+    ours. The cache is working state a clone may carry from anywhere:
+    anything odd is a miss, never an exception (EDGE-CASES S8)."""
+    if not isinstance(entry, dict) or entry.get("hash") != digest:
+        return None
+    if not isinstance(entry.get("body"), str):
+        return None
+    broken = entry.get("broken")
+    if broken is not None and not isinstance(broken, str):
+        return None
+    if broken is None:
+        if not isinstance(entry.get("fm"), dict):
+            return None
+        try:
+            _cache_decode(entry["fm"])
+        except (ValueError, TypeError, AttributeError):
+            return None
+    return entry
+
+
 def load_bundle(
     root: Path | str, include_internal: bool = False, use_cache: bool = True
 ) -> Bundle:
@@ -649,7 +671,9 @@ def load_bundle(
     published knowledge.
 
     Parsed documents are served from ``.concepts-cache.json`` when the
-    file's (mtime_ns, size) is unchanged (READINESS R4); an edit, a new
+    file's content hash is unchanged (READINESS R4; the hash rather than
+    the modification time, so a cache that arrives inside an archive
+    cannot vouch for bytes it never saw — EDGE-CASES S8); an edit, a new
     file, or a deletion re-parses exactly what changed and rewrites the
     cache. A missing, stale, or corrupt cache degrades to a full parse —
     never to an error — and a read-only bundle simply skips the rewrite.
@@ -679,17 +703,14 @@ def load_bundle(
         if name == "log.md":
             bundle.logs[rel] = path.read_text(encoding="utf-8")
             continue
-        st = path.stat()
-        entry = cached.get(rel)
-        if (
-            entry is None
-            or entry.get("mtime_ns") != st.st_mtime_ns
-            or entry.get("size") != st.st_size
-        ):
+        data = path.read_bytes()
+        digest = hashlib.sha256(data).hexdigest()
+        entry = _cache_hit(cached.get(rel), digest)
+        if entry is None:
             entry = {
-                "mtime_ns": st.st_mtime_ns,
-                "size": st.st_size,
-                **_parse_entry(name, path.read_text(encoding="utf-8")),
+                "hash": digest,
+                "size": len(data),
+                **_parse_entry(name, data.decode("utf-8")),
             }
             dirty = True
         fresh[rel] = entry

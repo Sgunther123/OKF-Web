@@ -483,6 +483,32 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                 "live URL (the page ↔ concept binding)",
             )
         )
+    if concept.resource and not str(concept.resource).startswith(("http://", "https://")):
+        findings.append(
+            Finding(
+                ERROR,
+                "E020",
+                rel,
+                f"`resource` must be an http(s) URL, got {concept.resource!r}: a "
+                "non-web scheme is never a page ↔ concept binding, and the "
+                "viewer, linkmap.json and the JSON-LD `url` will not link it",
+            )
+        )
+    for index, source in enumerate(concept.sources):
+        if not isinstance(source, dict):
+            continue
+        source_url = source.get("resource")
+        if source_url and not str(source_url).startswith(("http://", "https://")):
+            label = source.get("id") or f"#{index}"
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W038",
+                    rel,
+                    f"source `{label}`: `resource` is not an http(s) URL "
+                    f"({source_url!r}); a citation nobody can follow",
+                )
+            )
 
     # -- citations ---------------------------------------------------------
     known = concept.source_ids | concept.footnote_defs

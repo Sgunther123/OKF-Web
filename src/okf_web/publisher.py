@@ -369,10 +369,14 @@ def _write_manifest(
 
 def _write_linkmap(dist: Path, bundle, published: list[str], prefix: str) -> None:
     published_set = set(published)
+    # Only web addresses are link-map keys: a `javascript:` or `file:`
+    # resource is lint error E020 and must never reach a page's <link>.
     linkmap = {
         concept.resource: f"{prefix}/{rel}"
         for rel, concept in sorted(bundle.concepts.items())
-        if concept.resource and rel in published_set
+        if concept.resource
+        and rel in published_set
+        and concept.resource.startswith(("http://", "https://"))
     }
     (dist / "linkmap.json").write_text(
         json.dumps(linkmap, indent=2) + "\n", encoding="utf-8"

@@ -476,10 +476,16 @@ def build_viewer(
                 state = '<div class="held">stale</div>'
             elif c in soon:
                 state = '<div class="soon">freshness due soon</div>'
-            resource = (
-                f'<div class="sub"><a href="{e(c.resource)}">{e(c.resource)}</a></div>'
-                if c.resource else ""
-            )
+            # A resource is a link only when it is a web address; anything
+            # else is shown as text (html.escape cannot neutralize a scheme).
+            if c.resource and c.resource.startswith(("http://", "https://")):
+                resource = (
+                    f'<div class="sub"><a href="{e(c.resource)}">{e(c.resource)}</a></div>'
+                )
+            elif c.resource:
+                resource = f'<div class="sub">{e(c.resource)}</div>'
+            else:
+                resource = ""
             refs = []
             for key, values in (("fits", c.fits), ("works with", c.works_with),
                                 ("covers", c.covers),

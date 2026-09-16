@@ -377,17 +377,23 @@ path position is the binding.
 | E017 | error | Stable `Product Passport` missing `passport_for` or `passport.materials`/`origin` |
 | E018 | error | Stable `Store Location` missing `x_geo.entity` or `location.address` |
 | E019 | error | Stable `Trade Program` missing `trade.payment_terms`/`min_order` |
+| E020 | error | `resource` is not an `http(s)` URL — a non-web scheme (`javascript:`, `file:`, `data:`) is never a page ↔ concept binding, and the viewer, `linkmap.json` and the JSON-LD `url` do not link it |
 | W032 | warn | Compatibility/Ownership Guide/Passport draft missing its refs, or a `fits`/`works_with`/`covers`/`passport_for` id that resolves to no concept's `entity` |
 | W033 | warn | `Compatibility`/`Ownership Guide`/`Store Location` classified risk `c`, or `Product Passport`/`Trade Program` declaring anything but `a` (both are gated as `a` regardless) |
 | W034 | warn | `Policy`/`Promotion`/`Store Identity` declaring a risk below the type table's `a` floor — a lower declared risk would unlock batch approval |
 | W035 | warn | Malformed source credibility signal (SPEC §5.1): `usage_count` not a non-negative integer, `last_modified` not a date, or `usage_window` without `from`/`to` dates |
 | W036 | warn | `attester.resource` names an endpoint instead of deterministic verifier code, or a bundle-relative attester artifact missing from the bundle |
 | W037 | warn | Capability `executor.resource` host lies outside the declared site's domain — a delegation worth a human glance before publishing (legitimate ones exist; they must be conspicuous) |
+| W038 | warn | A `sources[].resource` that is not an `http(s)` URL — a citation nobody can follow |
 | W040 | warn | (`--strict-okf` only) declared base-spec deviation: index frontmatter beyond SPEC §8's allowance (§7) |
 
 Errors block publishing; `--strict` promotes warnings for CI.
 
 ## 10. Versioning
+
+Lint-only additions do not bump the profile: E020 and W038 (2026-09-16,
+EDGE-CASES E3) extend the vocabulary in §9 without changing a key or a
+type.
 
 **1.10** (current) closes the spec-coverage gaps found by the
 fidelity audit ([FIDELITY.md](FIDELITY.md), Phase F4): source

@@ -434,6 +434,13 @@ The tool refuses to silently overwrite approved facts, so it filed
 the new draft in a `_review/proposed` folder. Compare the two, then
 approve the update if it's right.
 
+**"E020 … `resource` must be an http(s) URL"**
+A fact sheet's web address isn't a web address (a `javascript:` or
+`file:` value, usually from a bad feed row). The tool refuses it
+because the viewer, the link map and the structured data would
+otherwise carry it as a link. Fix the `resource` line to the page's
+real `https://` address.
+
 **"stale: `stale_after` (…) has passed"** (warning W021)
 A fact sheet's freshness date expired. It still publishes, but AI
 readers can see it's past its date. Re-check the fact against your

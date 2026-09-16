@@ -40,7 +40,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from importlib import resources
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from .linter import ERROR, lint_concept
 from .model import (
@@ -233,12 +233,27 @@ def parse_llm_concepts(response: str) -> list[tuple[str, str]]:
     return out
 
 
+# Directories a producer (LLM surveyor, feed importer) may never write:
+# workflow state, the evaluation record, translations, capabilities and
+# attester code are authored by people and tools, not extracted from
+# pages (EDGE-CASES S3).
+PRODUCER_DENIED_DIRS = frozenset(
+    {"_quarantine", "_review", "evaluations", "l10n", "capabilities", "attesters"}
+)
+
+
 def _safe_rel_path(rel: str) -> bool:
+    if "\\" in rel or ":" in rel:
+        return False
+    windows = PureWindowsPath(rel)
+    if windows.is_absolute() or windows.drive or windows.root:
+        return False
     parts = rel.split("/")
     return (
         rel.endswith(".md")
         and not any(p in ("", ".", "..") for p in parts)
-        and parts[0] not in ("_quarantine", "_review")
+        and not any(p.startswith("_") for p in parts)
+        and parts[0] not in PRODUCER_DENIED_DIRS
         and parts[-1] not in ("index.md", "log.md")
     )
 
@@ -303,8 +318,10 @@ def survey_page(
         x_geo = fm.setdefault("x_geo", {})
         x_geo["source_hash"] = source_hash
         x_geo["source_fetched_at"] = now.date().isoformat()
-        if not fm.get("resource"):
-            fm["resource"] = url
+        # `resource` is the ownership key the write gate, path stability
+        # and linkmap.json rely on: it is the surveyed URL, never the
+        # model's choice (EDGE-CASES S3).
+        fm["resource"] = url
         # Promotions retire with their sale: default stale_after to the
         # end date so the freshness machinery tracks the time bound.
         # `ends_at` is a profile calendar date; `stale_after` is a spec
@@ -358,26 +375,31 @@ def place_draft(
     if prior is not None and prior.rel_path != rel:
         rel = prior.rel_path
 
-    # Collision safety: never let one page's draft silently
-    # overwrite a different page's concept. Disambiguate with a
-    # slug from the URL (hash fallback if the slug also collides).
+    # Collision safety: never let one page's draft silently overwrite
+    # a concept this URL does not own — one owned by a different URL,
+    # or by none (a hand-written file, the scorecard). Disambiguate
+    # with a slug from the URL (hash fallback if the slug also collides).
     occupant = state.get(rel)
-    if occupant is not None and occupant.resource and occupant.resource != url:
+    if occupant is not None and occupant.resource != url:
         stem = rel[: -len(".md")]
         slug = _url_slug(url) or sha256_text(url)[7:15]
         candidate = f"{stem}-{slug}.md"
         squatter = state.get(candidate)
         if squatter is not None and squatter.resource != url:
             candidate = f"{stem}-{sha256_text(url)[7:15]}.md"
+        owner = occupant.resource or "a concept with no source URL"
         result.collisions.append(
-            f"{rel} already belongs to {occupant.resource}; wrote {candidate} instead"
+            f"{rel} already belongs to {owner}; wrote {candidate} instead"
         )
         rel = candidate
 
     target = bundle_root / rel
     current = state.get(rel)
-    if current is not None and current.trust_tier == TRUST_HUMAN:
-        # Never overwrite human-approved knowledge: file a drift proposal.
+    if current is not None and (
+        current.trust_tier == TRUST_HUMAN or current.status == "stable"
+    ):
+        # Never overwrite human-approved or stable knowledge (a
+        # `human-batch:` sign-off included): file a drift proposal.
         proposal = bundle_root / "_review" / "proposed" / rel
         proposal.parent.mkdir(parents=True, exist_ok=True)
         proposal.write_text(render_document(fm, body), encoding="utf-8")

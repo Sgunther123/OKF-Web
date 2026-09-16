@@ -167,7 +167,20 @@ The surveyor turns pages into draft concepts under a strict
 catalogs skip the LLM entirely: `okf-web survey --feed products.csv`
 turns a Google Merchant/CSV feed export into draft Product concepts
 deterministically — live-value fields dropped, same write gate, same
-review queue, zero tokens. The contract for LLM extraction:
+review queue, zero tokens.
+
+The write gate (`surveyor.place_draft`; EDGE-CASES E3) is where a
+producer's proposal meets the bundle, and it trusts none of the
+proposal's own claims: a path outside the content directories
+(`evaluations/`, `l10n/`, `capabilities/`, `attesters/`, the internal
+dirs, anything Windows would read as absolute) is quarantined;
+`resource` is pinned to the surveyed URL, the ownership key that path
+stability and `linkmap.json` rely on; an existing concept owned by a
+different URL, or by none, is a collision resolved with a new name;
+and a `stable` or human-reviewed concept is never overwritten, only
+proposed against under `_review/proposed/`.
+
+The contract for LLM extraction:
 
 - **Frontier:** `sitemap.xml` (with `lastmod` when present) or an
   explicit URL list; pages are fetched, reduced to text, and hashed.
@@ -262,7 +275,11 @@ Full rubric in [EVALUATION.md](EVALUATION.md). The short version:
 2. **Answer only from the bundle.** The harness retrieves concepts the
    way a frugal agent would (index → top-k concepts), then answers
    with a context-only prompt that must cite concept paths or output
-   `CANNOT_ANSWER`.
+   `CANNOT_ANSWER`. Concept bodies are data inside that prompt, never
+   structure: the harness neutralizes any `<concept` or `</concept`
+   sequence a body carries, so a draft cannot forge a trusted block,
+   and both prompts say the context is data, not instructions
+   (EDGE-CASES S11).
 3. **Strict judge.** A second LLM pass scores `answered`, `grounded`
    (every claim supported by context), and `cited` (which concepts).
    Numbers, units, currencies, and time limits are matched strictly.
@@ -353,6 +370,13 @@ The bundle is static files — publishable to the same CDN as the site:
   ClaudeBot, PerplexityBot, …) are blocked from the bundle path — a
   published-but-unreachable bundle is the silent failure mode of this
   whole section.
+- **Derived files are inert (EDGE-CASES E3):** every `jsonld/*.json` is
+  serialized script-safe — `<`, `>`, `&`, U+2028 and U+2029 become
+  `\u` escapes, still valid JSON — so a body containing `</script>`
+  cannot break out of the `<script type="application/ld+json">`
+  element a merchant pastes it into; and only `http(s)` resources
+  become a JSON-LD `url`, a `linkmap.json` key or a clickable link in
+  the viewer (lint E020 and W038 flag the rest).
 - **Outbound fetches (EDGE-CASES E2):** every URL the toolchain fetches
   is someone else's data — a surveyed page, a sitemap, a capability
   concept's `executor.resource`, a store's `<link rel="okf-bundle">`,
@@ -447,7 +471,7 @@ the citations.
 
 | Cost | Before R4 | After R4 | Mechanism |
 | --- | --- | --- | --- |
-| Bundle load (every CLI command) | 7–12 s | **~0.6 s warm** | `.concepts-cache.json` — parsed docs keyed by (mtime_ns, size); an edit re-parses only what changed |
+| Bundle load (every CLI command) | 7–12 s | **~0.6 s warm** | `.concepts-cache.json` — parsed docs keyed by a content hash of each file (EDGE-CASES S8: the cache never vouches for bytes it did not hash); an edit re-parses only what changed |
 | One retrieval query | 200–300 ms | **~3 ms** after a ~300 ms first-query index build | inverted index, built once per loaded bundle |
 | 200-question dry-run sweep | ~41 s | **~2.5 s** | same index, reused across questions |
 | Peak memory, full 5,000-concept load + index | — | **~97 MB** | linear in catalog size |

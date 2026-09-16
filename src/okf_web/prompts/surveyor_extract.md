@@ -34,7 +34,9 @@ title: ...
 Path rules: lowercase-kebab-case filenames; products under
 `catalog/products/`, collections under `catalog/`, policies under
 `policies/`, FAQs under `faq/`, buying guides under `guides/`. Never
-emit `index.md`, `log.md`, or paths starting with `_`.
+emit `index.md`, `log.md`, paths starting with `_`, or anything under
+`evaluations/`, `l10n/`, `capabilities/` or `attesters/`: those are
+written by people and tools, and a block aimed there is quarantined.
 
 If the page contains no extractable merchant-authored facts (e.g. a
 cart page, a login page), emit nothing.

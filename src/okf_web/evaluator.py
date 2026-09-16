@@ -324,6 +324,24 @@ def _prompt(name: str) -> str:
     return resources.files("okf_web").joinpath(f"prompts/{name}").read_text("utf-8")
 
 
+def _safe_body(text: str) -> str:
+    """A rendered concept with any block delimiter it carries
+    neutralized: a body may say anything, but it cannot open or close a
+    ``<concept>`` block of its own (EDGE-CASES S11)."""
+    return text.replace("<concept", "&lt;concept").replace("</concept", "&lt;/concept")
+
+
+def render_context(retrieved: list[Concept]) -> str:
+    """The CONTEXT the answerer and the judge see: one ``<concept>``
+    block per retrieved concept, path and trust written by the harness,
+    the body inert."""
+    return "\n\n".join(
+        f"<concept path=\"/{c.rel_path}\" trust=\"{c.trust_tier}\">\n"
+        f"{_safe_body(c.render())}\n</concept>"
+        for c in retrieved
+    )
+
+
 def _extract_json(text: str) -> dict:
     start = text.find("{")
     while start != -1:
@@ -376,11 +394,7 @@ def evaluate(
     results: list[QuestionResult] = []
     for question in questions:
         retrieved = retrieve_fn(bundle, question.question, top_k)
-        context = "\n\n".join(
-            f"<concept path=\"/{c.rel_path}\" trust=\"{c.trust_tier}\">\n"
-            f"{c.render()}\n</concept>"
-            for c in retrieved
-        )
+        context = render_context(retrieved)
         result = QuestionResult(
             question=question,
             retrieved=[c.rel_path for c in retrieved],
