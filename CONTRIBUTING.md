@@ -8,14 +8,17 @@
   fast-forward push is made deliberately.
 - **Development happens on a working branch.** This project's is
   `claude/geo-ecommerce-evaluation-system-qzv3qn`. CI runs on every push
-  to every branch (`.github/workflows/okf-ci.yml`: the `tests` job runs
-  the suite on every supported Python, 3.10 to 3.12, and the
-  `test-and-lint` job, which needs all of those legs, runs the strict
-  lint of the example bundle, the dry-run evaluation and a publish
-  smoke test), so a branch head always carries the check that `main`
-  requires. The required check is `test-and-lint` alone: it reports
-  only after every matrix leg passed, and its name never changes with
-  the versions tested, so the rule needs no edit when the matrix does.
+  to every branch except `main` (`.github/workflows/okf-ci.yml`: the
+  `tests` job runs the suite on every supported Python, 3.10 to 3.12,
+  and the `test-and-lint` job, which needs all of those legs, runs the
+  strict lint of the example bundle, the dry-run evaluation and a
+  publish smoke test), so a branch head always carries the check that
+  `main` requires. The required check is `test-and-lint` alone: it
+  reports only after every matrix leg passed, and its name never
+  changes with the versions tested, so the rule needs no edit when the
+  matrix does. `main` itself triggers no run: it only ever receives a
+  commit whose check already passed on its branch, so a run there would
+  repeat that run.
 - **History stays linear.** No merge commits, no force pushes to `main`,
   and nothing already on `main` is ever rewritten. A mistake on `main` is
   corrected by a new commit.
@@ -53,6 +56,10 @@ precondition: the check on `<sha>` must already be green. GitHub refuses
 a push whose head commit has no passing required check, so wait for the
 branch's CI to finish, then push. If CI is red on the branch, fix it on
 the branch first; there is no route around the check, by design.
+
+The push is its own record. Nothing is committed before or after it to
+note that it happened: the history of `main` is the log of what landed
+and when, and a bookkeeping commit would only need another push.
 
 ## Verifying the rule
 

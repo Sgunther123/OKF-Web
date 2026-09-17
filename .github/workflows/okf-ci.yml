@@ -2,7 +2,10 @@ name: okf-ci
 
 on:
   push:
-    branches: ["**"]
+    # Every branch except main: main only ever receives a fast-forward of a
+    # commit whose check already passed on its branch (CONTRIBUTING.md), so
+    # a run there would repeat that run.
+    branches-ignore: ["main"]
   pull_request:
 
 jobs:
