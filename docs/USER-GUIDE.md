@@ -620,7 +620,11 @@ When your folder has nothing on a question, the assistant is told so
 (`coverage: none`) instead of being handed a weak match, and it sees
 changes you make to the folder on its next question, no restart
 needed. Accents and case don't matter: a shopper typing `devolucion`
-finds your `devolución` sheet.
+finds your `devolución` sheet. Any *published* bundle works the same
+way without cloning it: `okf-web mcp --url
+https://store.example/.well-known/okf` mirrors the files locally,
+checks each against the bundle's manifest, and re-checks for changes
+every five minutes.
 
 **Q: My scheduled runs use my local time zone. Which day do the dates use?**
 A: Every date the tool writes or checks is UTC (the `Z` on the
@@ -663,6 +667,7 @@ technical docs live alongside this guide:
 | Leave stale sheets out when publishing | `okf-web publish my-store dist --freshness withhold` |
 | Replace a folder that is not an earlier publish | `okf-web publish my-store dist --force` |
 | Let Claude use your folder today | `okf-web mcp my-store` |
+| Let an assistant use any store's published knowledge, no clone | `okf-web mcp --url https://store.example/.well-known/okf` |
 | Draft products from a feed export (free) | `okf-web survey my-store --feed products.csv` |
 | Start with ready-made questions (free) | `okf-web questions my-store --pack outdoor` |
 | Approve all low-stakes drafts at once | `okf-web review batch-approve my-store --by you@yourstore.com` |

@@ -190,3 +190,138 @@ def test_embedding_cache_is_versioned_and_an_unversioned_cache_is_ignored(tmp_pa
     saved = json.loads(cache.read_text(encoding="utf-8"))
     assert saved["version"] == 2 and saved["model"] == "hashing-crc32u-512"
     assert not list(tmp_path.glob(".*.tmp"))
+
+
+# --- item 10: any published bundle, served with no server of ours -------------------------
+
+import socket
+import threading
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+from okf_web import publisher, signing
+from okf_web.net import FetchError, FetchPolicy
+from okf_web.remote import RemoteError, RemoteSource, cache_dir_for
+
+LOOPBACK = FetchPolicy(allow_loopback=True)
+
+
+class _Quiet(SimpleHTTPRequestHandler):
+    def log_message(self, *args):  # noqa: D401 — silence the test server
+        pass
+
+
+@pytest.fixture
+def served_dist(bundle_copy, tmp_path):
+    dist = tmp_path / "dist"
+    publisher.publish(bundle_copy, dist, site="https://shop.example")
+    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_Quiet, directory=str(dist)))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}", dist, bundle_copy
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def _free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def test_remote_source_mirrors_and_verifies_a_published_bundle(served_dist, tmp_path):
+    base, dist, _ = served_dist
+    mirror = tmp_path / "mirror"
+    src = RemoteSource(base, mirror, policy=LOOPBACK)
+    result = src.sync()
+    manifest = json.loads((dist / "manifest.json").read_text(encoding="utf-8"))
+    markdown = [rel for rel in manifest["files"] if rel.endswith(".md")]
+    assert result["changed"] and result["fetched"] == len(markdown)
+    assert (mirror / "index.md").exists() and (mirror / ".okf-dist").exists()
+    assert not (mirror / "jsonld").exists()  # only the knowledge files are mirrored
+    errors, _warnings = signing.verify_integrity(mirror)
+    assert errors == []
+    # Nothing to do the second time: the manifest is re-checked conditionally.
+    assert src.sync()["fetched"] == 0
+
+
+def test_bridge_serves_a_remote_bundle_and_follows_a_republish(served_dist, tmp_path):
+    base, dist, bundle_root = served_dist
+    src = RemoteSource(base, tmp_path / "mirror", policy=LOOPBACK, refresh_seconds=0)
+    src.sync()
+    state = mcp_bridge.build_state(None, source=src)
+    _, body = _call(state, "okf_search", question="Can I return an item after 30 days?")
+    payload = json.loads(body)
+    assert payload["coverage"] == "found"
+    assert "policies/returns.md" in [r["path"] for r in payload["results"]]
+    _, info = _call(state, "okf_info")
+    assert json.loads(info)["source"]["url"] == base
+
+    returns = bundle_root / "policies" / "returns.md"
+    returns.write_text(
+        returns.read_text(encoding="utf-8") + "\nMembers get an extended 45-day window.\n",
+        encoding="utf-8",
+    )
+    publisher.publish(bundle_root, dist, site="https://shop.example")
+    src.last_modified = src.etag = None  # the test server stamps to the second
+    assert src.sync()["fetched"] == 1  # only the changed file travels
+    _, text_ = _call(state, "okf_get", path="policies/returns.md")
+    assert "45-day window" in text_
+
+
+def test_remote_refuses_a_file_that_fails_its_hash(served_dist, tmp_path):
+    base, dist, _ = served_dist
+    index = dist / "index.md"
+    index.write_text(index.read_text(encoding="utf-8") + "\ntampered\n", encoding="utf-8")
+    src = RemoteSource(base, tmp_path / "mirror", policy=LOOPBACK)
+    with pytest.raises(RemoteError, match="sha256"):
+        src.sync()
+
+
+def test_remote_ignores_unsafe_manifest_paths_and_removes_delisted_files(served_dist, tmp_path):
+    base, dist, _ = served_dist
+    mirror = tmp_path / "mirror"
+    src = RemoteSource(base, mirror, policy=LOOPBACK)
+    src.sync()
+    manifest = json.loads((dist / "manifest.json").read_text(encoding="utf-8"))
+    bogus = {"sha256": "0" * 64, "bytes": 1}
+    for rel in ("../escape.md", "/abs.md", ".hidden/x.md", "C:\\win.md"):
+        manifest["files"][rel] = bogus
+    victim = next(rel for rel in manifest["files"] if rel.startswith("faq/"))
+    del manifest["files"][victim]
+    (dist / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    src.last_modified = src.etag = None
+    result = src.sync()
+    assert result["removed"] == 1 and not (mirror / victim).exists()
+    assert not (tmp_path / "escape.md").exists() and not (mirror / ".hidden").exists()
+
+
+def test_remote_keeps_serving_through_an_origin_outage(served_dist, tmp_path):
+    base, _dist, _ = served_dist
+    src = RemoteSource(base, tmp_path / "mirror", policy=LOOPBACK, refresh_seconds=0)
+    src.sync()
+    before = src.signature()
+    src.base_url = f"http://127.0.0.1:{_free_port()}"
+    assert src.signature() == before
+    assert src.last_error and "could not fetch" in src.last_error
+    assert src.load().concepts
+
+
+def test_remote_refuses_private_hosts_without_the_flag(tmp_path):
+    with pytest.raises(FetchError):
+        RemoteSource("http://127.0.0.1:8/", tmp_path / "mirror").sync()
+
+
+def test_mcp_url_flag_and_argument_rules(capsys):
+    args = cli_mod.build_parser().parse_args(["mcp", "--url", "https://shop.example/.well-known/okf"])
+    assert args.url and args.bundle is None and args.refresh_seconds == 300.0
+    assert cli_mod.main(["mcp"]) == 2
+    assert "--url" in capsys.readouterr().err
+    assert cli_mod.main(["mcp", str(REPO / "bundle-example"), "--url", "https://x.example"]) == 2
+
+
+def test_cache_dir_is_stable_and_outside_any_bundle():
+    a = cache_dir_for("https://shop.example/.well-known/okf")
+    b = cache_dir_for("https://shop.example/.well-known/okf/")
+    assert a == b and a.parts[-3:-1] == ("okf-web", "remote")

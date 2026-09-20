@@ -560,7 +560,9 @@ product probes reproduce hit-for-hit.
   auto-retirement); discovery delegation for platform-hosted stores
   (GEO-PROFILE §8); LLM-free drift detection (`okf-web drift`); the
   freshness publish policy (`--freshness withhold`); the MCP
-  bridge (`okf-web mcp`); and the fidelity hardening pass against the
+  bridge (`okf-web mcp`, and since GAPS item 10 its remote-bundle mode
+  `--url`, a verified local mirror of any published dist); and the
+  fidelity hardening pass against the
   published OKF v0.2 spec ([FIDELITY.md](FIDELITY.md) Phases F1–F4:
   invariant fixes, consumer-surface corrections, O(N) feed ingestion,
   credibility signals, the code-artifact attester convention, and

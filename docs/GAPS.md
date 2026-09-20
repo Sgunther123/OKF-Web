@@ -80,3 +80,22 @@ checked on every tool call, `okf_search` results with `relevance`,
 to 10, `okf_get` misses naming the five nearest paths. The embedding
 cache carries a version key and is written atomically (the item 4
 slice that lives in `retrieval.py`). Tests: `tests/test_gaps.py`.
+
+### Phase B — item 10 (2026-09-20)
+
+`src/okf_web/remote.py`: `RemoteSource` mirrors the markdown a
+published `manifest.json` lists into a cache directory, verifying each
+file's sha256 before it is written (a mismatch is refused, never
+served), re-checks the manifest with `If-None-Match` /
+`If-Modified-Since` at most every `refresh_seconds`, fetches only
+changed files, removes delisted ones, ignores unsafe manifest paths
+(traversal, absolute, hidden, Windows spellings), stops at 20,000
+files, marks the mirror `.okf-dist`, and keeps serving the mirror when
+the origin is down (`last_error`, shown by `okf_info`). The bridge
+takes any `source` with `signature()` and `load()`; `okf-web mcp --url
+<base>` wires it (`--cache-dir`, `--refresh-seconds`;
+`--allow-private-hosts` opens loopback and private origins for local
+testing). This is the hosted edition's per-tenant retrieval without a
+server component: every tenant's served dist is a `--url`. The
+authenticated multi-tenant transport the analysis called a decision
+was not built; nothing in the principle wants it.

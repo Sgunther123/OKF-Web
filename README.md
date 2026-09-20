@@ -183,7 +183,10 @@ Desktop config:
 
 giving the assistant `okf_search`, `okf_get`, `okf_capabilities`,
 and `okf_execute` (live price/stock via the store's declared
-read-only endpoints).
+read-only endpoints). `okf-web mcp --url
+https://store.example/.well-known/okf` does the same for any
+*published* bundle, mirrored locally and verified against its
+manifest — no clone, no server.
 
 Bundles can be **signed**: `okf-web publish dist/ --sign` (or
 `okf-web sign dist/`, after `pip install okf-web[sign]`) puts a

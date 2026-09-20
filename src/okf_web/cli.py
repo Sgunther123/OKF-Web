@@ -829,6 +829,44 @@ def cmd_view(args) -> int:
 def cmd_mcp(args) -> int:
     from . import mcp_bridge
 
+    if args.url and args.bundle:
+        print("give a bundle directory or --url, not both", file=sys.stderr)
+        return 2
+    if not args.url and not args.bundle:
+        print("mcp needs a bundle directory or --url <published bundle>", file=sys.stderr)
+        return 2
+    if args.url:
+        # A published bundle anywhere on the web, mirrored locally and
+        # verified against its manifest (GAPS item 10). The dist is the
+        # published view already; --working has nothing to show here.
+        from .remote import RemoteSource, cache_dir_for, default_policy
+
+        source = RemoteSource(
+            args.url,
+            Path(args.cache_dir) if args.cache_dir else cache_dir_for(args.url),
+            policy=default_policy(allow_private=args.allow_private_hosts),
+            refresh_seconds=args.refresh_seconds,
+            lang=args.lang,
+        )
+        synced = source.sync()
+        retriever = _build_retriever(args, source.cache_dir)
+        state = mcp_bridge.build_state(
+            None,
+            retriever=retriever,
+            top_k=args.top_k,
+            allow_private_hosts=args.allow_private_hosts,
+            min_relevance=args.min_relevance,
+            source=source,
+        )
+        print(
+            f"okf-web mcp: serving {len(state.bundle.concepts)} concept(s) from "
+            f"{source.base_url} [published view; {synced['fetched']} file(s) mirrored "
+            f"at {source.cache_dir}, re-checked every {args.refresh_seconds:g}s] over stdio",
+            file=sys.stderr,
+        )
+        mcp_bridge.serve_stdio(state)
+        return 0
+
     retriever = _build_retriever(args, args.bundle)
     state = mcp_bridge.build_state(
         args.bundle,
@@ -1253,7 +1291,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="serve the bundle to MCP clients (Claude Desktop/Code, other "
         "assistants) over stdio: retrieval, concept reads, capability calls",
     )
-    p.add_argument("bundle")
+    p.add_argument("bundle", nargs="?", help="bundle directory (or use --url)")
+    p.add_argument(
+        "--url",
+        help="serve a published bundle from its URL (the directory holding "
+        "manifest.json, e.g. https://store.example/.well-known/okf): mirrored "
+        "locally, every file verified against the manifest, re-checked on "
+        "a schedule",
+    )
+    p.add_argument(
+        "--cache-dir",
+        help="with --url: where to keep the mirror (default: "
+        "~/.cache/okf-web/remote/<digest of the URL>)",
+    )
+    p.add_argument(
+        "--refresh-seconds",
+        type=float,
+        default=300.0,
+        help="with --url: how often the manifest is re-checked with a "
+        "conditional request (default 300, the hosting recipes' max-age)",
+    )
     p.add_argument(
         "--working",
         action="store_true",

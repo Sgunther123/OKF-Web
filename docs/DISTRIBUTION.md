@@ -85,12 +85,21 @@ What the plan does with that:
   Bodies clip at 4,000 characters (`okf_get` for the whole concept),
   `top_k` caps at ten, and the bridge re-reads the bundle when it
   changes (GAPS items 2 and 6).
-- **Planned: remote-bundle mode** — `okf-web mcp --url
-  https://store.example/.well-known/okf` — consume any *published*
-  bundle without cloning anything: the zero-install demo of the whole
+- **Remote-bundle mode** (shipped 2026-09-20, GAPS item 10) — `okf-web
+  mcp --url https://store.example/.well-known/okf` consumes any
+  *published* bundle without cloning anything: the markdown the
+  manifest lists is mirrored into a local cache
+  (`~/.cache/okf-web/remote/<digest>`, or `--cache-dir`), every file
+  verified against the manifest's sha256 before it is served, the
+  manifest re-checked with conditional requests every 300 s
+  (`--refresh-seconds`; the hosting recipes' `max-age`), only changed
+  files fetched and delisted ones removed, and the mirror kept serving
+  through an origin outage (`okf_info` reports `source.last_error`).
+  No server component anywhere: a store whose dist is served over
+  HTTPS is queryable by every MCP assistant, and a hosted tenant's
+  bundle exactly the same way — the zero-install demo of the whole
   ecosystem, and the natural tool for engines' own engineers to
-  evaluate bundles with. (Plan item; lands as a normal feature commit
-  when scheduled.)
+  evaluate bundles with.
 - **Stay GET-only, stay free.** The bridge's safety posture (GET-only
   execution, no undeclared arguments, and since EDGE-CASES E2 the
   shared fetch boundary: private, loopback and link-local hosts refused

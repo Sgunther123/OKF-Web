@@ -31,6 +31,11 @@ Claude Desktop config (``claude_desktop_config.json``)::
     {"mcpServers": {"my-store": {
         "command": "okf-web",
         "args": ["mcp", "/path/to/bundle"]}}}
+
+or, for any *published* bundle without cloning anything (GAPS item 10;
+:mod:`okf_web.remote`)::
+
+    "args": ["mcp", "--url", "https://store.example/.well-known/okf"]
 """
 
 from __future__ import annotations
@@ -136,6 +141,9 @@ class LocalSource:
             bundle = published_view(bundle, self.include_machine_confirmed, self.today)
         return bundle
 
+    def describe(self) -> dict[str, Any]:
+        return {"path": str(self.root), "view": "working copy" if self.working else "published"}
+
 
 @dataclass
 class BridgeState:
@@ -233,6 +241,7 @@ def _tool_info(state: BridgeState, args: dict) -> dict[str, Any]:
         "store": _concept_summary(identity) if identity else None,
         "concepts_by_type": dict(sorted(by_type.items())),
         "scorecard_metrics": (scorecard.x_geo.get("metrics") if scorecard else None),
+        "source": state.source.describe() if hasattr(state.source, "describe") else None,
         "usage": (
             "okf_search finds concepts for a shopper question; okf_get reads "
             "one in full; prefer trust_tier=human-reviewed, cite concept "
