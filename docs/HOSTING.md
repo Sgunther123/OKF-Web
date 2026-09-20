@@ -588,7 +588,7 @@ Against the Caddy recipe on the test machine (§8), same-origin:
 ```
 store origin: http://127.0.0.1:18080
 routes found: well-known
-bundle: http://127.0.0.1:18080/.well-known/okf (32 file(s), profile ecommerce-geo/1.10)
+bundle: http://127.0.0.1:18080/.well-known/okf (32 file(s), profile ecommerce-geo/1.11)
 signature: absent
 binding: same-origin
 OK: the bundle is discoverable and speaks for this store
@@ -600,7 +600,7 @@ head tag, with the bundle on a second origin:
 ```
 store origin: http://127.0.0.1:18082
 routes found: link-tag
-bundle: http://127.0.0.1:18081 (32 file(s), profile ecommerce-geo/1.10)
+bundle: http://127.0.0.1:18081 (32 file(s), profile ecommerce-geo/1.11)
 signature: absent
 binding: bound
 OK: the bundle is discoverable and speaks for this store

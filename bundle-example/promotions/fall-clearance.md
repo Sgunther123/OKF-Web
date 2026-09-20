@@ -18,7 +18,7 @@ sources:
     title: Fall Clearance sale page
     last_modified: 2026-08-01T00:00:00Z
 x_geo:
-  profile: ecommerce-geo/1.10
+  profile: ecommerce-geo/1.11
   risk: a
   intents: [promotion, product_fact, discovery]
   starts_at: 2026-08-01

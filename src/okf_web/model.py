@@ -200,6 +200,38 @@ def utc_today() -> _dt.date:
     return utc_now().date()
 
 
+# Freshness SLA per content class, in days (GAPS item 3). A stable
+# concept with no `stale_after` is immortal — nothing ever asks anyone
+# to look at it again — so the write gate stamps `now + SLA` whenever a
+# producer left the key empty, and lint W041 flags a stable concept that
+# still has none. Promotions carry their end date instead; scorecards
+# are stamped by the evaluator (30 days). The merchant may always set a
+# tighter or looser date by hand or with `review approve --stale-after`.
+FRESHNESS_SLA_DAYS: dict[str, int] = {
+    "Product": 90,
+    "Product Collection": 90,
+    "Policy": 180,
+    "FAQ": 180,
+    "Buying Guide": 180,
+    "Store Location": 180,
+    "Trade Program": 180,
+    "Store Identity": 365,
+    "Compatibility": 365,
+    "Ownership Guide": 365,
+    "Product Passport": 365,
+    "Attested Computation": 365,
+}
+
+
+def default_stale_after(type_: str | None, now: _dt.datetime | None = None) -> str | None:
+    """The default ``stale_after`` instant for a concept of ``type_``
+    created now, or None for types without an SLA."""
+    days = FRESHNESS_SLA_DAYS.get(type_ or "")
+    if days is None:
+        return None
+    return utc_instant((now or utc_now()) + _dt.timedelta(days=days))
+
+
 LOCK_NAME = ".okf-lock"
 
 
@@ -616,6 +648,19 @@ class Bundle:
             value = root_index.frontmatter.get("okf_version")
             return str(value) if value is not None else None
         return None
+
+    @property
+    def reviewers(self) -> list[str] | None:
+        """``x_geo.reviewers`` on the root index — the reviewer ids allowed
+        to approve (GAPS item 5) — or None when the bundle declares none."""
+        root_index = self.indexes.get("index.md")
+        if root_index is None:
+            return None
+        x_geo = root_index.frontmatter.get("x_geo")
+        value = x_geo.get("reviewers") if isinstance(x_geo, dict) else None
+        if not isinstance(value, list):
+            return None
+        return [str(v) for v in value]
 
     def get(self, rel_path: str) -> Concept | None:
         return self.concepts.get(rel_path.lstrip("/"))

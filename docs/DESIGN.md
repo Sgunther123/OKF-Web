@@ -2,7 +2,7 @@
 
 **Status:** v1 design · **Format:** Open Knowledge Format (OKF) v0.2
 ([spec](https://github.com/GoogleCloudPlatform/open-knowledge-format))
-· **Profile:** `ecommerce-geo/1.10`
+· **Profile:** `ecommerce-geo/1.11`
 
 ## 1. Problem
 
@@ -237,7 +237,12 @@ being made. Only `human-reviewed` satisfies E010's high-risk gate;
 both human tiers qualify for the derived JSON-LD (someone accountable
 vouched), and the scorecard's `trust_mix` reports the split.
 
-The reviewer's commands refuse what would mislead (EDGE-CASES E4):
+Reviewer identity is the command's to declare: `approve` stamps
+`human:`, `batch-approve` stamps `human-batch:`, and a prefix typed
+into `--by` is stripped, never honored; a root index may list
+`x_geo.reviewers`, and then `review` refuses anyone else and lint
+W042 flags stamps from outside the list (GAPS item 5). The
+reviewer's commands refuse what would mislead (EDGE-CASES E4):
 `batch-approve` never approves a draft a reviewer rejected (the
 rejection and its reason stay until someone reads the item), honours
 `--risk`, and has a `--dry-run`; `approve` on a concept past its
@@ -450,9 +455,11 @@ location ^~ /.well-known/okf/ {
   at all — a network or server problem, not a content change, so a
   blip never pages the operator with a re-survey instruction
   (EDGE-CASES A2). `stale_after` is the
-  merchant's freshness SLA per content class (90 days for product
-  facts, 6 months for policies in the reference bundle); the linter
-  warns when it lapses, consuming engines can see it, and
+  merchant's freshness SLA per content class — stamped at the write
+  gate from a per-type table when a producer left it empty (90 days
+  for products, 180 for policies, GEO-PROFILE §1; GAPS item 3), so no
+  concept is immortal, and W041 flags a stable one without a date;
+  the linter warns when it lapses, consuming engines can see it, and
   `publish --freshness withhold` retires lapsed concepts outright —
   the graceful-degradation mode for a bundle nobody is maintaining,
   where the failure should be "says less" rather than "lies".

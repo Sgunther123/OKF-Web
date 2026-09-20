@@ -33,7 +33,7 @@ def _faq_doc(body: str, resource: str = URL, status: str = "draft", sources=True
         f"status: {status}\n"
         "tags: [faq]\n"
         + ("sources:\n  - id: faq\n    resource: https://shop.example/faq\n    title: FAQ page\n" if sources else "")
-        + "x_geo:\n  profile: ecommerce-geo/1.10\n  risk: b\n  intents: [trust]\n"
+        + "x_geo:\n  profile: ecommerce-geo/1.11\n  risk: b\n  intents: [trust]\n"
         "---\n\n"
         f"{body}"
     )
@@ -116,7 +116,7 @@ def test_unowned_occupant_is_a_collision_not_an_overwrite(tmp_path):
     bundle_dir = tmp_path / "bundle"
     hand_written = _write(bundle_dir, "faq/shipping.md", (
         "---\ntype: FAQ\ntitle: Hand-written\ndescription: Kept.\nstatus: draft\ntags: [faq]\n"
-        "x_geo:\n  profile: ecommerce-geo/1.10\n  risk: b\n---\n\n# Hand\n\nKept.\n"
+        "x_geo:\n  profile: ecommerce-geo/1.11\n  risk: b\n---\n\n# Hand\n\nKept.\n"
     ))
     before = hand_written.read_bytes()
     response = _block("faq/shipping.md", _faq_doc("# Ship\n\nYes.[^faq]\n\n[^faq]: FAQ page.\n"))
@@ -207,7 +207,7 @@ def test_non_http_resource_is_a_lint_error_and_never_a_link(tmp_path):
     _write(bundle_dir, "catalog/products/tent.md", (
         "---\ntype: Product\ntitle: Tent\ndescription: A tent.\nresource: javascript:alert(1)\n"
         "status: draft\ntags: [tent]\nsources:\n  - id: pdp\n    resource: ftp://shop.example/pdp\n"
-        "x_geo:\n  profile: ecommerce-geo/1.10\n  risk: b\n  entity: sku:T-1\n---\n\n# Tent\n\nA tent.[^pdp]\n\n[^pdp]: pdp.\n"
+        "x_geo:\n  profile: ecommerce-geo/1.11\n  risk: b\n  entity: sku:T-1\n---\n\n# Tent\n\nA tent.[^pdp]\n\n[^pdp]: pdp.\n"
     ))
     bundle, findings = linter.lint_bundle(bundle_dir)
     codes = {f.code for f in findings}

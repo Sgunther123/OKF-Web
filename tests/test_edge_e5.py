@@ -31,7 +31,7 @@ def _faq_block(rel: str, body: str = "# Q\n\nA.[^faq]\n\n[^faq]: FAQ page.\n") -
         f'<<<CONCEPT path="{rel}">>>\n---\ntype: FAQ\ntitle: FAQ\ndescription: Answers.\n'
         "resource: https://shop.example/faq\ntags: [faq]\n"
         "sources:\n  - id: faq\n    resource: https://shop.example/faq\n    title: FAQ page\n"
-        "x_geo:\n  profile: ecommerce-geo/1.10\n  risk: b\n  intents: [trust]\n---\n\n"
+        "x_geo:\n  profile: ecommerce-geo/1.11\n  risk: b\n  intents: [trust]\n---\n\n"
         f"{body}<<<END>>>\n"
     )
 

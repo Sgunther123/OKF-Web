@@ -75,12 +75,35 @@ def resolve_path(bundle: Bundle, path: str) -> str:
     raise ReviewError(f"no such concept in bundle: {path}{hint}")
 
 
+_ACTOR_PREFIXES = ("human-batch:", "human:")
+
+
 def _actor_for(reviewer: str, actor_prefix: str) -> str:
-    return (
-        reviewer
-        if reviewer.startswith(("human:", "human-batch:"))
-        else f"{actor_prefix}{reviewer}"
-    )
+    """The stamp for ``reviewer`` under the command's own prefix. A
+    prefix the caller typed is stripped first: the tier is the command's
+    to declare — per-item ``human:`` for approve, wholesale
+    ``human-batch:`` for batch-approve — never the argument's (GAPS
+    item 5)."""
+    ident = reviewer.strip()
+    for prefix in _ACTOR_PREFIXES:
+        if ident.startswith(prefix):
+            ident = ident[len(prefix):]
+            break
+    return f"{actor_prefix}{ident}"
+
+
+def _check_reviewer(bundle: Bundle, actor: str) -> None:
+    """Refuse an actor the root index does not list, when it lists any
+    (``x_geo.reviewers``, GAPS item 5)."""
+    allowed = bundle.reviewers
+    if allowed is None:
+        return
+    ident = actor.split(":", 1)[1] if ":" in actor else actor
+    if ident not in allowed:
+        raise ReviewError(
+            f"reviewer {ident!r} is not in index.md's x_geo.reviewers "
+            f"({', '.join(allowed)}); add them there, or review as a listed reviewer"
+        )
 
 
 def _verified_entries(concept: Concept) -> list[dict]:
@@ -165,22 +188,27 @@ def approve(
     A concept past its ``stale_after`` is queued for exactly that reason,
     so approving it needs a new freshness date (``stale_after``,
     ``YYYY-MM-DD``, in the future); without one the call refuses rather
-    than leave the concept in the queue. Approving a stable, fresh
-    concept again by the same actor changes nothing (EDGE-CASES U5).
+    than leave the concept in the queue; a fresh concept may be given
+    one the same way (GAPS item 3). Approving a stable, fresh concept
+    again by the same actor changes nothing (EDGE-CASES U5) unless a new
+    ``stale_after`` comes with it.
     """
     rel_path = resolve_path(bundle, rel_path)
     concept = bundle.get(rel_path)
-    if approval_state(concept, reviewer, actor_prefix) is not None:
-        return concept
     actor = _actor_for(reviewer, actor_prefix)
-    if concept.is_stale():
-        if not stale_after:
-            raise ReviewError(
-                f"{rel_path} is past its stale_after "
-                f"({concept.frontmatter.get('stale_after')}); approving it "
-                "needs a new freshness date: pass --stale-after YYYY-MM-DD "
-                "after re-checking the fact against the source"
-            )
+    _check_reviewer(bundle, actor)
+    if stale_after is None and approval_state(concept, reviewer, actor_prefix) is not None:
+        return concept
+    if concept.is_stale() and not stale_after:
+        raise ReviewError(
+            f"{rel_path} is past its stale_after "
+            f"({concept.frontmatter.get('stale_after')}); approving it "
+            "needs a new freshness date: pass --stale-after YYYY-MM-DD "
+            "after re-checking the fact against the source"
+        )
+    if stale_after:
+        # Given for a stale concept (required) or a fresh one (GAPS item
+        # 3: the way to date a concept that has no `stale_after`).
         try:
             new_date = _dt.date.fromisoformat(str(stale_after))
         except ValueError as exc:
@@ -266,6 +294,7 @@ def batch_approve(
     carry a machine verification event (e.g. a faithfulness check),
     leaving wholly unverified drafts in the queue.
     """
+    _check_reviewer(bundle, _actor_for(reviewer, "human-batch:"))
     candidates, _skipped = batch_candidates(bundle, risks, only_machine_confirmed)
     approved: list[Concept] = []
     for concept in candidates:
@@ -283,7 +312,8 @@ def reject(bundle: Bundle, rel_path: str, reviewer: str, reason: str) -> Concept
     """Keep the concept in draft and record why it was not approved."""
     rel_path = resolve_path(bundle, rel_path)
     concept = bundle.get(rel_path)
-    actor = reviewer if reviewer.startswith("human:") else f"human:{reviewer}"
+    actor = _actor_for(reviewer, "human:")
+    _check_reviewer(bundle, actor)
     concept.frontmatter["status"] = "draft"
     x_geo = concept.frontmatter.setdefault("x_geo", {})
     x_geo["review"] = {"rejected_by": actor, "at": _now_iso(), "reason": reason}

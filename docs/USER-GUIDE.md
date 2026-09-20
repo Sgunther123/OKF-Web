@@ -175,6 +175,12 @@ okf-web review reject my-store policies/returns.md --by you@yourstore.com --reas
 Rejected drafts stay unpublished, and your reason is saved so the
 next drafting pass can react to it.
 
+If several people share the store, list who may approve in the
+folder's `index.md` under `x_geo.reviewers`; the tool then refuses
+any other name, and the health check flags approvals from outside
+the list. Whatever you type after `--by`, an approval is stamped as
+a per-item review and a batch approval as a wholesale sign-off.
+
 ### Step 5 — Get your report card
 
 ```
@@ -278,7 +284,9 @@ pages that haven't changed are skipped for free, and if a page
 changed *after* a person approved its fact sheet, the tool won't
 silently overwrite the approved version — it files a "drift proposal"
 for a human to look at. Each fact sheet also carries a freshness
-date; when it passes, the tool starts reminding you.
+date — the tool stamps one by type when it drafts a sheet (90 days
+for products, 180 for policies, up to a year for identity and
+guides) — and when it passes, the tool starts reminding you.
 
 Two helpers make "fresh" cheap to keep an eye on:
 
@@ -481,6 +489,17 @@ the ones your report shows. Run the full evaluation with an AI, or pass
 The gate you asked for tripped: fewer questions found any fact sheet
 than the threshold allows. The scorecard, if requested, was still
 written.
+
+**"W041 … stable concept has no `stale_after`"**
+A hand-written fact sheet was approved without a freshness date, so
+nothing would ever remind you to re-check it. Give it one:
+`okf-web review approve my-store <file> --by you@yourstore.com
+--stale-after 2027-03-01`.
+
+**"reviewer … is not in index.md's x_geo.reviewers"**
+Your folder lists who may approve, and this name is not on the list.
+Add it under `x_geo.reviewers` in `index.md`, or review as someone
+who is listed.
 
 **`okf-web drift` exits 3**
 Some source pages could not be fetched at all (a network or server

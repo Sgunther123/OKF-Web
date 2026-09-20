@@ -18,7 +18,7 @@ sources:
     title: Trade program page
     last_modified: 2026-08-05T00:00:00Z
 x_geo:
-  profile: ecommerce-geo/1.10
+  profile: ecommerce-geo/1.11
   risk: a
   intents: [procurement, trust, fulfillment]
   trade:

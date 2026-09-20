@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .model import (
+    FRESHNESS_SLA_DAYS,
     Bundle,
     Concept,
     RISK_HIGH,
@@ -548,6 +549,22 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                 "has passed; re-survey or re-verify",
             )
         )
+    if (
+        concept.status == "stable"
+        and concept.frontmatter.get("stale_after") is None
+        and concept.type in FRESHNESS_SLA_DAYS
+    ):
+        findings.append(
+            Finding(
+                WARNING,
+                "W041",
+                rel,
+                "stable concept has no `stale_after`: nothing will ever ask for "
+                f"it to be re-checked (the profile's default for {concept.type} "
+                f"is {FRESHNESS_SLA_DAYS[concept.type]} days; `okf-web review "
+                "approve --stale-after YYYY-MM-DD` sets one)",
+            )
+        )
 
     return findings
 
@@ -589,6 +606,26 @@ def lint_bundle(
                         "concept's `x_geo.entity` in this bundle",
                     )
                 )
+
+    # Reviewer identity (GAPS item 5): when the root index names who may
+    # approve, a human actor outside that list is worth a look — the
+    # stamp stays (history is history), the warning says whose it is.
+    reviewers = bundle.reviewers
+    if reviewers is not None:
+        for rel, concept in sorted(bundle.concepts.items()):
+            for entry in concept.verified_entries:
+                actor = str(entry.get("by", ""))
+                prefix, _, ident = actor.partition(":")
+                if prefix in ("human", "human-batch") and ident not in reviewers:
+                    findings.append(
+                        Finding(
+                            WARNING,
+                            "W042",
+                            rel,
+                            f"verified by `{actor}`, who is not in index.md's "
+                            "`x_geo.reviewers`",
+                        )
+                    )
 
     # Translation parity: l10n/<lang>/<rel> mirrors <rel>. A translation
     # is knowledge too — but one whose source moved on is worse than

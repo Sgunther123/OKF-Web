@@ -12,6 +12,7 @@ _LOCATION = (
     "description: The physical store.\n"
     "tags: [store]\n"
     "status: {status}\n"
+    "stale_after: 2030-01-01T00:00:00Z\n"
     "x_geo:\n"
     "  risk: {risk}\n"
     "{entity}"

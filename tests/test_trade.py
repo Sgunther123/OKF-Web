@@ -10,6 +10,7 @@ _TRADE = (
     "description: Trade terms for business buyers.\n"
     "tags: [wholesale]\n"
     "status: {status}\n"
+    "stale_after: 2030-01-01T00:00:00Z\n"
     "{verified}"
     "{sources}"
     "x_geo:\n"

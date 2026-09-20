@@ -399,3 +399,91 @@ def test_pipeline_modules_have_no_bare_writes():
         if ".write_text(" in line and not line.lstrip().startswith("#")
     ]
     assert offenders == [], offenders
+
+
+# --- items 3 and 5: no concept is immortal, and the tier is the command's ----------------
+
+import datetime as _dt
+
+from okf_web import linter, review, surveyor
+from okf_web.model import _as_instant, default_stale_after, utc_now
+
+
+def test_default_stale_after_follows_the_type_table():
+    now = _dt.datetime(2026, 9, 20, 12, tzinfo=_dt.timezone.utc)
+    assert default_stale_after("Product", now) == "2026-12-19T12:00:00Z"
+    assert default_stale_after("Policy", now) == "2027-03-19T12:00:00Z"
+    assert default_stale_after("Promotion", now) is None
+    assert default_stale_after(None, now) is None
+
+
+def test_the_write_gate_stamps_a_freshness_date(tmp_path):
+    root = _spanish_bundle(tmp_path)
+    result = surveyor.SurveyResult()
+    fm = {"type": "Product", "title": "Widget", "status": "draft", "resource": "https://shop.example/w"}
+    rel = surveyor.place_draft(root, "https://shop.example/w", "catalog/widget.md", fm, "A widget.", result)
+    stamp = _as_instant(load_bundle(root).concepts[rel].frontmatter["stale_after"])
+    assert 89 <= (stamp - utc_now()).days <= 90
+    fm2 = {"type": "Product", "title": "Gadget", "status": "draft",
+           "resource": "https://shop.example/g", "stale_after": "2030-01-01T00:00:00Z"}
+    rel2 = surveyor.place_draft(root, "https://shop.example/g", "catalog/gadget.md", fm2, "A gadget.", result)
+    assert load_bundle(root).concepts[rel2].frontmatter["stale_after"] == "2030-01-01T00:00:00Z"
+
+
+def test_a_stable_concept_without_a_freshness_date_warns(tmp_path):
+    root = _spanish_bundle(tmp_path)  # stable concepts written without stale_after
+    _concept(root, "faq/draft.md", "FAQ", "Draft", "x", status="draft", verified=False)
+    _, findings = linter.lint_bundle(root)
+    flagged = {f.rel_path for f in findings if f.code == "W041"}
+    assert "policies/devoluciones.md" in flagged and "faq/draft.md" not in flagged
+    policy = next(f for f in findings if f.code == "W041" and f.rel_path == "policies/devoluciones.md")
+    assert "default for Policy is 180 days" in policy.message
+
+
+def test_batch_approval_cannot_stamp_the_per_item_tier(tmp_path):
+    assert review._actor_for("human:ceo@shop.example", "human-batch:") == "human-batch:ceo@shop.example"
+    assert review._actor_for("human-batch:x", "human:") == "human:x"
+    root = _spanish_bundle(tmp_path)
+    _concept(root, "faq/batch.md", "FAQ", "Batchable", "body", status="draft", verified=False)
+    approved = review.batch_approve(load_bundle(root), "human:ceo@shop.example")
+    assert [c.rel_path for c in approved] == ["faq/batch.md"]
+    stamped = load_bundle(root).concepts["faq/batch.md"]
+    assert stamped.trust_tier == "human-attested"
+    assert stamped.verified_entries[-1]["by"] == "human-batch:ceo@shop.example"
+
+
+def test_reviewer_list_is_enforced_by_review_and_linted(tmp_path):
+    root = _spanish_bundle(tmp_path)
+    (root / "index.md").write_text(
+        "---\nokf_version: '0.2'\ntitle: Tienda\nx_geo:\n  reviewers: [qa@shop.example]\n---\n# Tienda\n",
+        encoding="utf-8",
+    )
+    _concept(root, "faq/new.md", "FAQ", "New", "body", status="draft", verified=False)
+    bundle = load_bundle(root)
+    with pytest.raises(review.ReviewError, match="x_geo.reviewers"):
+        review.approve(bundle, "faq/new.md", "someone@else.example")
+    with pytest.raises(review.ReviewError, match="x_geo.reviewers"):
+        review.reject(bundle, "faq/new.md", "someone@else.example", "no")
+    review.approve(bundle, "faq/new.md", "qa@shop.example")
+    assert load_bundle(root).concepts["faq/new.md"].status == "stable"
+    (root / "faq" / "odd.md").write_text(
+        "---\ntype: FAQ\ntitle: Odd\nstatus: stable\nstale_after: 2030-01-01T00:00:00Z\n"
+        "verified:\n  - by: human:stranger@x.example\n    at: 2026-08-01T00:00:00Z\n---\nbody\n",
+        encoding="utf-8",
+    )
+    _, findings = linter.lint_bundle(root)
+    assert [f.rel_path for f in findings if f.code == "W042"] == ["faq/odd.md"]
+
+
+def test_approve_can_date_a_fresh_concept(tmp_path):
+    root = _spanish_bundle(tmp_path)
+    _concept(root, "faq/fresh.md", "FAQ", "Fresh", "body", status="draft", verified=False)
+    review.approve(load_bundle(root), "faq/fresh.md", "qa@shop.example", stale_after="2031-01-01")
+    assert load_bundle(root).concepts["faq/fresh.md"].frontmatter["stale_after"] == "2031-01-01T00:00:00Z"
+
+
+def test_profile_is_1_11_everywhere():
+    from okf_web import PROFILE
+
+    assert PROFILE == "ecommerce-geo/1.11"
+    assert "ecommerce-geo/1.11" in (REPO / "bundle-example" / "index.md").read_text(encoding="utf-8")

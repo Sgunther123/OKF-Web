@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.10` Profile for OKF v0.2
+# The `ecommerce-geo/1.11` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.10`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.11`.
 
 ## 1. Concept types
 
@@ -37,7 +37,15 @@ tooling and engines can dispatch on them.
 - **All profile concepts:** `title`, `description` (one sentence),
   `tags`, and `x_geo.profile`. `resource` MUST be the canonical live
   URL of the underlying page/asset when one exists — it is the
-  page ⇄ concept binding.
+  page ⇄ concept binding. Every concept SHOULD carry `stale_after`
+  (1.11): producers stamp the type's default freshness SLA when the
+  key is empty — 90 days for `Product` and `Product Collection`; 180
+  for `Policy`, `FAQ`, `Buying Guide`, `Store Location` and `Trade
+  Program`; 365 for `Store Identity`, `Compatibility`, `Ownership
+  Guide`, `Product Passport` and `Attested Computation`; a
+  `Promotion` its end date; a scorecard 30 days — and lint W041 flags
+  a stable concept without one, since nothing would ever ask for it
+  to be re-checked.
 - **`Product`:** `resource` required (lint E012). `x_geo.entity`
   SHOULD carry a stable id (`sku:…`, `gtin:…`). Static price, stock,
   or delivery-date claims MUST NOT appear; link capability concepts
@@ -129,7 +137,8 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.10` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.11` (opt-in marker) |
+| `reviewers` | list | Root index only (1.11): the reviewer ids allowed to approve — `okf-web review` refuses any other `--by`, and lint W042 flags a `human:`/`human-batch:` stamp from outside the list |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
 | `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership`, `compliance`, `local_availability`, `procurement` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
@@ -259,13 +268,18 @@ Per OKF: `human:<id>` for people (the prefix consumers key trust on),
 `process:<id>` for automation (`process:okf-web-faithfulness-check`).
 This profile requires pipeline stamps to be truthful: tooling MUST
 overwrite model-emitted `generated`/`verified` fields (models cannot
-self-verify).
+self-verify). The prefix is the command's to declare, never the
+reviewer's to type (1.11): `review approve` stamps `human:<id>`,
+`review batch-approve` stamps `human-batch:<id>`, and a prefix given
+in the id is stripped, so a wholesale sign-off can never present as
+per-item review.
 
 ## 7. Reserved layout
 
 `index.md`, `log.md` per OKF — with one declared deviation from SPEC
 §8: the bundle-root `index.md` frontmatter carries `title`,
-`description`, and `x_geo` (`profile`, `site`) alongside the
+`description`, and `x_geo` (`profile`, `site`, optionally
+`reviewers`) alongside the
 `okf_version` key the spec permits there, because the site binding
 must live somewhere both strict consumers and tooling can find before
 any concept is read. `manifest.json`'s `site` is the **normative**
@@ -389,6 +403,8 @@ path position is the binding.
 | W036 | warn | `attester.resource` names an endpoint instead of deterministic verifier code, or a bundle-relative attester artifact missing from the bundle |
 | W037 | warn | Capability `executor.resource` host lies outside the declared site's domain — a delegation worth a human glance before publishing (legitimate ones exist; they must be conspicuous) |
 | W038 | warn | A `sources[].resource` that is not an `http(s)` URL — a citation nobody can follow |
+| W041 | warn | A stable concept of a type with a freshness SLA (§1) that carries no `stale_after` — immortal knowledge nothing will ask to re-check |
+| W042 | warn | A `human:`/`human-batch:` verification by an id outside the root index's `x_geo.reviewers` list, when the list exists |
 | W040 | warn | (`--strict-okf` only) declared base-spec deviation: index frontmatter beyond SPEC §8's allowance (§7) |
 
 Errors block publishing; `--strict` promotes warnings for CI.
@@ -399,7 +415,17 @@ Lint-only additions do not bump the profile: E020 and W038 (EDGE-CASES
 E3) and E021 (EDGE-CASES E4), all 2026-09-16, extend the vocabulary in
 §9 without changing a key or a type.
 
-**1.10** (current) closes the spec-coverage gaps found by the
+**1.11** (current) closes GAPS items 3, 5 and 7 (GAPS.md, 2026-09-20):
+per-type freshness SLA defaults stamped at the write gate and lint
+W041 for a stable concept without `stale_after`; `x_geo.reviewers`
+on the root index (§2, §7) with lint W042 and refusal in `review`;
+actor prefixes derived from the command, never typed (§6);
+`manifest.json` concept entries carrying `stale_after` and
+`verified_at`, and JSON-LD `subjectOf` objects carrying `expires` and
+`dateModified` (§7). Additive; concepts declaring earlier minors
+remain fully valid.
+
+**1.10** closes the spec-coverage gaps found by the
 fidelity audit ([FIDELITY.md](FIDELITY.md), Phase F4): source
 credibility signals are emitted by the surveyor contract and the feed
 ingester and validated by lint (W035, with `usage_window` support);

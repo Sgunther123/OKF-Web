@@ -48,6 +48,7 @@ from .model import (
     Concept,
     TRUST_HUMAN,
     _as_date,
+    default_stale_after,
     load_bundle,
     parse_document,
     render_document,
@@ -409,6 +410,14 @@ def place_draft(
             f"{rel} already belongs to {owner}; wrote {candidate} instead"
         )
         rel = candidate
+
+    # Every draft leaves with a freshness date (GAPS item 3): the type's
+    # SLA from now, unless the producer stamped one (a Promotion carries
+    # its end date). Without it a concept, once stable, is immortal.
+    if not fm.get("stale_after"):
+        default = default_stale_after(fm.get("type"))
+        if default:
+            fm["stale_after"] = default
 
     target = bundle_root / rel
     current = state.get(rel)

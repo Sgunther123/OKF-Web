@@ -116,3 +116,20 @@ concept files carry `stale_after` and `verified_at` as spec instants
 CreativeWork properties, so no typed object gains a property
 schema.org does not define for it. The profile's §10 row for these
 additive keys lands with phase D's bump.
+
+### Phase D — items 3 and 5, profile 1.11 (2026-09-20)
+
+`model.FRESHNESS_SLA_DAYS` and `default_stale_after`: the write gate
+(`surveyor.place_draft`, which the LLM surveyor, the feed importer and
+the hosted connectors all pass through) stamps the type's SLA from now
+when a producer left `stale_after` empty; Promotions keep their
+end-date rule; lint W041 flags a stable concept of an SLA type without
+a date, and `review approve --stale-after` now dates a fresh concept
+too. `review._actor_for` strips any prefix typed into `--by` before
+applying the command's own, so `batch-approve --by human:x` stamps
+`human-batch:x`; `Bundle.reviewers` reads `x_geo.reviewers` on the root
+index, `review` refuses an unlisted id (`_check_reviewer`), and lint
+W042 flags stamps from outside the list — the stamps themselves are
+never rewritten. The profile bumps to **1.11** for the additive keys
+of items 3, 5 and 7 (GEO-PROFILE §10); the Spanish translation's
+`l10n_source_hash` was re-pinned per the playbook.

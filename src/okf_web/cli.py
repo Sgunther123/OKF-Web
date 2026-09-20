@@ -989,7 +989,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action", choices=["list", "approve", "reject", "batch-approve"])
     p.add_argument("bundle")
     p.add_argument("path", nargs="?", help="concept path within the bundle")
-    p.add_argument("--by", help="reviewer id (becomes human:<id>)")
+    p.add_argument(
+        "--by",
+        help="reviewer id (approve stamps human:<id>, batch-approve "
+        "human-batch:<id>; a prefix typed here is ignored); when index.md "
+        "lists x_geo.reviewers it must be one of them",
+    )
     p.add_argument("--reason", help="rejection reason")
     p.add_argument(
         "--risk",
