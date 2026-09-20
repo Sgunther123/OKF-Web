@@ -133,3 +133,16 @@ W042 flags stamps from outside the list — the stamps themselves are
 never rewritten. The profile bumps to **1.11** for the additive keys
 of items 3, 5 and 7 (GEO-PROFILE §10); the Spanish translation's
 `l10n_source_hash` was re-pinned per the playbook.
+
+### Phase E — item 8 (2026-09-20)
+
+Both workflows carry a top-level `permissions: contents: read`; the
+release's publish job alone keeps `id-token: write` for PyPI Trusted
+Publishing. Every action is pinned to a commit SHA with the version in
+a trailing comment (`checkout` v4.4.0, `setup-python` v5.6.0,
+`upload-artifact` v4.6.2, `download-artifact` v4.3.0, the PyPI publish
+action at its `release/v1` head of the day), and a test refuses any
+`uses:` line that is not a 40-hex pin and any workflow without the
+permissions block. The hosted edition's half — the same two changes
+plus its deploy workflow's step-scoped Cloudflare secret and a pinned
+`wrangler` — lands natively there with item 9.

@@ -18,7 +18,10 @@
   changes with the versions tested, so the rule needs no edit when the
   matrix does. `main` itself triggers no run: it only ever receives a
   commit whose check already passed on its branch, so a run there would
-  repeat that run.
+  repeat that run. Both workflows run with `permissions: contents:
+  read` (the release's publish job alone adds the OIDC token) and pin
+  every action to a commit SHA with the version in a trailing comment;
+  bumping one is a deliberate edit, and a test refuses a floating tag.
 - **History stays linear.** No merge commits, no force pushes to `main`,
   and nothing already on `main` is ever rewritten. A mistake on `main` is
   corrected by a new commit.

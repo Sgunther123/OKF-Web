@@ -487,3 +487,23 @@ def test_profile_is_1_11_everywhere():
 
     assert PROFILE == "ecommerce-geo/1.11"
     assert "ecommerce-geo/1.11" in (REPO / "bundle-example" / "index.md").read_text(encoding="utf-8")
+
+
+# --- item 8: least-privilege tokens and pinned actions ---------------------------------------
+
+def test_workflows_pin_every_action_and_read_only_tokens():
+    workflows = sorted((REPO / ".github" / "workflows").glob("*.yml"))
+    assert workflows
+    for path in workflows:
+        text_ = path.read_text(encoding="utf-8")
+        assert re.search(r"^permissions:\n  contents: read\n", text_, re.M), path.name
+        for line in text_.splitlines():
+            if "uses:" in line:
+                ref = line.split("uses:", 1)[1].strip().split("#")[0].strip()
+                assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", ref), f"{path.name}: {line.strip()}"
+
+
+def test_release_publish_job_alone_holds_the_oidc_token():
+    text_ = (REPO / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert text_.count("id-token: write") == 1
+    assert text_.index("permissions:\n  contents: read") < text_.index("jobs:")
