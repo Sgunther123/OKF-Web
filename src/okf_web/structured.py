@@ -36,7 +36,7 @@ import json
 import re
 from pathlib import Path
 
-from .model import Bundle, Concept, TRUST_HUMAN, TRUST_HUMAN_BATCH, split_l10n
+from .model import Bundle, Concept, TRUST_HUMAN, TRUST_HUMAN_BATCH, split_l10n, write_atomic, _as_instant, utc_instant
 
 _CONTEXT = "https://schema.org"
 _HTTP = ("http://", "https://")
@@ -101,12 +101,28 @@ def _sections(body: str) -> list[tuple[str, str]]:
     ]
 
 
-def _subject_of(rel: str, base: str) -> dict:
-    return {
+def _subject_of(concept: Concept, base: str) -> dict:
+    """The bundle concept as the CreativeWork this object is about, with
+    its freshness (GAPS item 7): ``dateModified`` is the latest human or
+    machine verification (else the generation stamp) and ``expires`` the
+    concept's ``stale_after`` — both CreativeWork properties, so the
+    typed object itself gains nothing schema.org does not define."""
+    obj: dict = {
         "@type": "CreativeWork",
-        "url": f"{base}/{rel}",
+        "url": f"{base}/{concept.rel_path}",
         "encodingFormat": "text/markdown",
     }
+    modified = concept.verified_at
+    if not modified:
+        generated = concept.frontmatter.get("generated")
+        stamp = generated.get("at") if isinstance(generated, dict) else None
+        instant = _as_instant(stamp) if stamp is not None else None
+        modified = utc_instant(instant) if instant else None
+    if modified:
+        obj["dateModified"] = modified
+    if concept.stale_after_iso:
+        obj["expires"] = concept.stale_after_iso
+    return obj
 
 
 def _product(concept: Concept, base: str) -> dict:
@@ -129,7 +145,7 @@ def _product(concept: Concept, base: str) -> dict:
     # Deliberately no `offers`: price and availability are live values.
     # The capability that serves them is in the bundle concept behind
     # `subjectOf` (x_geo.live_price / live_stock).
-    obj["subjectOf"] = _subject_of(concept.rel_path, base)
+    obj["subjectOf"] = _subject_of(concept, base)
     return obj
 
 
@@ -152,7 +168,7 @@ def _faq(concept: Concept, base: str) -> dict | None:
     }
     if _is_http(concept.resource):
         obj["url"] = concept.resource
-    obj["subjectOf"] = _subject_of(concept.rel_path, base)
+    obj["subjectOf"] = _subject_of(concept, base)
     return obj
 
 
@@ -167,7 +183,7 @@ def _organization(concept: Concept, base: str, site: str | None) -> dict:
         obj["url"] = site
     elif _is_http(concept.resource):
         obj["url"] = concept.resource
-    obj["subjectOf"] = _subject_of(concept.rel_path, base)
+    obj["subjectOf"] = _subject_of(concept, base)
     return obj
 
 
@@ -212,7 +228,7 @@ def _local_business(concept: Concept, base: str) -> dict:
             opening = _opening_hours(hours)
             if opening:
                 obj["openingHours"] = opening
-    obj["subjectOf"] = _subject_of(concept.rel_path, base)
+    obj["subjectOf"] = _subject_of(concept, base)
     return obj
 
 
@@ -228,7 +244,7 @@ def _return_policy(concept: Concept, base: str) -> dict:
     }
     if _is_http(concept.resource):
         obj["url"] = concept.resource
-    obj["subjectOf"] = _subject_of(concept.rel_path, base)
+    obj["subjectOf"] = _subject_of(concept, base)
     return obj
 
 
@@ -277,7 +293,7 @@ def write_structured(
         out_rel = "jsonld/" + rel[:-3] + ".json" if rel.endswith(".md") else f"jsonld/{rel}.json"
         target = dist / out_rel
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(dumps_script_safe(obj) + "\n", encoding="utf-8")
+        write_atomic(target, dumps_script_safe(obj) + "\n")
         written.append(out_rel)
     return written
 
@@ -378,5 +394,5 @@ def write_llms_txt(
         f"- [linkmap.json]({base}/linkmap.json): live page URL → concept "
         "mapping.",
     ]
-    (dist / "llms.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_atomic(dist / "llms.txt", "\n".join(lines) + "\n")
     return "llms.txt"

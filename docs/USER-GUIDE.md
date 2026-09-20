@@ -236,8 +236,9 @@ This builds the final folder (called `dist`) — and here the safety
 net shows itself: anything high-stakes that a person hasn't approved
 is **withheld**, and the tool tells you what it held back.
 
-Keep `dist` outside your store folder. Publishing empties the target
-first, so the tool refuses to publish into the folder it is reading
+Keep `dist` outside your store folder. Publishing builds the new
+folder beside the old one and swaps them in one move (a live site
+never serves a half-built folder); the tool still refuses to publish into the folder it is reading
 from, into any folder that contains it, or over a folder full of
 something else (a `dist` from an earlier publish is fine; `--force`
 replaces any other folder, deliberately). It also leaves your own

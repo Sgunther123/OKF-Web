@@ -325,3 +325,77 @@ def test_cache_dir_is_stable_and_outside_any_bundle():
     a = cache_dir_for("https://shop.example/.well-known/okf")
     b = cache_dir_for("https://shop.example/.well-known/okf/")
     assert a == b and a.parts[-3:-1] == ("okf-web", "remote")
+
+
+# --- items 4 and 7: the dist is swapped in whole, and freshness travels with it ----------
+
+import os
+
+from okf_web import structured
+from okf_web.publisher import UnsafeDist
+
+
+def test_publish_leaves_no_staging_siblings_and_swaps_in_whole(bundle_copy, tmp_path):
+    dist = tmp_path / "dist"
+    publisher.publish(bundle_copy, dist, site="https://shop.example")
+    first = (dist / "manifest.json").read_text(encoding="utf-8")
+    assert (dist / ".okf-dist").exists()
+    publisher.publish(bundle_copy, dist, site="https://shop.example")  # over a previous publish
+    assert (dist / "manifest.json").exists()
+    assert [p.name for p in tmp_path.iterdir() if p.name.startswith(".dist.")] == []
+    assert json.loads(first)["files"].keys() == json.loads((dist / "manifest.json").read_text(encoding="utf-8"))["files"].keys()
+
+
+def test_an_interrupted_publish_leaves_the_previous_dist_untouched(bundle_copy, tmp_path, monkeypatch):
+    dist = tmp_path / "dist"
+    publisher.publish(bundle_copy, dist, site="https://shop.example")
+    before = sorted(p.relative_to(dist).as_posix() for p in dist.rglob("*") if p.is_file())
+    manifest_before = (dist / "manifest.json").read_bytes()
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("disk full while writing structured data")
+
+    monkeypatch.setattr(publisher, "write_structured", boom)
+    with pytest.raises(RuntimeError, match="disk full"):
+        publisher.publish(bundle_copy, dist, site="https://shop.example")
+    after = sorted(p.relative_to(dist).as_posix() for p in dist.rglob("*") if p.is_file())
+    assert after == before and (dist / "manifest.json").read_bytes() == manifest_before
+    assert [p.name for p in tmp_path.iterdir() if p.name.startswith(".dist.")] == []
+
+
+def test_manifest_carries_freshness_per_concept(bundle_copy, tmp_path):
+    dist = tmp_path / "dist"
+    publisher.publish(bundle_copy, dist, site="https://shop.example")
+    manifest = json.loads((dist / "manifest.json").read_text(encoding="utf-8"))
+    entry = manifest["files"]["policies/returns.md"]
+    assert entry["stale_after"].endswith("Z") and entry["verified_at"].endswith("Z")
+    bundle = load_bundle(bundle_copy)
+    concept = bundle.concepts["policies/returns.md"]
+    assert entry["stale_after"] == concept.stale_after_iso
+    assert entry["verified_at"] == concept.verified_at
+    jsonld_entry = next(v for k, v in manifest["files"].items() if k.startswith("jsonld/"))
+    assert "stale_after" not in jsonld_entry and "verified_at" not in jsonld_entry
+    assert "stale_after" not in manifest["files"]["index.md"]
+
+
+def test_jsonld_subject_carries_date_modified_and_expires(bundle_copy):
+    bundle = load_bundle(bundle_copy)
+    concept = bundle.concepts["policies/returns.md"]
+    obj = structured.jsonld_for(concept, "/.well-known/okf")
+    subject = obj["subjectOf"]
+    assert subject["@type"] == "CreativeWork"
+    assert subject["dateModified"] == concept.verified_at
+    assert subject["expires"] == concept.stale_after_iso
+    # Only universal CreativeWork properties ride on the subject; the
+    # typed object itself gains nothing schema.org does not define.
+    assert "dateModified" not in obj and "expires" not in obj
+
+
+def test_pipeline_modules_have_no_bare_writes():
+    src = REPO / "src" / "okf_web"
+    offenders = [
+        f"{path.name}:{n}" for path in sorted(src.glob("*.py"))
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if ".write_text(" in line and not line.lstrip().startswith("#")
+    ]
+    assert offenders == [], offenders

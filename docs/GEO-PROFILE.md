@@ -297,7 +297,10 @@ knowledge. Default-language retrieval and evaluation exclude `l10n/`
 trees so translations never duplicate their sources in ranking.
 
 At publish time, generated artifacts `manifest.json`
-(per-file sha256 + bytes), `linkmap.json` (live URL → concept path),
+(per-file sha256 + bytes, and for every concept file its
+`stale_after` and `verified_at` instants — freshness in the one file
+consumers fetch anyway; the JSON-LD `subjectOf` objects carry the same
+as `expires` and `dateModified`), `linkmap.json` (live URL → concept path),
 `llms-snippet.txt`, and optionally `manifest.json.sigstore.json` — a
 sigstore signature over the manifest that authenticates the entire
 published bundle (consumers probe this conventional name, verify the

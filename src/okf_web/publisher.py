@@ -25,13 +25,16 @@ Turns a bundle working copy into the static artifact served at
 
 from __future__ import annotations
 
+import contextlib
 import datetime as _dt
 import hashlib
 import json
+import os
 import shutil
 import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Iterator
 from urllib.robotparser import RobotFileParser
 
 from . import OKF_VERSION, PROFILE
@@ -79,10 +82,11 @@ _OPERATOR_SUFFIXES = {".csv", ".tsv"}
 
 
 def check_dist(bundle_root: Path | str, dist: Path | str, force: bool = False) -> None:
-    """Refuse a dist that publishing would wrongly empty. Publishing
-    deletes the target first, so the target must be outside the bundle,
-    must not contain it, and must be either empty, a previous publish
-    (it carries ``manifest.json``), or explicitly forced."""
+    """Refuse a dist that publishing would wrongly replace. The target is
+    swapped out whole once the new build is complete, so it must be
+    outside the bundle, must not contain it, and must be either empty, a
+    previous publish (it carries ``manifest.json``), or explicitly
+    forced."""
     bundle_root, dist = Path(bundle_root), Path(dist)
     root, target = bundle_root.resolve(), dist.resolve()
     if target == root or root in target.parents:
@@ -186,6 +190,30 @@ def published_view(
     return view
 
 
+@contextlib.contextmanager
+def _staging(dist: Path) -> Iterator[Path]:
+    """Build into a hidden sibling of ``dist``, then swap it in whole
+    (GAPS item 4): a live origin never serves a half-built dist, and an
+    interrupted publish leaves the previous one exactly as it was. The
+    sibling is hidden, so the loader and the publisher skip it too."""
+    out = dist.parent / f".{dist.name}.publishing-{os.getpid()}"
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    try:
+        yield out
+    except BaseException:
+        shutil.rmtree(out, ignore_errors=True)
+        raise
+    previous = None
+    if dist.exists():
+        previous = dist.parent / f".{dist.name}.replaced-{os.getpid()}"
+        os.replace(dist, previous)
+    os.replace(out, dist)
+    if previous is not None:
+        shutil.rmtree(previous, ignore_errors=True)
+
+
 def publish(
     bundle_root: Path | str,
     dist: Path | str,
@@ -259,89 +287,87 @@ def publish(
                     f"origin {site_origin} — delegation verifiers will flag it"
                 )
 
-    if dist.exists():
-        shutil.rmtree(dist)
-    dist.mkdir(parents=True)
-    (dist / DIST_MARKER).write_text(
-        "published by okf-web: a copy of a bundle, never bundle knowledge\n",
-        encoding="utf-8",
-    )
+    with _staging(dist) as out:
+        write_atomic(
+            out / DIST_MARKER,
+            "published by okf-web: a copy of a bundle, never bundle knowledge\n",
+        )
 
-    # Copy selected markdown plus any non-markdown assets (question sets,
-    # spec sheets) that live outside internal dirs. A published copy left
-    # inside the bundle is skipped whole, like the loader skips it.
-    marked = marked_dists(bundle_root)
-    skipped_dists: set[Path] = set()
-    for path in sorted(bundle_root.rglob("*")):
-        rel = path.relative_to(bundle_root).as_posix()
-        if rel.split("/", 1)[0] in INTERNAL_DIRS:
-            continue
-        copy = next((d for d in marked if d in path.parents), None)
-        if copy is not None:
-            if copy not in skipped_dists:
-                skipped_dists.add(copy)
-                result.warnings.append(
-                    f"{copy.relative_to(bundle_root).as_posix()}/ is a "
-                    f"published copy ({DIST_MARKER} marker); not published"
-                )
-            continue
-        # Hidden files are working state (embedding caches, editor
-        # droppings), never published knowledge.
-        if any(part.startswith(".") for part in rel.split("/")):
-            continue
-        if _linked(bundle_root, path):
-            if path.is_symlink():
-                result.warnings.append(f"{rel} is a symlink; not published")
-            continue
-        if not path.is_file():
-            continue
-        if path.name in _OPERATOR_FILES or path.suffix.lower() in _OPERATOR_SUFFIXES:
-            result.warnings.append(
-                f"{rel} is an operator file (viewer page or feed export); "
-                "not published"
-            )
-            continue
-        if path.suffix == ".md":
-            if rel not in include:
+        # Copy selected markdown plus any non-markdown assets (question sets,
+        # spec sheets) that live outside internal dirs. A published copy left
+        # inside the bundle is skipped whole, like the loader skips it.
+        marked = marked_dists(bundle_root)
+        skipped_dists: set[Path] = set()
+        for path in sorted(bundle_root.rglob("*")):
+            rel = path.relative_to(bundle_root).as_posix()
+            if rel.split("/", 1)[0] in INTERNAL_DIRS:
                 continue
-        else:
-            result.assets.append(rel)
-        target = dist / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(path, target)
-        result.published.append(rel)
-
-    # Derived tier: what engines read today, generated from the verified
-    # bundle (READINESS R2). Emitted before the manifest so the manifest
-    # hashes — and any signature over it — cover these artifacts too.
-    if structured:
-        base = bundle_url or base_path
-        result.structured = write_structured(
-            dist, bundle, concept_include, base, site=site
-        )
-        result.structured.append(
-            write_llms_txt(dist, bundle, concept_include, base)
-        )
-        result.published.extend(result.structured)
-
-    _write_manifest(dist, result.published, site=site, bundle_url=bundle_url)
-    _write_linkmap(dist, bundle, result.published, bundle_url or base_path)
-    _write_llms_snippet(dist, base_path, site=site, bundle_url=bundle_url)
-
-    # An index that advertises withheld concepts ships dangling links —
-    # legal per the spec (consumers must tolerate them) but a producer
-    # smell worth a loud warning.
-    published_set = set(result.published)
-    for rel, doc in bundle.indexes.items():
-        if rel not in published_set:
-            continue
-        for target in doc.internal_links():
-            resolved = bundle.resolve_link(rel, target)
-            if resolved.endswith(".md") and resolved not in published_set:
+            copy = next((d for d in marked if d in path.parents), None)
+            if copy is not None:
+                if copy not in skipped_dists:
+                    skipped_dists.add(copy)
+                    result.warnings.append(
+                        f"{copy.relative_to(bundle_root).as_posix()}/ is a "
+                        f"published copy ({DIST_MARKER} marker); not published"
+                    )
+                continue
+            # Hidden files are working state (embedding caches, editor
+            # droppings), never published knowledge.
+            if any(part.startswith(".") for part in rel.split("/")):
+                continue
+            if _linked(bundle_root, path):
+                if path.is_symlink():
+                    result.warnings.append(f"{rel} is a symlink; not published")
+                continue
+            if not path.is_file():
+                continue
+            if path.name in _OPERATOR_FILES or path.suffix.lower() in _OPERATOR_SUFFIXES:
                 result.warnings.append(
-                    f"published {rel} links {target}, which is not in the "
-                    "published set (withheld or missing)"
+                    f"{rel} is an operator file (viewer page or feed export); "
+                    "not published"
                 )
+                continue
+            if path.suffix == ".md":
+                if rel not in include:
+                    continue
+            else:
+                result.assets.append(rel)
+            target = out / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, target)
+            result.published.append(rel)
+
+        # Derived tier: what engines read today, generated from the verified
+        # bundle (READINESS R2). Emitted before the manifest so the manifest
+        # hashes — and any signature over it — cover these artifacts too.
+        if structured:
+            base = bundle_url or base_path
+            result.structured = write_structured(
+                out, bundle, concept_include, base, site=site
+            )
+            result.structured.append(
+                write_llms_txt(out, bundle, concept_include, base)
+            )
+            result.published.extend(result.structured)
+
+        _write_manifest(out, result.published, site=site, bundle_url=bundle_url, bundle=bundle)
+        _write_linkmap(out, bundle, result.published, bundle_url or base_path)
+        _write_llms_snippet(out, base_path, site=site, bundle_url=bundle_url)
+
+        # An index that advertises withheld concepts ships dangling links —
+        # legal per the spec (consumers must tolerate them) but a producer
+        # smell worth a loud warning.
+        published_set = set(result.published)
+        for rel, doc in bundle.indexes.items():
+            if rel not in published_set:
+                continue
+            for target in doc.internal_links():
+                resolved = bundle.resolve_link(rel, target)
+                if resolved.endswith(".md") and resolved not in published_set:
+                    result.warnings.append(
+                        f"published {rel} links {target}, which is not in the "
+                        "published set (withheld or missing)"
+                    )
     return result
 
 
@@ -369,14 +395,22 @@ def _write_manifest(
     published: list[str],
     site: str | None = None,
     bundle_url: str | None = None,
+    bundle: Bundle | None = None,
 ) -> None:
     files = {}
     for rel in sorted(published):
         sha256, size = _file_digest(dist / rel)
-        files[rel] = {
-            "sha256": sha256,
-            "bytes": size,
-        }
+        entry: dict = {"sha256": sha256, "bytes": size}
+        concept = bundle.concepts.get(rel) if bundle is not None else None
+        if concept is not None:
+            # Freshness travels with the file list (GAPS item 7): from the
+            # one file a consumer fetches anyway it learns what is stale
+            # and when each fact was last vouched for.
+            if concept.stale_after_iso:
+                entry["stale_after"] = concept.stale_after_iso
+            if concept.verified_at:
+                entry["verified_at"] = concept.verified_at
+        files[rel] = entry
     manifest = {
         "okf_version": OKF_VERSION,
         "profile": PROFILE,
@@ -408,9 +442,7 @@ def _write_linkmap(dist: Path, bundle, published: list[str], prefix: str) -> Non
         and rel in published_set
         and concept.resource.startswith(("http://", "https://"))
     }
-    (dist / "linkmap.json").write_text(
-        json.dumps(linkmap, indent=2) + "\n", encoding="utf-8"
-    )
+    write_atomic(dist / "linkmap.json", json.dumps(linkmap, indent=2) + "\n")
 
 
 # AI crawlers/agents a bundle exists to serve. If robots.txt blocks
@@ -493,4 +525,4 @@ def _write_llms_snippet(
             "\n"
             f'<link rel="okf-bundle" href="{bundle_url}/">\n'
         )
-    (dist / "llms-snippet.txt").write_text(snippet, encoding="utf-8")
+    write_atomic(dist / "llms-snippet.txt", snippet)

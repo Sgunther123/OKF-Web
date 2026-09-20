@@ -32,6 +32,7 @@ from pathlib import Path
 
 from .evaluator import evaluate as _dry_evaluate, load_questions
 from .model import (
+    write_atomic,
     Bundle,
     Concept,
     TRUST_HUMAN,
@@ -475,5 +476,5 @@ def write_report(
     bundle = load_bundle(bundle_root)
     target = Path(out) if out else bundle_root / "evaluations" / "geo-report.html"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(build_report(bundle, today=today), encoding="utf-8")
+    write_atomic(target, build_report(bundle, today=today))
     return target

@@ -139,7 +139,7 @@ complete conformant instance):
 /.well-known/okf/
   index.md                  # progressive-disclosure entry point (stable concepts only)
   log.md                    # newest-first audit trail
-  manifest.json             # sha256 + size per file → delta sync
+  manifest.json             # sha256 + size per file → delta sync; stale_after + verified_at per concept
   linkmap.json              # live URL → concept path (for <link rel>)
   llms-snippet.txt          # block to merge into the site's llms.txt
   store.md                  # Store Identity
@@ -466,7 +466,10 @@ location ^~ /.well-known/okf/ {
   left by a dead process is taken over; and every default clock is
   UTC (`model.utc_now`/`utc_today`), matching the UTC instants the
   stamps carry, so freshness never turns over early or late with the
-  host's time zone (EDGE-CASES A5, A6).
+  host's time zone (EDGE-CASES A5, A6). A publish builds into a hidden
+  sibling of the dist and swaps it in whole, so a live origin never
+  serves a half-built folder and an interrupted publish leaves the
+  previous one intact (GAPS item 4).
 - **Assistant sessions stay current:** the MCP bridge re-reads the
   bundle whenever a knowledge file changes (a files/mtime/bytes
   signature checked per tool call — GAPS item 6), clamps `top_k` to

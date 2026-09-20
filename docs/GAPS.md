@@ -99,3 +99,20 @@ testing). This is the hosted edition's per-tenant retrieval without a
 server component: every tenant's served dist is a `--url`. The
 authenticated multi-tenant transport the analysis called a decision
 was not built; nothing in the principle wants it.
+
+### Phase C — items 4 and 7 (2026-09-20)
+
+`publisher._staging` builds into a hidden sibling of the dist
+(`.<name>.publishing-<pid>`) and swaps it in whole: the previous dist is
+renamed aside, the new one renamed into place, the old one removed;
+an exception mid-build removes the sibling and leaves the previous dist
+byte-identical. Every derived file (`.okf-dist`, `linkmap.json`,
+`llms-snippet.txt`, `llms.txt`, the JSON-LD objects) and the viewer and
+report pages are written with `write_atomic`; a test now scans the
+package for bare `write_text` calls. `manifest.json` entries for
+concept files carry `stale_after` and `verified_at` as spec instants
+(`Concept.stale_after_iso`, `Concept.verified_at`), and every JSON-LD
+`subjectOf` CreativeWork carries `expires` and `dateModified` — both
+CreativeWork properties, so no typed object gains a property
+schema.org does not define for it. The profile's §10 row for these
+additive keys lands with phase D's bump.

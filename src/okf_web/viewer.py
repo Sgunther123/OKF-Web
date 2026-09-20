@@ -34,6 +34,7 @@ from .llm import estimate_tokens
 from .logscan import LogScanReport
 from .mcp_bridge import TOOLS
 from .model import (
+    write_atomic,
     Bundle,
     Concept,
     TRUST_HUMAN,
@@ -837,9 +838,9 @@ def write_viewer(
             f"the bundle; choose a path outside {bundle_root}"
         )
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(
+    write_atomic(
+        target,
         build_viewer(bundle, today=today, access_logs=access_logs,
                      log_sources=log_sources, base_path=base_path),
-        encoding="utf-8",
     )
     return target

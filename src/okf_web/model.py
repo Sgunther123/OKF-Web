@@ -372,6 +372,22 @@ class Concept:
         return TRUST_MACHINE
 
     @property
+    def verified_at(self) -> str | None:
+        """The latest ``verified[].at`` as a spec instant string, or None."""
+        instants = [i for i in (_as_instant(e.get("at")) for e in self.verified_entries) if i]
+        return utc_instant(max(instants)) if instants else None
+
+    @property
+    def stale_after_iso(self) -> str | None:
+        """``stale_after`` as a spec instant string (a bare date means
+        midnight UTC), or None when the concept carries no freshness date."""
+        raw = self.frontmatter.get("stale_after")
+        if raw is None:
+            return None
+        instant = _as_instant(raw)
+        return utc_instant(instant) if instant else str(raw)
+
+    @property
     def generated_by(self) -> str | None:
         gen = self.frontmatter.get("generated")
         if isinstance(gen, dict):
