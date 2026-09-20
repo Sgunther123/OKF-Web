@@ -45,6 +45,7 @@ from .model import (
     parse_document,
     write_atomic,
 )
+from .text import words
 
 ARCHETYPES = [
     "discovery",      # does this store sell something for my need?
@@ -62,7 +63,6 @@ ARCHETYPES = [
     "procurement",    # B2B: wholesale eligibility, MOQs, payment terms, lead times, RFQ
 ]
 
-_WORD_RE = re.compile(r"[a-z0-9]+")
 _STOPWORDS = {
     "the", "a", "an", "of", "to", "in", "on", "for", "and", "or", "is",
     "are", "do", "does", "can", "i", "my", "you", "your", "what", "how",
@@ -262,7 +262,18 @@ def generate_questions(bundle: Bundle, llm, per_archetype: int = 3) -> list[Ques
 # ---------------------------------------------------------------------------
 
 def _tokens(text: str) -> list[str]:
-    return [t for t in _WORD_RE.findall(text.lower()) if t not in _STOPWORDS]
+    return [t for t in words(text) if t not in _STOPWORDS]
+
+
+# The share of a question's informative weight (idf mass) a concept
+# must carry to count as a hit. Lexical overlap cannot tell an
+# off-topic question from a terse one — "quantum flux capacitor lunar
+# warranty" legitimately matches the warranty policy — so the floor
+# only removes the noise tail: a concept sharing one common word with
+# a long question. Every hit carries its relevance so callers (the MCP
+# bridge) can label weak matches instead of pretending a threshold is
+# truth (GAPS item 2). Callers may raise it (`--min-relevance`).
+RELEVANCE_FLOOR = 0.05
 
 
 # Meta-knowledge about the bundle itself (scorecards) never
@@ -312,8 +323,19 @@ def _lexical_index(bundle: Bundle) -> tuple[dict, dict, dict, int]:
     return index
 
 
-def retrieve(bundle: Bundle, question: str, top_k: int = 4) -> list[Concept]:
-    """Rank concepts by overlap with the question (tf * idf-lite).
+def retrieve_scored(
+    bundle: Bundle,
+    question: str,
+    top_k: int = 4,
+    min_relevance: float = RELEVANCE_FLOOR,
+) -> list[tuple[Concept, float]]:
+    """Rank concepts by overlap with the question (tf * idf-lite) and
+    return ``(concept, relevance)`` pairs, best first.
+
+    ``relevance`` is the share of the question's idf mass the concept
+    matched (0..1): 1.0 means every informative word of the question
+    occurs in the concept, 0.1 that only a sliver does. Hits below
+    ``min_relevance`` are dropped.
 
     Translation trees (``l10n/<lang>/``) are excluded by key: in the
     default view they would duplicate their sources in another
@@ -324,25 +346,44 @@ def retrieve(bundle: Bundle, question: str, top_k: int = 4) -> list[Concept]:
     if not query:
         return []
     postings, intent_tokens, by_rel, n_docs = _lexical_index(bundle)
+    idf = {
+        term: math.log(1 + n_docs / (1 + len(postings.get(term, {}))))
+        for term in query
+    }
+    total = sum(idf.values()) or 1.0
     hit_rels: set[str] = set()
     for term in query:
         hit_rels.update(postings.get(term, ()))
-    scored: list[tuple[float, Concept]] = []
+    scored: list[tuple[float, float, Concept]] = []
     for rel in hit_rels:
         score = 0.0
+        matched = 0.0
         for term in query:
             count = postings.get(term, {}).get(rel, 0)
             if count == 0:
                 continue
-            idf = math.log(1 + n_docs / (1 + len(postings.get(term, {}))))
-            score += (1 + math.log(count)) * idf
+            score += (1 + math.log(count)) * idf[term]
+            matched += idf[term]
         # Small boost when the concept declares an intent matching words
         # in the question (e.g. "return" → policy concepts).
         score *= 1.0 + 0.1 * len(query & intent_tokens[rel])
-        if score > 0:
-            scored.append((score, by_rel[rel]))
-    scored.sort(key=lambda pair: (-pair[0], pair[1].rel_path))
-    return [c for _, c in scored[:top_k]]
+        relevance = matched / total
+        if score > 0 and relevance >= min_relevance:
+            scored.append((score, relevance, by_rel[rel]))
+    scored.sort(key=lambda t: (-t[0], t[2].rel_path))
+    return [(c, round(r, 3)) for _, r, c in scored[:top_k]]
+
+
+def retrieve(
+    bundle: Bundle,
+    question: str,
+    top_k: int = 4,
+    min_relevance: float = RELEVANCE_FLOOR,
+) -> list[Concept]:
+    """The default retriever: :func:`retrieve_scored` without the scores
+    (the evaluator's retriever contract is ``(bundle, question, top_k)
+    -> [Concept]``)."""
+    return [c for c, _ in retrieve_scored(bundle, question, top_k, min_relevance)]
 
 
 # ---------------------------------------------------------------------------

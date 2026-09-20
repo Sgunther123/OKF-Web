@@ -47,6 +47,13 @@ Per question:
    signature — and the metric contract doesn't change:
    `--retriever lexical` (default) is tf-idf over
    title/description/tags/body with an `x_geo.intents` boost;
+   tokens are letters-and-digits runs of case-folded, accent-stripped
+   text in any script (CJK as character bigrams), so `devolucion` finds
+   `devolución`; every hit carries a relevance share (the fraction of
+   the question's informative weight it matched) and hits below the
+   floor (`--min-relevance`, default 0.05) are dropped — the floor
+   removes single-common-word noise, not off-topic questions, which
+   lexical overlap cannot detect (GAPS.md §2);
    `--retriever embedding` uses Voyage semantic embeddings with an
    incremental on-disk cache (`.embeddings.json`, hidden and never
    published; re-embeds only changed concepts);

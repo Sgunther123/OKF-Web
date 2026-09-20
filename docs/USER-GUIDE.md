@@ -616,6 +616,11 @@ folder, read the sheets, and even call your store's live price/stock
 lookups — citing your verified facts instead of guessing from your
 web pages. It's also the best way to *feel* what the scorecard
 measures: ask the assistant the questions your customers ask.
+When your folder has nothing on a question, the assistant is told so
+(`coverage: none`) instead of being handed a weak match, and it sees
+changes you make to the folder on its next question, no restart
+needed. Accents and case don't matter: a shopper typing `devolucion`
+finds your `devolución` sheet.
 
 **Q: My scheduled runs use my local time zone. Which day do the dates use?**
 A: Every date the tool writes or checks is UTC (the `Z` on the

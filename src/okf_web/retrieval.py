@@ -25,14 +25,12 @@ from __future__ import annotations
 import json
 import math
 import zlib
-import re
 from pathlib import Path
 from typing import Protocol
 
 from .evaluator import META_TYPES  # same exclusion as the lexical retriever
-from .model import Bundle, Concept, sha256_text, split_l10n
-
-_WORD_RE = re.compile(r"[a-z0-9]+")
+from .model import Bundle, Concept, sha256_text, split_l10n, write_atomic
+from .text import words
 
 
 class EmbeddingClient(Protocol):
@@ -78,14 +76,16 @@ class HashingEmbedder:
     def __init__(self, dim: int = 512):
         # crc32 in the model id: caches written by the old salted
         # implementation key differently and rebuild automatically.
-        self.model = f"hashing-crc32-{dim}"
+        # The `u` marks the Unicode-folding tokenizer (GAPS item 1):
+        # vectors of accented text changed, so those caches rebuild too.
+        self.model = f"hashing-crc32u-{dim}"
         self._dim = dim
 
     def embed(self, texts: list[str], input_type: str = "document") -> list[list[float]]:
         out = []
         for text in texts:
             vec = [0.0] * self._dim
-            for token in _WORD_RE.findall(text.lower()):
+            for token in words(text):
                 vec[zlib.crc32(token.encode("utf-8")) % self._dim] += 1.0
             norm = math.sqrt(sum(v * v for v in vec))
             if norm:
@@ -106,6 +106,7 @@ def _cosine(a: list[float], b: list[float]) -> float:
 
 
 CACHE_NAME = ".embeddings.json"
+_CACHE_VERSION = 2  # 1: no version key, bare write; 2: versioned, written atomically
 
 
 def _hashes_signature(hashes: dict[str, str]) -> str:
@@ -145,7 +146,12 @@ class EmbeddingIndex:
         if self.cache_path and self.cache_path.exists():
             try:
                 cache = json.loads(self.cache_path.read_text(encoding="utf-8"))
-                if cache.get("model") == self.embedder.model:
+                if (
+                    isinstance(cache, dict)
+                    and cache.get("version") == _CACHE_VERSION
+                    and cache.get("model") == self.embedder.model
+                    and isinstance(cache.get("entries"), dict)
+                ):
                     return cache
             except (json.JSONDecodeError, OSError):
                 pass
@@ -155,6 +161,7 @@ class EmbeddingIndex:
         if not self.cache_path:
             return
         cache = {
+            "version": _CACHE_VERSION,
             "model": self.embedder.model,
             "entries": {
                 rel: {"hash": self._hashes[rel], "vector": self._vectors[rel]}
@@ -162,7 +169,9 @@ class EmbeddingIndex:
             },
         }
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        self.cache_path.write_text(json.dumps(cache), encoding="utf-8")
+        # Atomic like every other working-state file (GAPS item 4): a
+        # SIGTERM mid-write leaves the previous cache, never a torn one.
+        write_atomic(self.cache_path, json.dumps(cache))
 
     # -- build -------------------------------------------------------------
     def build(self, bundle: Bundle) -> int:
@@ -193,10 +202,14 @@ class EmbeddingIndex:
         return len(todo)
 
     # -- retrieve ----------------------------------------------------------
-    def __call__(self, bundle: Bundle, question: str, top_k: int = 4) -> list[Concept]:
+    def scored(self, bundle: Bundle, question: str, top_k: int = 4) -> list[tuple[Concept, float]]:
+        """``(concept, cosine)`` pairs, best first; the bridge shows the
+        cosine as the hit's relevance."""
         # Content-addressed staleness, never object identity: a recycled
         # `id()` must not serve another bundle's vectors, and an in-place
-        # edit must re-embed. Re-hashing is cheap next to embedding.
+        # edit must re-embed. Re-hashing is cheap next to embedding, and
+        # cheaper than a stale answer — the per-query cost is kept on
+        # purpose (GAPS item 6 records the trade-off).
         if self._built_for != _bundle_signature(bundle):
             self.build(bundle)
         query_vec = self.embedder.embed([question], input_type="query")[0]
@@ -206,4 +219,11 @@ class EmbeddingIndex:
             if rel in bundle.concepts
         ]
         scored.sort(key=lambda pair: (-pair[0], pair[1]))
-        return [bundle.concepts[rel] for score, rel in scored[:top_k] if score > 0]
+        return [
+            (bundle.concepts[rel], round(score, 3))
+            for score, rel in scored[:top_k]
+            if score > 0
+        ]
+
+    def __call__(self, bundle: Bundle, question: str, top_k: int = 4) -> list[Concept]:
+        return [c for c, _ in self.scored(bundle, question, top_k)]

@@ -18,6 +18,7 @@ authenticated:
 from __future__ import annotations
 
 import argparse
+import functools
 import sys
 from pathlib import Path
 
@@ -68,6 +69,13 @@ def _add_retriever_args(parser) -> None:
         "VOYAGE_API_KEY); hashing: dependency-free local embedder",
     )
     parser.add_argument("--embed-model", default="voyage-3.5")
+    parser.add_argument(
+        "--min-relevance",
+        type=float,
+        default=evaluator.RELEVANCE_FLOOR,
+        help="lexical retriever: drop hits carrying less than this share of "
+        f"the question's informative weight (default {evaluator.RELEVANCE_FLOOR})",
+    )
 
 
 def _bundle_site(bundle_root) -> str | None:
@@ -377,6 +385,8 @@ def cmd_evaluate(args) -> int:
         )
         return 2
     retriever = _build_retriever(args, args.bundle)
+    if retriever is None and args.min_relevance != evaluator.RELEVANCE_FLOOR:
+        retriever = functools.partial(evaluator.retrieve, min_relevance=args.min_relevance)
     llm = None if args.dry_run else _llm(args)
     judge = None
     if llm is not None and args.judge_model and args.judge_model != args.model:
@@ -828,6 +838,7 @@ def cmd_mcp(args) -> int:
         top_k=args.top_k,
         lang=args.lang,
         allow_private_hosts=args.allow_private_hosts,
+        min_relevance=args.min_relevance,
     )
     view = "working copy (drafts included)" if args.working else "published view"
     print(

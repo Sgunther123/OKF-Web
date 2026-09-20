@@ -36,6 +36,8 @@ Claude Desktop config (``claude_desktop_config.json``)::
 from __future__ import annotations
 
 import datetime as _dt
+import difflib
+import functools
 import json
 import sys
 import urllib.parse
@@ -44,13 +46,16 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import evaluator
-from .model import Bundle, Concept, load_bundle, localized_view
+from .model import INTERNAL_DIRS, Bundle, Concept, load_bundle, localized_view, marked_dists
 from .net import CAPABILITY_POLICY, FetchPolicy, is_private_host, safe_fetch
 from .publisher import published_view
 
 USER_AGENT = "okf-web-mcp/0.1"
 _DEFAULT_PROTOCOL = "2025-03-26"
-_BODY_LIMIT = 4000  # chars of capability response echoed back
+_BODY_LIMIT = 4000  # chars of a capability response, or of a search hit's body
+MAX_TOP_K = 10  # a caller cannot ask for the whole bundle in one search
+WEAK_RELEVANCE = 0.2  # below this share the best hit is labeled weak
+_SUGGESTIONS = 5  # nearest paths named when okf_get misses
 
 
 def _http_get(
@@ -80,6 +85,58 @@ def _http_get(
 _is_private_host = is_private_host
 
 
+def bundle_signature(root: Path | str) -> tuple[int, int, int]:
+    """``(files, newest mtime_ns, total bytes)`` over the bundle's
+    knowledge files — hidden paths, internal dirs, published copies and
+    symlinks excluded, as the loader excludes them. Cheap enough to
+    take on every tool call; any edit, addition or deletion moves it,
+    and the content-hashed parse cache makes the reload it triggers
+    nearly free (GAPS item 6)."""
+    root = Path(root)
+    marked = marked_dists(root)
+    files = newest = total = 0
+    for path in root.rglob("*.md"):
+        parts = path.relative_to(root).parts
+        if parts[0] in INTERNAL_DIRS or any(part.startswith(".") for part in parts):
+            continue
+        if any(copy in path.parents for copy in marked) or path.is_symlink():
+            continue
+        try:
+            st = path.stat()
+        except OSError:
+            continue
+        files += 1
+        newest = max(newest, st.st_mtime_ns)
+        total += st.st_size
+    return files, newest, total
+
+
+@dataclass
+class LocalSource:
+    """A bundle directory, served as the view the flags select. The
+    bridge re-reads it whenever :func:`bundle_signature` moves, so a
+    survey, an approval or a re-publish during an assistant session
+    is served from the next tool call on — no restart, no lock (each
+    file is written atomically, so a read never sees a torn one)."""
+
+    root: Path
+    working: bool = False
+    include_machine_confirmed: bool = False
+    today: _dt.date | None = None
+    lang: str | None = None
+
+    def signature(self) -> Any:
+        return bundle_signature(self.root)
+
+    def load(self) -> Bundle:
+        bundle = load_bundle(self.root)
+        if self.lang:
+            bundle = localized_view(bundle, self.lang)
+        if not self.working:
+            bundle = published_view(bundle, self.include_machine_confirmed, self.today)
+        return bundle
+
+
 @dataclass
 class BridgeState:
     bundle: Bundle
@@ -87,6 +144,33 @@ class BridgeState:
     top_k: int = 4
     http_get: Callable[[str], tuple[int, str]] = field(default=_http_get)
     allow_private_hosts: bool = False
+    # ``(concept, relevance)`` pairs for search results; None when the
+    # retriever offers no scores.
+    scored: Callable[[Bundle, str, int], list[tuple[Concept, float]]] | None = None
+    # Where the bundle comes from and what it looked like when loaded.
+    source: Any = None
+    signature: Any = None
+
+
+def refresh(state: BridgeState) -> bool:
+    """Reload the bundle when its source moved; True when it did."""
+    if state.source is None:
+        return False
+    signature = state.source.signature()
+    if signature == state.signature:
+        return False
+    state.bundle = state.source.load()
+    state.signature = signature
+    return True
+
+
+def _wire_retriever(state: BridgeState, retriever, min_relevance: float) -> None:
+    if retriever is None:
+        state.retriever = functools.partial(evaluator.retrieve, min_relevance=min_relevance)
+        state.scored = functools.partial(evaluator.retrieve_scored, min_relevance=min_relevance)
+    else:
+        state.retriever = retriever
+        state.scored = getattr(retriever, "scored", None)
 
 
 def build_state(
@@ -99,19 +183,25 @@ def build_state(
     today: _dt.date | None = None,
     lang: str | None = None,
     allow_private_hosts: bool = False,
+    min_relevance: float = evaluator.RELEVANCE_FLOOR,
+    source: Any = None,
 ) -> BridgeState:
-    bundle = load_bundle(bundle_root)
-    if lang:
-        bundle = localized_view(bundle, lang)
-    if not working:
-        bundle = published_view(bundle, include_machine_confirmed, today)
-    return BridgeState(
-        bundle=bundle,
-        retriever=retriever or evaluator.retrieve,
+    """Serve ``bundle_root`` (or any ``source`` with ``signature()`` and
+    ``load()``, such as a remote published bundle)."""
+    source = source or LocalSource(
+        Path(bundle_root), working, include_machine_confirmed, today, lang
+    )
+    state = BridgeState(
+        bundle=source.load(),
+        retriever=evaluator.retrieve,
         top_k=top_k,
         http_get=http_get or (lambda url: _http_get(url, allow_private=allow_private_hosts)),
         allow_private_hosts=allow_private_hosts,
+        source=source,
     )
+    state.signature = source.signature()
+    _wire_retriever(state, retriever, min_relevance)
+    return state
 
 
 # --- tool implementations --------------------------------------------------
@@ -152,26 +242,61 @@ def _tool_info(state: BridgeState, args: dict) -> dict[str, Any]:
     }
 
 
+def _clip(text: str) -> tuple[str, bool]:
+    if len(text) <= _BODY_LIMIT:
+        return text, False
+    return text[:_BODY_LIMIT] + "…", True
+
+
 def _tool_search(state: BridgeState, args: dict) -> dict[str, Any]:
     question = str(args.get("question") or "").strip()
     if not question:
         raise ValueError("`question` is required")
-    top_k = int(args.get("top_k") or state.top_k)
-    hits = state.retriever(state.bundle, question, top_k)
-    return {
-        "question": question,
-        "results": [
-            {**_concept_summary(c), "body": c.body.strip()} for c in hits
-        ],
-    }
+    top_k = min(max(1, int(args.get("top_k") or state.top_k)), MAX_TOP_K)
+    if state.scored is not None:
+        pairs = state.scored(state.bundle, question, top_k)
+    else:
+        pairs = [(c, None) for c in state.retriever(state.bundle, question, top_k)]
+    results = []
+    for concept, relevance in pairs:
+        body, truncated = _clip(concept.body.strip())
+        entry = {**_concept_summary(concept), "body": body}
+        if relevance is not None:
+            entry["relevance"] = relevance
+        if truncated:
+            entry["truncated"] = True
+            entry["note"] = "body clipped; okf_get returns the whole concept"
+        results.append(entry)
+    payload: dict[str, Any] = {"question": question, "results": results}
+    # Say what the bundle does not cover, instead of handing the
+    # assistant a weak hit to guess from (GAPS item 2).
+    if not results:
+        payload["coverage"] = "none"
+        payload["note"] = (
+            "nothing in the bundle is relevant to this question; the store's "
+            "published knowledge does not cover it — say so rather than "
+            "answering from elsewhere"
+        )
+    elif results[0].get("relevance") is not None and results[0]["relevance"] < WEAK_RELEVANCE:
+        payload["coverage"] = "weak"
+        payload["note"] = (
+            "weak match: the best hit carries little of the question; treat "
+            "it as a lead to read with okf_get, not as an answer"
+        )
+    else:
+        payload["coverage"] = "found"
+    return payload
 
 
 def _tool_get(state: BridgeState, args: dict) -> str:
     path = str(args.get("path") or "").strip().lstrip("/")
     concept = state.bundle.get(path)
     if concept is None:
-        known = ", ".join(sorted(state.bundle.concepts))
-        raise ValueError(f"no published concept at {path!r}; available: {known}")
+        # Name the nearest paths, never the whole bundle: on a large
+        # bundle the full list is the error nobody can read.
+        near = difflib.get_close_matches(path, sorted(state.bundle.concepts), n=_SUGGESTIONS, cutoff=0.3)
+        hint = f"; did you mean {', '.join(near)}?" if near else "; use okf_search to find paths"
+        raise ValueError(f"no published concept at {path!r}{hint}")
     return concept.render()
 
 
@@ -276,14 +401,16 @@ TOOLS: list[dict[str, Any]] = [
         "description": (
             "Retrieve the bundle concepts most relevant to a shopper "
             "question. Results carry trust_tier (prefer human-reviewed), "
-            "risk, staleness, and the full concept body; cite concept "
-            "paths in answers."
+            "risk, staleness, relevance (the share of the question they "
+            "cover) and the concept body; `coverage` says found, weak or "
+            "none — when none, the bundle does not cover the question. "
+            "Cite concept paths in answers."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "question": {"type": "string", "description": "the shopper's question"},
-                "top_k": {"type": "integer", "description": "max results (default 4)"},
+                "top_k": {"type": "integer", "description": f"max results (default 4, at most {MAX_TOP_K})"},
             },
             "required": ["question"],
         },
@@ -377,6 +504,7 @@ def handle_message(state: BridgeState, msg: dict[str, Any]) -> dict[str, Any] | 
         if tool is None:
             return _result(msg_id, _tool_result(f"unknown tool: {name}", is_error=True))
         try:
+            refresh(state)
             payload = tool["handler"](state, params.get("arguments") or {})
         except Exception as exc:  # noqa: BLE001 — tool failures are results, not protocol errors
             return _result(msg_id, _tool_result(str(exc), is_error=True))

@@ -467,6 +467,11 @@ location ^~ /.well-known/okf/ {
   UTC (`model.utc_now`/`utc_today`), matching the UTC instants the
   stamps carry, so freshness never turns over early or late with the
   host's time zone (EDGE-CASES A5, A6).
+- **Assistant sessions stay current:** the MCP bridge re-reads the
+  bundle whenever a knowledge file changes (a files/mtime/bytes
+  signature checked per tool call — GAPS item 6), clamps `top_k` to
+  ten and clips bodies, so a survey or an approval during a session
+  is served from the next question on.
 - **Audit:** `log.md` (newest-first, per the spec) plus git history
   answer "who said this, when, and who approved it" for every claim —
   which is precisely the question a merchant's lawyer asks after an
@@ -544,7 +549,11 @@ product probes reproduce hit-for-hit.
   embeddings with an incremental on-disk vector cache
   (`okf-web evaluate --retriever embedding`). Our retrieval remains a
   *proxy* for engines' own pipelines either way; scores are
-  comparative, not absolute.
+  comparative, not absolute. Since GAPS items 1–2 one tokenizer
+  folds case and accents in any script (CJK as bigrams), every hit
+  carries the share of the question it covers, and a small floor
+  drops single-common-word noise; the bridge labels coverage
+  found / weak / none.
 - **Shipped from earlier revisions of this list:** signed bundles
   (sigstore over `manifest.json` — §8); promotion calendars
   (`Promotion` concepts with lint-gated end dates and publisher

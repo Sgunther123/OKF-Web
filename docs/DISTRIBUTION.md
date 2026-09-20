@@ -78,6 +78,13 @@ What the plan does with that:
   pip-installable — MCP registries and client catalogs are a
   discovery channel with no gatekeeper and no fee, reaching exactly
   the people who already live in assistants (release gate 6, §6).
+- **Results are labeled, not just returned.** Every `okf_search` hit
+  carries `relevance` (the share of the question it covers) and the
+  payload says `coverage: found`, `weak` or `none` — none means the
+  bundle does not cover the question and the assistant should say so.
+  Bodies clip at 4,000 characters (`okf_get` for the whole concept),
+  `top_k` caps at ten, and the bridge re-reads the bundle when it
+  changes (GAPS items 2 and 6).
 - **Planned: remote-bundle mode** — `okf-web mcp --url
   https://store.example/.well-known/okf` — consume any *published*
   bundle without cloning anything: the zero-install demo of the whole
