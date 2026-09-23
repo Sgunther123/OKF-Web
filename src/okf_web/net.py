@@ -250,11 +250,19 @@ class _PinnedHTTPConnection(http.client.HTTPConnection):
             self._tunnel()
 
 
-class _PinnedHTTPSConnection(http.client.HTTPSConnection, _PinnedHTTPConnection):
+class _PinnedHTTPSConnection(_PinnedHTTPConnection, http.client.HTTPSConnection):
+    """The pinned base comes first on purpose: its ``__init__`` takes
+    ``policy`` and ``pin`` and forwards the rest, so that
+    ``HTTPSConnection.__init__``'s own ``super()`` call lands on
+    ``HTTPConnection``. With the bases the other way round that call
+    landed on the pinned base without ``policy``, and no TLS connection
+    could be built at all — every live ``https://`` fetch failed, and the
+    callers that treat a failed page as unreachable hid it (found on the
+    deployed machine, 2026-09-23; ``tests/test_net_tls.py`` now builds
+    one and completes a loopback TLS round trip)."""
+
     def __init__(self, *args, policy: FetchPolicy, pin: bool = True, context=None, **kwargs):
-        http.client.HTTPSConnection.__init__(self, *args, context=context, **kwargs)
-        self._policy = policy
-        self._pin = pin
+        super().__init__(*args, policy=policy, pin=pin, context=context, **kwargs)
 
     def connect(self) -> None:
         sock = self._open_socket()
