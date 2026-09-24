@@ -366,21 +366,43 @@ def _read_capped(response, policy: FetchPolicy, started: float, url: str) -> byt
             )
 
 
+_METHODS = ("GET", "POST")
+
+
 def safe_fetch(
     url: str,
     policy: FetchPolicy | None = None,
     headers: dict[str, str] | None = None,
+    method: str = "GET",
+    data: bytes | None = None,
 ) -> FetchResult:
-    """GET ``url`` under ``policy``. Returns every HTTP status as a
-    :class:`FetchResult` (a 404 is an answer, not a failure); raises a
-    :class:`FetchError` subclass for refusals, caps, deadlines and
-    transport failures."""
+    """GET (or, with ``method="POST"``, send ``data``) ``url`` under
+    ``policy``. Returns every HTTP status as a :class:`FetchResult` (a
+    404 is an answer, not a failure); raises a :class:`FetchError`
+    subclass for refusals, caps, deadlines and transport failures.
+
+    A POST goes through the same door as a GET: the host checks, the
+    pinned connection, the caps and the deadline. The caller sets the
+    body's ``Content-Type`` in ``headers``. A redirected POST follows
+    the stdlib rule (re-issued as a GET without its body, the target
+    re-checked like any redirect)."""
     policy = policy or FetchPolicy()
+    method = (method or "GET").upper()
+    if method not in _METHODS:
+        raise FetchError(
+            f"unsupported method {method!r} (want one of: {', '.join(_METHODS)})"
+        )
+    if data is not None and method != "POST":
+        raise FetchError("a request body needs the POST method")
+    if method == "POST" and data is None:
+        data = b""
     check_url(url, policy)
     request_headers = {"User-Agent": policy.user_agent}
     if headers:
         request_headers.update(headers)
-    request = urllib.request.Request(url, headers=request_headers)
+    request = urllib.request.Request(
+        url, data=data, headers=request_headers, method=method
+    )
     started = time.monotonic()
     opener = _opener(policy)
     try:
