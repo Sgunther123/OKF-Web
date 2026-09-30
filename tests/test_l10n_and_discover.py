@@ -177,6 +177,25 @@ def test_discover_nothing_found():
     report = discover_mod.discover(STORE, fetch=_fake_fetch({}))
     assert not report.ok and report.binding == "none"
     assert any("no bundle found" in p for p in report.problems)
+    assert any("could not be fetched" in p for p in report.problems)
+
+    # What the well-known location answered is in the line: a challenge
+    # page is told apart from an absent bundle, and a pointer at an HTML
+    # fallback from a pointer at nothing.
+    report = discover_mod.discover(STORE, fetch=_fake_fetch({
+        f"{STORE}/.well-known/okf/manifest.json": (403, "<html>challenge</html>"),
+        STORE: (200, "<html><head></head></html>"),
+    }))
+    (problem,) = report.problems
+    assert "answered HTTP 403" in problem and "bot gate" in problem
+    html = f'<html><head><link rel="okf-bundle" href="{CDN}/"></head></html>'
+    report = discover_mod.discover(STORE, fetch=_fake_fetch({
+        f"{STORE}/.well-known/okf/manifest.json": (404, "not here"),
+        STORE: (200, html),
+        f"{CDN}/manifest.json": (200, "<html>app shell</html>"),
+    }))
+    assert any("something other than JSON" in p for p in report.problems)
+    assert any("answered HTTP 404" in p for p in report.problems)
 
 
 def test_discover_cli_exit_codes(monkeypatch):

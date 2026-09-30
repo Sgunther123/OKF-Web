@@ -90,18 +90,36 @@ class DiscoveryReport:
         return self.manifest is not None and self.binding in ("same-origin", "bound")
 
 
-def _try_manifest(fetch, bundle_url: str) -> dict | None:
+#: Statuses a bot gate, a challenge page or an access rule answers with
+#: before the origin is ever asked.
+_GATE_STATUSES = (401, 402, 403, 429, 503)
+
+
+def _try_manifest(fetch, bundle_url: str) -> tuple[dict | None, str]:
+    """The manifest at ``bundle_url``, or None with the reason in words:
+    what the location answered, so a bot gate (a 403 challenge page, a
+    402 pay-per-crawl answer) or a single-page-app fallback is told
+    apart from an absent bundle in the report."""
     try:
         status, text = fetch(bundle_url.rstrip("/") + "/manifest.json")
-    except Exception:
-        return None
+    except Exception as exc:
+        return None, f"could not be fetched ({exc})"
     if status != 200:
-        return None
+        hint = (
+            " (a bot gate, a challenge or an access rule answering before "
+            "the origin?)" if status in _GATE_STATUSES else ""
+        )
+        return None, f"answered HTTP {status}{hint}"
     try:
         manifest = json.loads(text)
     except json.JSONDecodeError:
-        return None
-    return manifest if isinstance(manifest, dict) and "files" in manifest else None
+        return None, (
+            "answered 200 with something other than JSON (a single-page-app "
+            "fallback page?)"
+        )
+    if not isinstance(manifest, dict) or "files" not in manifest:
+        return None, "answered JSON that is not a manifest (no files map)"
+    return manifest, "answered a manifest"
 
 
 def _is_json_object(text: str) -> bool:
@@ -140,7 +158,7 @@ def discover(
 
     # Route 1: the well-known location on the store's own origin.
     well_known = origin + WELL_KNOWN_PATH
-    manifest = _try_manifest(fetch, well_known)
+    manifest, well_known_note = _try_manifest(fetch, well_known)
     if manifest is not None:
         report.routes.append("well-known")
         report.bundle_url, report.manifest = well_known, manifest
@@ -168,19 +186,19 @@ def discover(
                     report.problems.append(f"link tag points at {pointed}, not fetched: {exc}")
                 else:
                     if report.manifest is None:
-                        pointed_manifest = _try_manifest(fetch, pointed)
+                        pointed_manifest, note = _try_manifest(fetch, pointed)
                         if pointed_manifest is not None:
                             report.bundle_url, report.manifest = pointed, pointed_manifest
                         else:
                             report.problems.append(
                                 f"link tag points at {pointed} but no readable "
-                                "manifest.json is there"
+                                f"manifest.json is there: it {note}"
                             )
 
     if report.manifest is None:
         report.problems.append(
-            "no bundle found: nothing at the well-known location and no "
-            "usable <link rel=\"okf-bundle\"> pointer"
+            f"no bundle found: the well-known location {well_known}/manifest.json "
+            f"{well_known_note}, and no usable <link rel=\"okf-bundle\"> pointer"
         )
         return report
 

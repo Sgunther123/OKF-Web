@@ -26,6 +26,11 @@ What the boundary enforces:
 - **Time**: ``timeout`` bounds each socket operation and ``deadline``
   bounds the body read as a whole, so a server that drips bytes cannot
   hold a fetch open indefinitely.
+- **Encoding**: ``Accept-Encoding: identity`` is requested; a body that
+  arrives gzip- or deflate-compressed anyway (objects stored
+  pre-compressed, a proxy that compresses unconditionally) is decoded
+  under the same byte cap, and any other encoding is an error, never
+  compressed bytes handed to a parser.
 
 Opt-outs are explicit and never the default: ``allow_loopback`` permits
 the operator's own machine (the hosting recipes are verified against a
@@ -48,6 +53,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zlib
 from dataclasses import dataclass
 from email.message import Message
 
@@ -369,6 +375,54 @@ def _read_capped(response, policy: FetchPolicy, started: float, url: str) -> byt
 _METHODS = ("GET", "POST")
 
 
+_DECODED_ENCODINGS = ("gzip", "x-gzip", "deflate")
+
+
+def _decode_body(body: bytes, headers: Message, policy: FetchPolicy, url: str) -> bytes:
+    """Undo a ``Content-Encoding`` the server applied although identity
+    was asked for. gzip and deflate (zlib-wrapped or raw) are decoded
+    under the same byte cap as the wire body: an inflating body past the
+    cap is :class:`FetchTooLarge`, never a truncated success; any other
+    encoding is a :class:`FetchError`, never garbage handed to a parser.
+    The header is removed once the body no longer carries it."""
+    encoding = (headers.get("Content-Encoding") or "").strip().lower()
+    if not encoding or encoding == "identity":
+        return body
+    if encoding not in _DECODED_ENCODINGS:
+        raise FetchError(
+            f"{url} answered with Content-Encoding {encoding!r} although "
+            "identity was requested; only gzip and deflate are decoded"
+        )
+    if encoding == "deflate":
+        candidates = (zlib.MAX_WBITS, -zlib.MAX_WBITS)  # zlib-wrapped, then raw
+    else:
+        candidates = (zlib.MAX_WBITS | 16,)
+    last_error: zlib.error | None = None
+    for wbits in candidates:
+        decompressor = zlib.decompressobj(wbits)
+        out = bytearray()
+        data = body
+        try:
+            while data:
+                out += decompressor.decompress(data, policy.max_bytes + 1 - len(out))
+                if len(out) > policy.max_bytes:
+                    raise FetchTooLarge(
+                        f"{url} inflates past the {policy.max_bytes} byte cap"
+                    )
+                data = decompressor.unconsumed_tail
+            out += decompressor.flush()
+        except zlib.error as exc:
+            last_error = exc
+            continue
+        if len(out) > policy.max_bytes:
+            raise FetchTooLarge(f"{url} inflates past the {policy.max_bytes} byte cap")
+        del headers["Content-Encoding"]
+        return bytes(out)
+    raise FetchError(
+        f"{url}: the {encoding} body could not be decoded: {last_error}"
+    ) from last_error
+
+
 def safe_fetch(
     url: str,
     policy: FetchPolicy | None = None,
@@ -385,7 +439,12 @@ def safe_fetch(
     pinned connection, the caps and the deadline. The caller sets the
     body's ``Content-Type`` in ``headers``. A redirected POST follows
     the stdlib rule (re-issued as a GET without its body, the target
-    re-checked like any redirect)."""
+    re-checked like any redirect).
+
+    Identity encoding is requested (a caller's ``Accept-Encoding``
+    header overrides it); a gzip or deflate answer is decoded under the
+    byte cap regardless, so the body returned is the document, never
+    compressed bytes."""
     policy = policy or FetchPolicy()
     method = (method or "GET").upper()
     if method not in _METHODS:
@@ -397,7 +456,8 @@ def safe_fetch(
     if method == "POST" and data is None:
         data = b""
     check_url(url, policy)
-    request_headers = {"User-Agent": policy.user_agent}
+    request_headers = {"User-Agent": policy.user_agent,
+                       "Accept-Encoding": "identity"}
     if headers:
         request_headers.update(headers)
     request = urllib.request.Request(
@@ -420,6 +480,7 @@ def safe_fetch(
         raise FetchError(f"could not fetch {url}: {exc}") from exc
     with response:
         body = _read_capped(response, policy, started, url)
+        body = _decode_body(body, response.headers, policy, url)
         return FetchResult(
             url=response.geturl(),
             status=int(getattr(response, "status", None) or response.getcode() or 0),

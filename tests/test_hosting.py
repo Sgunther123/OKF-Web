@@ -67,6 +67,34 @@ class _SpaFallbackHandler(_RecipeHandler):
         return target
 
 
+class _ChallengeHandler(_RecipeHandler):
+    """A bot gate in front of the bundle path: a 403 challenge page,
+    HTML, before the origin is asked (HOSTING.md §6)."""
+
+    def do_GET(self):
+        if self.path.startswith("/.well-known/okf/"):
+            body = b"<!doctype html><title>Just a moment...</title>"
+            self.send_response(403)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        super().do_GET()
+
+
+class _FailingRobotsHandler(_RecipeHandler):
+    """A host whose robots.txt answers 503: the check cannot conclude."""
+
+    def do_GET(self):
+        if self.path == "/robots.txt":
+            self.send_response(503)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        super().do_GET()
+
+
 @contextmanager
 def _serve(root: Path, handler=_RecipeHandler):
     root.mkdir(parents=True, exist_ok=True)
@@ -203,6 +231,46 @@ def test_check_robots_reads_the_served_robots_txt(tmp_path):
         (root / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
         assert publisher.check_robots(origin, "/.well-known/okf", allow_private=True) == ([], None)
 
+        # No robots.txt at all (a 404) places no restrictions, as the
+        # robots standard reads it: allowed, not inconclusive.
+        (root / "robots.txt").unlink()
+        assert publisher.check_robots(origin, "/.well-known/okf", allow_private=True) == ([], None)
+
+    # A server that cannot say (5xx) leaves the check inconclusive.
+    with _serve(tmp_path / "failing", handler=_FailingRobotsHandler) as origin:
+        blocked, error = publisher.check_robots(origin, "/.well-known/okf", allow_private=True)
+        assert blocked == [] and "HTTP 503" in error and "inconclusive" in error
+
+
+def test_the_verifier_names_what_the_well_known_location_answered(example_bundle, tmp_path):
+    """A bot gate (HOSTING.md §6) and an absent bundle used to produce the
+    same line; the status the location answered is now in the report."""
+    root = tmp_path / "gated"
+    with _serve(root, handler=_ChallengeHandler) as origin:
+        publisher.publish(example_bundle, root / ".well-known" / "okf", site=origin)
+        (root / "index.html").write_text("<!doctype html><title>store</title>", encoding="utf-8")
+        report = discover(origin, allow_private=True)
+        assert not report.ok and report.binding == "none"
+        (problem,) = report.problems
+        assert problem.startswith("no bundle found")
+        assert "answered HTTP 403" in problem and "bot gate" in problem
+
+    with _serve(tmp_path / "empty") as origin:
+        (tmp_path / "empty" / "index.html").write_text("<!doctype html>", encoding="utf-8")
+        (problem,) = discover(origin, allow_private=True).problems
+        assert "answered HTTP 404" in problem and "bot gate" not in problem
+
+
+def test_origin_comparison_normalizes_default_ports_and_case():
+    origin = publisher._origin
+    assert origin("https://Store.Example:443/shop/") == "https://store.example"
+    assert origin("http://store.example:80/") == "http://store.example"
+    assert origin("https://store.example:8443/") == "https://store.example:8443"
+    assert origin("https://user:secret@store.example/") == "https://store.example"
+    assert origin("http://[::1]:8080/x") == "http://[::1]:8080"
+    # www and the apex stay different origins, as they are to a browser.
+    assert origin("https://www.store.example") != origin("https://store.example")
+
 
 # --- the document carries the rules the server implements ---------------------
 
@@ -235,6 +303,7 @@ def test_hosting_doc_recipes_carry_the_serving_rules(example_bundle, tmp_path):
     for phrase in (
         "Block AI Bots", "Bot Fight Mode", "AI Crawl Control", "AI Labyrinth",
         "--check-robots", 'rel="okf-bundle"', "404.html", ".nojekyll",
+        "--base-path /okf", "Content-Encoding", "answered HTTP 403",
     ):
         assert phrase in doc, phrase
 

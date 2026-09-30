@@ -39,13 +39,16 @@ suite's own server (`tests/test_hosting.py`):
    is plenty for any CDN, and `must-revalidate` with the per-file ETags
    hosts send anyway makes a re-publish visible within minutes.
 
-Three things to avoid, each of which turns a published bundle into an
+Four things to avoid, each of which turns a published bundle into an
 unreachable one:
 
 - **Hidden dot-directories.** `/.well-known/` starts with a dot, and some
   servers, site generators, and security plugins hide or skip dot-paths
   (the nginx boilerplate `location ~ /\. { deny all; }`, Jekyll on GitHub
   Pages, "protect system files" plugins). Each recipe shows its exception.
+  When a host cannot be told to serve the dot-directory at all, the
+  bundle can live at a plain path on the same host instead
+  ([§2.4](#24-a-host-that-hides-dot-directories)).
 - **HTML fallbacks for missing files.** Single-page-app hosting answers
   every unknown path with `index.html` and status 200. A missing file must
   be a real 404: `okf-web discover` requires the signature file to parse
@@ -55,6 +58,13 @@ unreachable one:
   refuse AI crawlers whatever `robots.txt` says, and `okf-web publish
   --check-robots` reads only `robots.txt`. Section 6 covers Cloudflare in
   detail because it fronts so many storefronts.
+- **Objects stored pre-compressed.** An upload that stamps
+  `Content-Encoding: gzip` on the files (a common static-asset
+  optimization) serves them compressed to every client, including the
+  ones that never asked. Keep the files plain and let the CDN compress
+  on the wire. Since 2026-09-30 the toolchain's own fetcher asks for
+  identity and decodes a gzip or deflate answer anyway, under its byte
+  cap; other consumers may not.
 
 Two routes, one of which you pick before choosing a recipe:
 
@@ -82,6 +92,7 @@ you pass to `--bundle-url` changes.
 | Own server, nginx | same-origin | `/srv/okf-dist/`, aliased to `/.well-known/okf/` | a `location` block | `robots.txt`; any `location ~ /\.` deny rule | [§2.1](#21-nginx) |
 | Own server or shared hosting, Apache (cPanel, WordPress/WooCommerce, Magento, PrestaShop) | same-origin | `<webroot>/.well-known/okf/` | a `.htaccess` shipped with the files | `robots.txt`; security plugins hiding dot-paths or `.py` | [§2.2](#22-apache-shared-hosting-and-cms-hosting) |
 | Own server, Caddy | same-origin, or a standalone bundle host | `/srv/okf-dist/` | a `handle_path` block | `robots.txt` | [§2.3](#23-caddy) |
+| Any host that hides dot-directories and cannot be configured | same-origin, at a plain path | `<webroot>/okf/` | the host's own defaults | the head tag, written by hand | [§2.4](#24-a-host-that-hides-dot-directories) |
 | Cloudflare Pages | same-origin if the storefront is the Pages site, otherwise delegated | `<deploy dir>/.well-known/okf/` | the `_headers` file | Cloudflare's bot settings (§6) | [§3.1](#31-cloudflare-pages) |
 | Netlify | same-origin if the storefront is the Netlify site, otherwise delegated | `<publish dir>/.well-known/okf/` | `netlify.toml` or `_headers` | `robots.txt`; no SPA redirect | [§3.2](#32-netlify) |
 | Vercel | same-origin or delegated | `public/.well-known/okf/` | `vercel.json` | the firewall's bot rules | [§3.3](#33-vercel) |
@@ -219,6 +230,32 @@ MIME table; observed on the live run: `application/json`,
 `text/plain; charset=utf-8`, `application/yaml`, and
 `text/x-python; charset=utf-8`, all of which are text and none of which
 execute.
+
+### 2.4 A host that hides dot-directories
+
+Some managed hosts hide every dot-path and expose no setting for it. The
+bundle can then live at a plain path on the same host, named by the
+storefront's head tag, exactly as the delegated route works but without
+leaving the origin:
+
+```bash
+okf-web publish my-store dist --base-path /okf
+rsync -a --delete dist/ deploy@www.store.example:<webroot>/okf/
+```
+
+Then add the tag to the storefront's `<head>` by hand (the snippet
+carries it only for `--bundle-url`):
+
+```html
+<link rel="okf-bundle" href="/okf/">
+```
+
+The verifier resolves a relative pointer against the page and binds a
+same-host bundle as same-origin, so `okf-web discover` reports
+`routes found: link-tag` and `binding: same-origin`. The serving rules
+of §0 still apply at the new path: the host's defaults usually type
+`.md` as `text/markdown` or `text/plain`, either of which is text, and
+the headers come from whatever the host lets you set.
 
 ## 3. Static hosts and CDNs
 
@@ -380,6 +417,9 @@ same-origin; a bucket with its own hostname is delegated. The S3 website
 endpoint is HTTP-only; HTTPS comes from CloudFront. Not run here (needs
 an account); the commands follow the AWS CLI reference and the JSON is
 validated by the suite. AWS WAF Bot Control on the distribution: §6.
+Upload the files plain: an object stored with `Content-Encoding: gzip`
+metadata is served compressed to every client (§0, the fourth thing to
+avoid); let CloudFront compress on the wire.
 
 ## 4. Hosted commerce platforms (delegated hosting)
 
@@ -436,6 +476,13 @@ Notes:
 - A subdomain is a separate origin. `okf.store.example` is delegated
   hosting, bound by the tag and `manifest.site`, exactly like a
   third-party host.
+- Name the origin the storefront actually serves. `https://store.example`
+  and `https://www.store.example` are different origins to the binding,
+  as they are to browsers: publish `--site` with the host the browser
+  lands on, and run the verifier against that URL. Letter case and a
+  default port (`:443`, `:80`) are normalized; a `www` is not.
+- One pointer per page. If a page carries two `okf-bundle` tags, the
+  first is the one consumers follow; remove the other.
 
 ## 5. Containers and CI
 
@@ -607,6 +654,10 @@ OK: the bundle is discoverable and speaks for this store
 ```
 
 Anything else is a problem line in plain words, and the command exits 1.
+The line names what the well-known location answered, so a bot gate
+reads as `answered HTTP 403`, a pay-per-crawl answer as `HTTP 402`, a
+single-page-app fallback as `answered 200 with something other than
+JSON`, and an absent bundle as `HTTP 404`.
 
 Check the headers on one Markdown file and one JSON file:
 
@@ -630,6 +681,10 @@ bundle read the bundle host's `robots.txt` yourself):
 okf-web publish my-store dist --check-robots
 # robots.txt: all checked AI agents may fetch the bundle
 ```
+
+A missing `robots.txt` (a 404, or any other 4xx) places no restrictions
+and is reported as allowed, as the robots standard reads it; a 5xx or an
+unreachable host leaves the check inconclusive, and the publish says so.
 
 If you signed, verify the identity, not just the presence:
 
@@ -667,3 +722,22 @@ bundle, serves it over real HTTP with exactly the header rules of §0,
 runs the discovery verifier over both routes, and checks that the
 recipes in this file still carry those rules. A change to the serving
 rules or the verifier fails a test before it reaches this document.
+
+### Re-run 2026-09-30
+
+The recipes were run again against a freshly published example: Caddy
+v2.11.4 on the three localhost sites, wrangler 3.114.17's Pages emulator
+with and without `404.html`, and Netlify Dev 17.38.1, each reproducing
+the observations above, and GitHub Pages' platform headers re-probed
+live. Edge probes against the suite's own server then produced four
+changes to the toolchain rather than to the recipes: the fetcher asks
+for identity encoding and decodes a gzip or deflate answer under its
+byte cap (a pre-compressed manifest used to read as "no bundle found");
+a missing `robots.txt` counts as allowed instead of inconclusive; the
+verifier's problem lines name the HTTP status the well-known location
+answered (a 403 challenge page used to read like an absent bundle); and
+origin comparison normalizes default ports. The plain-path route for a
+host that hides dot-directories (§2.4) and the one-pointer rule (§4)
+were written down at the same time. The tests that pin the four:
+`tests/test_net_encoding.py`, and the robots, status and origin cases in
+`tests/test_hosting.py`.

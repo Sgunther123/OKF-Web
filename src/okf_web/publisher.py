@@ -48,7 +48,7 @@ from .model import (
     marked_dists,
     write_atomic,
 )
-from .net import ROBOTS_POLICY, FetchPolicy, fetch_text
+from .net import ROBOTS_POLICY, FetchPolicy, safe_fetch
 from .structured import write_llms_txt, write_structured
 
 
@@ -372,8 +372,22 @@ def publish(
 
 
 def _origin(url: str) -> str:
+    """The origin a URL belongs to, compared the way browsers compare
+    origins: scheme and host lower-cased, a default port (80 for http,
+    443 for https) dropped, any other port kept, user information never
+    part of it. ``www`` and the apex stay different origins, as they
+    are to a browser."""
     parts = urllib.parse.urlsplit(url)
-    return f"{parts.scheme}://{parts.netloc}".lower()
+    scheme = parts.scheme.lower()
+    try:
+        host, port = (parts.hostname or "").lower(), parts.port
+    except ValueError:  # a port that is not a number: compare it literally
+        return f"{scheme}://{parts.netloc}".lower()
+    if ":" in host:  # an IPv6 literal: urlsplit strips the brackets
+        host = f"[{host}]"
+    if port is None or port == {"http": 80, "https": 443}.get(scheme):
+        return f"{scheme}://{host}"
+    return f"{scheme}://{host}:{port}"
 
 
 def _file_digest(path: Path) -> tuple[str, int]:
@@ -476,9 +490,12 @@ def check_robots(
 ) -> tuple[list[str], str | None]:
     """Fetch the live robots.txt and report blocked AI agents.
 
-    Returns ``(blocked_agents, fetch_error)``; a fetch error (including
-    a refused host or a robots.txt over the 256 KiB cap) means the check
-    was inconclusive, not that agents are allowed.
+    Returns ``(blocked_agents, fetch_error)``. A ``robots.txt`` the
+    server says is unavailable (a 404, or any other 4xx) places no
+    restrictions, as the robots standard (RFC 9309) reads it, so the
+    check reports allowed; a 5xx answer or a fetch error (a refused
+    host, a file over the 256 KiB cap, an unreachable server) means the
+    check was inconclusive, not that agents are allowed.
     """
     robots_url = site.rstrip("/") + "/robots.txt"
     policy = policy or FetchPolicy(
@@ -489,10 +506,17 @@ def check_robots(
         user_agent="okf-web-publisher/0.1",
     )
     try:
-        robots_txt = fetch_text(robots_url, policy)
+        result = safe_fetch(robots_url, policy)
     except OSError as exc:
         return [], f"could not fetch {robots_url}: {exc}"
-    return evaluate_robots(robots_txt, site, base_path), None
+    if 400 <= result.status < 500:
+        return [], None  # no robots.txt to speak of: nothing is restricted
+    if result.status >= 500:
+        return [], (
+            f"{robots_url} answered HTTP {result.status}: the server could "
+            "not say, so the check is inconclusive; retry later"
+        )
+    return evaluate_robots(result.text, site, base_path), None
 
 
 def _write_llms_snippet(
