@@ -99,7 +99,7 @@ okf-web publish bundle-example dist/
 # Against a real store (see "LLM access" below for credential options)
 okf-web survey my-bundle --feed products.csv     # catalog from a feed export — no LLM
 okf-web survey my-bundle --sitemap https://www.example-store.com --limit 25
-okf-web questions my-bundle --pack outdoor   # or apparel/electronics/grocery (+ .es variants); no LLM
+okf-web questions my-bundle --pack outdoor   # or apparel/electronics/grocery/machinery (+ .es variants); no LLM
 okf-web evaluate my-bundle --write-scorecard
 okf-web report my-bundle                     # scorecard → shareable HTML report; no LLM
 okf-web view my-bundle --access-log access.log   # bundle viewer: what's inside, how engines use it, who read it; no LLM

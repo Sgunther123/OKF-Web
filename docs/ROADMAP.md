@@ -51,7 +51,7 @@ human cost:
   the `b`/`c` draft tail in one command (risk `a` is deliberately not
   batchable — E010 stays individual).
 - **Starter question packs** — `okf-web questions my-store --pack
-  outdoor|apparel|electronics|grocery`: 39 curated questions across
+  outdoor|apparel|electronics|grocery|machinery`: 39 curated questions across
   every archetype, no LLM or credentials needed for the first
   evaluation.
 - **Consumption measurement** — [MEASUREMENT.md](MEASUREMENT.md)
@@ -97,7 +97,7 @@ human cost:
   who vouched.
 - **Localized question packs** — Spanish packs for all four
   verticals (`--pack outdoor.es`, `apparel.es`, `electronics.es`,
-  `grocery.es`), 39 questions across all thirteen archetypes each,
+  `grocery.es`, `machinery.es`), 39 questions across all thirteen archetypes each,
   for evaluating `l10n/es` localized views with native-language
   shopper phrasing.
 

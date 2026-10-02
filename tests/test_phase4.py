@@ -185,7 +185,8 @@ def test_spanish_packs_ship_for_all_verticals(tmp_path):
     from okf_web import cli as cli_mod, evaluator
 
     packs = cli_mod._question_packs()
-    for name in ("outdoor.es", "apparel.es", "electronics.es", "grocery.es"):
+    for name in ("outdoor.es", "apparel.es", "electronics.es", "grocery.es",
+                 "machinery.es"):
         path = tmp_path / f"{name}.yaml"
         path.write_text(packs[name])
         questions = evaluator.load_questions(path)

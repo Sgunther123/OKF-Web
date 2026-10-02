@@ -1197,8 +1197,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--pack",
-        help="starter question pack (outdoor/apparel/electronics/grocery, "
-        "+ .es variants) for the dry-run scorecard and report",
+        help="starter question pack (outdoor/apparel/electronics/grocery/"
+        "machinery, + .es variants) for the dry-run scorecard and report",
     )
     p.add_argument("--dist", default="dist", help="publish output directory (default: dist)")
     p.add_argument(

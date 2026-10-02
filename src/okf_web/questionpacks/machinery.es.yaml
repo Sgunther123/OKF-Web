@@ -1,0 +1,46 @@
+# Pack inicial de preguntas: concesionarios de maquinaria usada y equipo
+# industrial (obra pública, manutención, agrícola, máquina herramienta,
+# camiones) (español). Semilla para evaluations/questions.yaml — adapta
+# marcas, modelos y los datos del parque a tu inventario, y añade preguntas
+# negativas que tu paquete deba responder con un "no" citado. Pensado para
+# paquetes con vista localizada (l10n/es/).
+questions:
+  - {id: disc-1, archetype: discovery, question: "¿Tenéis en stock una excavadora hidráulica usada de unas 20 toneladas con menos de 5.000 horas?"}
+  - {id: disc-2, archetype: discovery, question: "Necesito una carretilla elevadora usada para almacén, de unos 2.500 kg, eléctrica o de gas. ¿Qué tenéis?"}
+  - {id: disc-3, archetype: discovery, question: "¿Vendéis tractores y maquinaria agrícola usada, o solo máquinas de obra?"}
+  - {id: fact-1, archetype: product_fact, question: "¿Cuántas horas tiene la excavadora de 2019 que anunciáis, y cuándo se le hizo el último mantenimiento?"}
+  - {id: fact-2, archetype: product_fact, question: "¿Cuál es el número de serie y el año de la cargadora de ruedas que tenéis en inventario?"}
+  - {id: fact-3, archetype: product_fact, question: "¿Qué implementos incluye la minicargadora: cuchara, horquillas, pulgar hidráulico?"}
+  - {id: comp-1, archetype: comparison, question: "¿Qué diferencia hay entre las dos carretillas que anunciáis, la eléctrica y la de gas, para trabajar en interior?"}
+  - {id: comp-2, archetype: comparison, question: "¿Cuál de vuestros bulldozers conviene más para refino, el LGP o el de cadena estándar?"}
+  - {id: comp-3, archetype: comparison, question: "¿Cómo se comparan vuestros dos tornos CNC en paso de husillo, longitud de torneado y control?"}
+  - {id: pol-1, archetype: policy, question: "¿Vendéis las máquinas tal cual, y hay alguna garantía sobre una máquina usada?"}
+  - {id: pol-2, archetype: policy, question: "¿Puedo inspeccionar una máquina, o que la inspeccione un tercero, antes de comprar?"}
+  - {id: pol-3, archetype: policy, question: "¿Cuál es vuestra política de señal, y se devuelve la señal si al final no compro?"}
+  - {id: ful-1, archetype: fulfillment, question: "¿Organizáis el transporte, y cuánto cuesta llevar una excavadora dentro de la provincia?"}
+  - {id: ful-2, archetype: fulfillment, question: "¿Podéis cargar la máquina en mi góndola en el parque, y en qué horario?"}
+  - {id: ful-3, archetype: fulfillment, question: "¿Exportáis máquinas, y quién se encarga de los trámites de aduana para un comprador extranjero?"}
+  - {id: tru-1, archetype: trust, question: "¿Cuántos años lleva el concesionario en el negocio, y dónde está el parque?"}
+  - {id: tru-2, archetype: trust, question: "¿Cómo contacto por teléfono o correo con un comercial sobre una máquina concreta?"}
+  - {id: tru-3, archetype: trust, question: "¿Qué formas de pago aceptáis, y cuándo se transfiere la propiedad?"}
+  - {id: cap-1, archetype: capability, question: "¿Puede mi asistente comprobar si una referencia de stock sigue disponible y su precio actual?"}
+  - {id: cap-2, archetype: capability, question: "¿Hay una API para confirmar las horas actuales de una máquina antes de desplazarme?"}
+  - {id: cap-3, archetype: capability, question: "¿Puede un agente consultar qué máquinas hay ahora mismo en vuestro parque, por categoría?"}
+  - {id: promo-1, archetype: promotion, question: "¿Tenéis alguna máquina en oferta o rebajada ahora mismo?"}
+  - {id: promo-2, archetype: promotion, question: "¿Hay descuento por comprar dos máquinas a la vez?"}
+  - {id: promo-3, archetype: promotion, question: "¿Cuándo termina vuestra campaña de precios de fin de temporada?"}
+  - {id: fit-1, archetype: fit_compatibility, question: "¿El enganche rápido de vuestra excavadora sirve para las cucharas que ya tengo?"}
+  - {id: fit-2, archetype: fit_compatibility, question: "¿El manipulador telescópico que anunciáis pasa por una puerta de 3,6 metros, y qué altura de elevación tiene?"}
+  - {id: fit-3, archetype: fit_compatibility, question: "¿Las horquillas de esta carretilla sirven para los palets europeos de 1.200 por 800 que usamos?"}
+  - {id: own-1, archetype: ownership, question: "¿Dónde consigo repuestos y servicio para una máquina que os compré?"}
+  - {id: own-2, archetype: ownership, question: "La máquina que compré muestra un código de fallo. ¿Podéis ayudarme a diagnosticarlo?"}
+  - {id: own-3, archetype: ownership, question: "Compré una máquina con garantía. ¿Cómo presento una reclamación y consulto en qué estado está?"}
+  - {id: pass-1, archetype: compliance, question: "¿Qué fase de emisiones tiene el motor, y se puede matricular la máquina en la Unión Europea?"}
+  - {id: pass-2, archetype: compliance, question: "¿Está la máquina libre de cargas, y podéis aportar la documentación de propiedad?"}
+  - {id: pass-3, archetype: compliance, question: "¿Viene la máquina con su manual del operador, las pegatinas de seguridad y la declaración de conformidad CE?"}
+  - {id: loc-1, archetype: local_availability, question: "¿Está la máquina físicamente en vuestro parque, y puedo verla hoy?"}
+  - {id: loc-2, archetype: local_availability, question: "¿Qué horario tiene el parque, y hace falta cita para inspeccionar?"}
+  - {id: loc-3, archetype: local_availability, question: "¿Tenéis alguna sede más cerca de Zaragoza, o está todo en un solo parque?"}
+  - {id: rfq-1, archetype: procurement, question: "Somos una constructora comprando para la flota. ¿Ofrecéis precio de flota o cuenta de empresa?"}
+  - {id: rfq-2, archetype: procurement, question: "¿Qué condiciones de pago ofrecéis a una empresa: señal, transferencia, financiación, carta de crédito para exportación?"}
+  - {id: rfq-3, archetype: procurement, question: "Necesitamos tres máquinas entregadas antes de fin de trimestre. ¿Qué plazo de entrega hay, y cómo obtenemos una oferta formal?"}

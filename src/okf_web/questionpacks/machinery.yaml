@@ -1,0 +1,45 @@
+# Starter question pack: used machinery and industrial equipment dealers
+# (construction, material handling, agriculture, machine tools, trucks).
+# Seed for evaluations/questions.yaml — customize the makes, models and
+# yard details to your inventory, then curate: add negative probes your
+# bundle should answer with a sourced "no".
+questions:
+  - {id: disc-1, archetype: discovery, question: "Do you have a used hydraulic excavator in the 20-ton class with under 5,000 hours in stock?"}
+  - {id: disc-2, archetype: discovery, question: "I need a used forklift for a warehouse, around 5,000 lb capacity, electric or LP. What do you have?"}
+  - {id: disc-3, archetype: discovery, question: "Do you carry used tractors and farm equipment, or only construction machines?"}
+  - {id: fact-1, archetype: product_fact, question: "How many hours are on the 2019 excavator you have listed, and when was it last serviced?"}
+  - {id: fact-2, archetype: product_fact, question: "What are the serial number and year of the wheel loader in your inventory?"}
+  - {id: fact-3, archetype: product_fact, question: "Which attachments come with the skid steer: bucket, forks, hydraulic thumb?"}
+  - {id: comp-1, archetype: comparison, question: "What is the difference between the two forklifts you list, the electric and the LP model, for indoor use?"}
+  - {id: comp-2, archetype: comparison, question: "Which of your dozers is the better buy for finish grading, the LGP or the standard track?"}
+  - {id: comp-3, archetype: comparison, question: "How do your two CNC lathes compare on spindle bore, turning length and control?"}
+  - {id: pol-1, archetype: policy, question: "Are your machines sold as-is, and is there any warranty on a used machine?"}
+  - {id: pol-2, archetype: policy, question: "Can I inspect a machine, or have a third party inspect it, before I buy?"}
+  - {id: pol-3, archetype: policy, question: "What is your deposit policy, and is a deposit refundable if I walk away?"}
+  - {id: ful-1, archetype: fulfillment, question: "Do you arrange transport, and what does it cost to ship an excavator within the state?"}
+  - {id: ful-2, archetype: fulfillment, question: "Can you load the machine onto my trailer at the yard, and during what hours?"}
+  - {id: ful-3, archetype: fulfillment, question: "Do you export machines, and who handles the customs paperwork for an overseas buyer?"}
+  - {id: tru-1, archetype: trust, question: "How long has your dealership been in business, and where is the yard?"}
+  - {id: tru-2, archetype: trust, question: "How do I reach a salesperson by phone or email about a specific machine?"}
+  - {id: tru-3, archetype: trust, question: "What payment methods do you accept, and when does the title transfer?"}
+  - {id: cap-1, archetype: capability, question: "Can my assistant check whether a stock number is still available and its current asking price?"}
+  - {id: cap-2, archetype: capability, question: "Is there an API to confirm a machine's current hours before I drive out?"}
+  - {id: cap-3, archetype: capability, question: "Can an agent look up which machines are in your yard right now, by category?"}
+  - {id: promo-1, archetype: promotion, question: "Do you have any machines on sale or reduced right now?"}
+  - {id: promo-2, archetype: promotion, question: "Is there a discount for buying two machines at once?"}
+  - {id: promo-3, archetype: promotion, question: "When does your end-of-season pricing end?"}
+  - {id: fit-1, archetype: fit_compatibility, question: "Will the quick coupler on your excavator fit the buckets I already own?"}
+  - {id: fit-2, archetype: fit_compatibility, question: "Does the telehandler you list fit under a 12-foot door, and what is its lift height?"}
+  - {id: fit-3, archetype: fit_compatibility, question: "Will this forklift's forks work with the 48 by 40 inch pallets we run?"}
+  - {id: own-1, archetype: ownership, question: "Where do I get parts and service for a machine I bought from you?"}
+  - {id: own-2, archetype: ownership, question: "The machine I bought shows a fault code. Can you help me troubleshoot it?"}
+  - {id: own-3, archetype: ownership, question: "I bought a machine with a warranty. How do I file a claim and check where it stands?"}
+  - {id: pass-1, archetype: compliance, question: "What emissions tier is the engine, and can the machine be registered in California?"}
+  - {id: pass-2, archetype: compliance, question: "Is the title clean, and can you provide proof of ownership and a lien release?"}
+  - {id: pass-3, archetype: compliance, question: "Does the machine come with its operator manual, safety decals and a certificate of conformity?"}
+  - {id: loc-1, archetype: local_availability, question: "Is the machine physically in your yard, and can I see it today?"}
+  - {id: loc-2, archetype: local_availability, question: "What are your yard hours, and do I need an appointment to inspect?"}
+  - {id: loc-3, archetype: local_availability, question: "Do you have a location closer to Houston, or is everything at one yard?"}
+  - {id: rfq-1, archetype: procurement, question: "We are a contractor buying for a fleet. Do you offer fleet pricing or a trade account?"}
+  - {id: rfq-2, archetype: procurement, question: "What are your payment terms for a business: deposit, bank wire, financing, letter of credit for export?"}
+  - {id: rfq-3, archetype: procurement, question: "We need three machines delivered by the end of the quarter. What is the lead time, and how do we get a formal quote?"}
