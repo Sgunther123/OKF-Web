@@ -26,7 +26,7 @@ executor:
 attester:
   resource: /attesters/http_refetch.py
 x_geo:
-  profile: ecommerce-geo/1.11
+  profile: ecommerce-geo/1.12
   risk: a
   intents: [capability, fulfillment]
   rate_limit: 60 requests/minute per client

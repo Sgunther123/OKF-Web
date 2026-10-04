@@ -22,7 +22,7 @@ sources:
     title: Ridgeline 20 product page
     last_modified: 2026-07-22T00:00:00Z
 x_geo:
-  profile: ecommerce-geo/1.11
+  profile: ecommerce-geo/1.12
   risk: b
   intents: [ownership, product_fact]
   covers: [sku:APO-BAG-R20]

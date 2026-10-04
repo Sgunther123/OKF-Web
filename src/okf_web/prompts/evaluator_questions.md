@@ -9,7 +9,8 @@ answerable.
 # Input
 
 You receive `PER_ARCHETYPE` (questions per archetype), `ARCHETYPES`,
-and a `BUNDLE OUTLINE` listing every concept with its type and
+`LANGUAGE` (the bundle's declared language tag, or `undeclared`), and
+a `BUNDLE OUTLINE` listing every concept with its type and
 description.
 
 # Archetypes
@@ -57,7 +58,8 @@ description.
 # Rules
 
 1. Write questions a real shopper or shopping agent would ask, in
-   natural language.
+   natural language — in the language `LANGUAGE` names; when it is
+   `undeclared`, in the language the outline itself is written in.
 2. Ground most questions in entities from the outline, but include
    some the bundle *should* answer even if you suspect it cannot —
    gaps are the point of the evaluation.

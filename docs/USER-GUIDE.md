@@ -181,6 +181,12 @@ any other name, and the health check flags approvals from outside
 the list. Whatever you type after `--by`, an approval is stamped as
 a per-item review and a batch approval as a wholesale sign-off.
 
+If your store does not speak English, say so in the same `index.md`
+under `x_geo.language`, with a tag like `de` or `pt-BR`. The health
+check and the answerability run then ignore that language's filler
+words instead of English ones, and generated questions come out in
+your language. Left out, everything behaves as before.
+
 ### Step 5 — Get your report card
 
 ```

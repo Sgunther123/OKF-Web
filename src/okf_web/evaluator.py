@@ -44,6 +44,7 @@ from .model import (
     utc_instant,
     parse_document,
     write_atomic,
+    language_primary,
 )
 from .text import words
 
@@ -63,11 +64,105 @@ ARCHETYPES = [
     "procurement",    # B2B: wholesale eligibility, MOQs, payment terms, lead times, RFQ
 ]
 
-_STOPWORDS = {
-    "the", "a", "an", "of", "to", "in", "on", "for", "and", "or", "is",
-    "are", "do", "does", "can", "i", "my", "you", "your", "what", "how",
-    "much", "many", "with", "it", "this", "that", "be", "will",
+# Stop words per language, in the tokenizer's folded spelling (accents
+# stripped, lowercase): function words a shopper's question and a
+# concept share without meaning anything. Keyed by the primary subtag of
+# the bundle's (or view's) language — `stopwords_for`. The English list is
+# the historical one and stays byte-identical so an undeclared bundle
+# ranks exactly as before.
+STOPWORDS: dict[str, frozenset[str]] = {
+    "en": frozenset({
+        "the", "a", "an", "of", "to", "in", "on", "for", "and", "or", "is",
+        "are", "do", "does", "can", "i", "my", "you", "your", "what", "how",
+        "much", "many", "with", "it", "this", "that", "be", "will",
+    }),
+    "es": frozenset({
+        "el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del",
+        "al", "a", "en", "por", "para", "con", "sin", "sobre", "y", "o", "u",
+        "que", "es", "son", "esta", "estan", "ser", "estar", "hay", "tiene",
+        "tienen", "teneis", "tengo", "tenemos", "puedo", "puede", "pueden",
+        "podeis", "podemos", "se", "su", "sus", "mi", "mis", "tu", "tus",
+        "nuestro", "nuestra", "vuestro", "vuestra", "lo", "le", "les", "me",
+        "te", "nos", "os", "yo", "usted", "ustedes", "como", "cual", "cuales",
+        "cuanto", "cuanta", "cuantos", "cuantas", "donde", "cuando", "quien",
+        "si", "este", "estos", "estas", "ese", "esa", "esos", "esas", "esto",
+        "eso",
+    }),
+    "de": frozenset({
+        "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen",
+        "einem", "einer", "eines", "und", "oder", "aber", "in", "im", "an",
+        "am", "auf", "aus", "bei", "fur", "mit", "nach", "von", "vom", "zu",
+        "zum", "zur", "uber", "unter", "ist", "sind", "war", "waren", "sein",
+        "bin", "bist", "seid", "hat", "haben", "habe", "habt", "wird",
+        "werden", "kann", "konnen", "konnt", "kannst", "ich", "du", "er",
+        "sie", "es", "wir", "ihr", "mein", "meine", "meinen", "meinem",
+        "meiner", "dein", "deine", "euer", "eure", "ihre", "ihren", "ihrem",
+        "unser", "unsere", "was", "wie", "wo", "wann", "welche", "welcher",
+        "welches", "wer", "ob", "dass",
+    }),
+    "fr": frozenset({
+        "le", "la", "les", "l", "un", "une", "des", "de", "du", "d", "a",
+        "au", "aux", "en", "dans", "sur", "pour", "par", "avec", "sans", "et",
+        "ou", "que", "qui", "quoi", "qu", "est", "sont", "etre", "ete",
+        "etes", "avons", "avez", "ont", "ai", "as", "il", "elle", "ils",
+        "elles", "je", "j", "tu", "nous", "vous", "on", "mon", "ma", "mes",
+        "ton", "ta", "tes", "son", "sa", "ses", "notre", "nos", "votre",
+        "vos", "leur", "leurs", "ce", "c", "cet", "cette", "ces", "ca", "y",
+        "ne", "n", "s", "m", "t", "quel", "quelle", "quels", "quelles",
+        "comment", "combien", "quand", "puis", "peut", "peuvent", "pouvez",
+        "pouvons",
+    }),
+    "pt": frozenset({
+        "o", "a", "os", "as", "um", "uma", "uns", "umas", "de", "do", "da",
+        "dos", "das", "em", "no", "na", "nos", "nas", "por", "para", "pelo",
+        "pela", "com", "sem", "sobre", "e", "ou", "que", "sao", "esta",
+        "estao", "ser", "estar", "ha", "tem", "tenho", "temos", "pode",
+        "posso", "podem", "podemos", "se", "seu", "sua", "seus", "suas",
+        "meu", "minha", "meus", "minhas", "nosso", "nossa", "vosso", "vossa",
+        "eu", "tu", "voce", "voces", "ele", "ela", "eles", "elas", "como",
+        "qual", "quais", "quanto", "quanta", "quantos", "quantas", "onde",
+        "quando", "quem", "este", "estes", "estas", "esse", "essa", "esses",
+        "essas", "isto", "isso", "ao", "aos",
+    }),
+    "it": frozenset({
+        "il", "lo", "la", "i", "gli", "le", "l", "un", "uno", "una", "di",
+        "del", "dello", "della", "dei", "degli", "delle", "a", "al", "allo",
+        "alla", "ai", "agli", "alle", "da", "dal", "dallo", "dalla", "dai",
+        "dagli", "dalle", "in", "nel", "nello", "nella", "nei", "negli",
+        "nelle", "su", "sul", "sullo", "sulla", "sui", "sugli", "sulle",
+        "per", "con", "tra", "fra", "e", "o", "che", "chi", "cui", "sono",
+        "essere", "ho", "hai", "ha", "abbiamo", "avete", "hanno", "posso",
+        "puo", "possono", "potete", "possiamo", "si", "mi", "ti", "ci", "vi",
+        "li", "ne", "mio", "mia", "miei", "mie", "tuo", "tua", "tuoi", "tue",
+        "suo", "sua", "suoi", "sue", "nostro", "nostra", "vostro", "vostra",
+        "loro", "come", "quale", "quali", "quanto", "quanta", "quanti",
+        "quante", "dove", "quando", "questo", "questa", "questi", "queste",
+        "quello", "quella", "quelli", "quelle", "io", "tu", "lui", "lei",
+        "noi", "voi",
+    }),
+    "nl": frozenset({
+        "de", "het", "een", "en", "of", "van", "in", "op", "voor", "met",
+        "aan", "bij", "naar", "uit", "over", "tot", "om", "is", "zijn", "ben",
+        "bent", "was", "waren", "heb", "hebt", "heeft", "hebben", "kan",
+        "kunnen", "kunt", "wordt", "worden", "ik", "je", "jij", "u", "hij",
+        "zij", "ze", "we", "wij", "jullie", "mijn", "mij", "me", "jouw",
+        "jou", "uw", "haar", "ons", "onze", "hun", "hen", "wat", "hoe",
+        "waar", "wanneer", "welke", "welk", "wie", "dat", "die", "dit",
+        "deze", "er",
+    }),
 }
+_STOPWORDS = STOPWORDS["en"]  # the historical name, the historical list
+
+
+def stopwords_for(lang: str) -> frozenset[str]:
+    """The stop-word list for a language tag: the English list for an
+    undeclared bundle (the historical default), the language's own list
+    when one ships, and none for a declared language without one — an
+    English list applied to Japanese bigrams or Swedish words would be
+    noise, not signal."""
+    if not lang:
+        return STOPWORDS["en"]
+    return STOPWORDS.get(language_primary(lang), frozenset())
 
 
 @dataclass
@@ -240,7 +335,8 @@ def generate_questions(bundle: Bundle, llm, per_archetype: int = 3) -> list[Ques
         outline.append(f"- {concept.rel_path} [{concept.type}] {concept.title}: {desc}")
     user = (
         f"PER_ARCHETYPE: {per_archetype}\n"
-        f"ARCHETYPES: {', '.join(ARCHETYPES)}\n\n"
+        f"ARCHETYPES: {', '.join(ARCHETYPES)}\n"
+        f"LANGUAGE: {bundle.language or 'undeclared'}\n\n"
         "BUNDLE OUTLINE:\n" + "\n".join(sorted(outline))
     )
     response = llm.complete(system, user, max_tokens=4096)
@@ -261,8 +357,11 @@ def generate_questions(bundle: Bundle, llm, per_archetype: int = 3) -> list[Ques
 # Retrieval (progressive disclosure, lexical)
 # ---------------------------------------------------------------------------
 
-def _tokens(text: str) -> list[str]:
-    return [t for t in words(text) if t not in _STOPWORDS]
+def _tokens(text: str, lang: str = "") -> list[str]:
+    """The informative tokens of ``text`` in ``lang`` (the bundle's or
+    view's language; empty means undeclared, English stop words)."""
+    stop = stopwords_for(lang)
+    return [t for t in words(text) if t not in stop]
 
 
 # The share of a question's informative weight (idf mass) a concept
@@ -300,6 +399,7 @@ def _lexical_index(bundle: Bundle) -> tuple[dict, dict, dict, int]:
     cached = getattr(bundle, "_lexical_cache", None)
     if cached is not None:
         return cached
+    lang = bundle.language  # the view's language picks the stop words
     postings: dict[str, dict[str, int]] = {}
     intent_tokens: dict[str, set[str]] = {}
     by_rel: dict[str, Concept] = {}
@@ -308,11 +408,11 @@ def _lexical_index(bundle: Bundle) -> tuple[dict, dict, dict, int]:
         if concept.type in META_TYPES or split_l10n(rel) is not None:
             continue
         n_docs += 1
-        toks = _tokens(concept.retrieval_text())
+        toks = _tokens(concept.retrieval_text(), lang)
         if not toks:
             continue
         by_rel[rel] = concept
-        intent_tokens[rel] = set(_tokens(" ".join(concept.intents)))
+        intent_tokens[rel] = set(_tokens(" ".join(concept.intents), lang))
         counts: dict[str, int] = {}
         for tok in toks:
             counts[tok] = counts.get(tok, 0) + 1
@@ -342,7 +442,7 @@ def retrieve_scored(
     language, while in a ``localized_view`` the active translation
     sits under its source key and participates normally.
     """
-    query = set(_tokens(question))
+    query = set(_tokens(question, bundle.language))
     if not query:
         return []
     postings, intent_tokens, by_rel, n_docs = _lexical_index(bundle)

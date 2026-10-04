@@ -2,7 +2,7 @@
 
 **Status:** v1 design · **Format:** Open Knowledge Format (OKF) v0.2
 ([spec](https://github.com/GoogleCloudPlatform/open-knowledge-format))
-· **Profile:** `ecommerce-geo/1.11`
+· **Profile:** `ecommerce-geo/1.12`
 
 ## 1. Problem
 

@@ -627,6 +627,21 @@ def lint_bundle(
                         )
                     )
 
+    # The declared language (profile 1.12): retrieval, question generation
+    # and the derived tier read it, so a tag nothing can parse is worth a
+    # warning — the bundle then behaves as undeclared.
+    declared = bundle.declared_language
+    if declared is not None and not bundle.language:
+        findings.append(
+            Finding(
+                WARNING,
+                "W043",
+                "index.md",
+                f"x_geo.language {declared!r} is not a language tag (want a "
+                "BCP-47 tag like `en` or `pt-BR`)",
+            )
+        )
+
     # Translation parity: l10n/<lang>/<rel> mirrors <rel>. A translation
     # is knowledge too — but one whose source moved on is worse than
     # none, because it contradicts the default language with equal

@@ -1,4 +1,4 @@
-# The `ecommerce-geo/1.11` Profile for OKF v0.2
+# The `ecommerce-geo/1.12` Profile for OKF v0.2
 
 This profile specializes the
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format)
@@ -8,7 +8,7 @@ and keys are legal for OKF consumers), and any OKF reader can consume
 it. GEO-aware producers and consumers additionally get the guarantees
 below.
 
-A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.11`.
+A concept opts in by declaring `x_geo.profile: ecommerce-geo/1.12`.
 
 ## 1. Concept types
 
@@ -137,8 +137,9 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.11` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.12` (opt-in marker) |
 | `reviewers` | list | Root index only (1.11): the reviewer ids allowed to approve — `okf-web review` refuses any other `--by`, and lint W042 flags a `human:`/`human-batch:` stamp from outside the list |
+| `language` | string | Root index only (1.12): the bundle's default language as a BCP-47 tag (`en`, `de`, `pt-BR`). Retrieval chooses its stop-word list by it, question generation writes in it, and the derived tier tags with it; a localized view's language is its `l10n/<lang>/` tag. Lint W043 flags a malformed tag; an undeclared bundle keeps the English defaults |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
 | `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership`, `compliance`, `local_availability`, `procurement` — retrieval hint for engines |
 | `starts_at` / `ends_at` | date | Promotion concepts: the active window (`ends_at` required before stable; drives publisher auto-retirement) |
@@ -308,7 +309,11 @@ view*: translations overlay their sources, untranslated concepts
 fall back to the default language, and other languages drop out —
 partial translation degrades to mixed language, never to missing
 knowledge. Default-language retrieval and evaluation exclude `l10n/`
-trees so translations never duplicate their sources in ranking.
+trees so translations never duplicate their sources in ranking. The
+root index's `x_geo.language` (1.12, §2) names the default language and
+a localized view's language is its tag: retrieval drops that language's
+stop words, generated questions are written in it, and the derived
+tier tags its output with it.
 
 At publish time, generated artifacts `manifest.json`
 (per-file sha256 + bytes, and for every concept file its
@@ -405,6 +410,7 @@ path position is the binding.
 | W038 | warn | A `sources[].resource` that is not an `http(s)` URL — a citation nobody can follow |
 | W041 | warn | A stable concept of a type with a freshness SLA (§1) that carries no `stale_after` — immortal knowledge nothing will ask to re-check |
 | W042 | warn | A `human:`/`human-batch:` verification by an id outside the root index's `x_geo.reviewers` list, when the list exists |
+| W043 | warn | The root index's `x_geo.language` is not a BCP-47 language tag (like `en` or `pt-BR`); the bundle then behaves as undeclared |
 | W040 | warn | (`--strict-okf` only) declared base-spec deviation: index frontmatter beyond SPEC §8's allowance (§7) |
 
 Errors block publishing; `--strict` promotes warnings for CI.
@@ -415,7 +421,17 @@ Lint-only additions do not bump the profile: E020 and W038 (EDGE-CASES
 E3) and E021 (EDGE-CASES E4), all 2026-09-16, extend the vocabulary in
 §9 without changing a key or a type.
 
-**1.11** (current) closes GAPS items 3, 5 and 7 (GAPS.md, 2026-09-20):
+**1.12** (current) declares the bundle's language (2026-10-04):
+`x_geo.language` on the root index (§2, §7), a BCP-47 tag that the
+lexical retriever reads for its stop-word list (lists ship for
+English, Spanish, German, French, Portuguese, Italian and Dutch; a
+declared language without a list drops none, and an undeclared
+bundle keeps the English list, so existing rankings are unchanged),
+that question generation writes in, and that lint checks for shape
+(W043). Additive; concepts declaring earlier minors remain fully
+valid.
+
+**1.11** closes GAPS items 3, 5 and 7 (GAPS.md, 2026-09-20):
 per-type freshness SLA defaults stamped at the write gate and lint
 W041 for a stable concept without `stale_after`; `x_geo.reviewers`
 on the root index (§2, §7) with lint W042 and refusal in `review`;

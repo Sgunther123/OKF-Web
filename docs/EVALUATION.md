@@ -49,7 +49,12 @@ Per question:
    title/description/tags/body with an `x_geo.intents` boost;
    tokens are letters-and-digits runs of case-folded, accent-stripped
    text in any script (CJK as character bigrams), so `devolucion` finds
-   `devolución`; every hit carries a relevance share (the fraction of
+   `devolución`; stop words are dropped per language (lists for English,
+   Spanish, German, French, Portuguese, Italian and Dutch), chosen by the
+   view's language — the root index's `x_geo.language` for the default
+   view, the tag for `--lang`; an undeclared bundle keeps the English
+   list and a declared language without a list drops none; every hit
+   carries a relevance share (the fraction of
    the question's informative weight it matched) and hits below the
    floor (`--min-relevance`, default 0.05) are dropped — the floor
    removes single-common-word noise, not off-topic questions, which

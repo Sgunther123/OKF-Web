@@ -41,7 +41,7 @@ def _faq(bundle_dir: Path, rel: str, *, status="draft", risk="b", stale_after=No
         "---\ntype: FAQ\ntitle: FAQ\ndescription: Answers.\n"
         f"resource: {resource}\nstatus: {status}\n{stale}tags: [faq]\n"
         f"sources:\n  - id: faq\n    resource: {resource}\n    title: FAQ page\n"
-        f"x_geo:\n  profile: ecommerce-geo/1.11\n  risk: {risk}\n  intents: [trust]\n{extra_fm}"
+        f"x_geo:\n  profile: ecommerce-geo/1.12\n  risk: {risk}\n  intents: [trust]\n{extra_fm}"
         "---\n\n# Q\n\nA.[^faq]\n\n[^faq]: FAQ page.\n",
         encoding="utf-8",
     )

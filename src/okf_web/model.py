@@ -640,6 +640,7 @@ class Bundle:
     indexes: dict[str, Concept] = field(default_factory=dict)
     logs: dict[str, str] = field(default_factory=dict)
     broken: dict[str, str] = field(default_factory=dict)  # rel_path -> error
+    language_override: str = ""  # a localized view's tag (see `language`)
 
     @property
     def okf_version(self) -> str | None:
@@ -661,6 +662,27 @@ class Bundle:
         if not isinstance(value, list):
             return None
         return [str(v) for v in value]
+
+    @property
+    def declared_language(self) -> str | None:
+        """The raw ``x_geo.language`` on the root index (profile 1.12), or
+        None when the bundle declares none."""
+        root_index = self.indexes.get("index.md")
+        if root_index is None:
+            return None
+        x_geo = root_index.frontmatter.get("x_geo")
+        value = x_geo.get("language") if isinstance(x_geo, dict) else None
+        return None if value is None else str(value)
+
+    @property
+    def language(self) -> str:
+        """The language this bundle is read in: a localized view's tag,
+        else the root index's declared ``x_geo.language`` when it is a
+        well-formed BCP-47 tag (lowercased), else ``""`` — undeclared,
+        where tooling keeps its English defaults."""
+        if self.language_override:
+            return self.language_override
+        return language_tag(self.declared_language)
 
     def get(self, rel_path: str) -> Concept | None:
         return self.concepts.get(rel_path.lstrip("/"))
@@ -721,6 +743,21 @@ def trust_mix(bundle: Bundle) -> dict[str, int]:
     return dict(sorted(mix.items()))
 
 
+LANGUAGE_TAG_RE = re.compile(r"^[a-z]{2,3}(-[a-z0-9]{2,8})*$")
+
+
+def language_tag(value: object) -> str:
+    """``value`` as a normalized BCP-47 language tag — lowercased, like
+    ``en`` or ``pt-br`` — or ``""`` when it is not one."""
+    text = str(value or "").strip().lower().replace("_", "-")
+    return text if LANGUAGE_TAG_RE.match(text) else ""
+
+
+def language_primary(tag: str) -> str:
+    """The primary subtag of a language tag: ``pt`` for ``pt-BR``."""
+    return language_tag(tag).split("-", 1)[0]
+
+
 def localized_view(bundle: Bundle, lang: str) -> Bundle:
     """The bundle a ``lang`` shopper's engine reads.
 
@@ -731,7 +768,8 @@ def localized_view(bundle: Bundle, lang: str) -> Bundle:
     out. ``l10n/<lang>/index.md``, when present, replaces the root
     index.
     """
-    view = Bundle(root=bundle.root)
+    view = Bundle(root=bundle.root,
+                  language_override=language_tag(lang) or str(lang).strip().lower())
     view.concepts = {
         rel: c for rel, c in bundle.concepts.items() if split_l10n(rel) is None
     }

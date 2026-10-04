@@ -21,7 +21,7 @@ sources:
     last_modified: 2026-06-28T00:00:00Z
 usage_window: {from: 2026-07-01T00:00:00Z, to: 2026-07-31T00:00:00Z}
 x_geo:
-  profile: ecommerce-geo/1.11
+  profile: ecommerce-geo/1.12
   risk: b
   intents: [trust, policy, fulfillment]
   source_hash: sha256:4c6e8f0b2d4a6c8e0f2b4d6a8c0e2f4b6d8a0c2e4f6b8d0a2c4e6f8b0d2a4c6e

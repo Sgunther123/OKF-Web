@@ -23,7 +23,7 @@ sources:
     title: Contact page
     last_modified: 2026-07-02T00:00:00Z
 x_geo:
-  profile: ecommerce-geo/1.11
+  profile: ecommerce-geo/1.12
   risk: a
   intents: [trust, discovery]
   entity: org:alpine-peak-outfitters
