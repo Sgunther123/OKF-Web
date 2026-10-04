@@ -25,19 +25,19 @@ _FAQ = (
     "title: Preguntas de envío\n"
     "description: Respuestas sobre el envío de los pedidos a la península.\n"
     "tags: [faq, envios]\n"
-    "status: stable\n"
+    "status: {status}\n"
     "x_geo:\n"
     "  risk: b\n"
     "---\n\n# ¿Cuánto tarda el envío?\n\nEnviamos a toda la península en dos días laborables.\n"
 )
 
 
-def _bundle(tmp_path, language=None):
+def _bundle(tmp_path, language=None, status="stable"):
     root = tmp_path / "bundle"
     (root / "faq").mkdir(parents=True)
     line = f"  language: {language}\n" if language is not None else ""
     (root / "index.md").write_text(_INDEX.format(language=line), encoding="utf-8")
-    (root / "faq" / "envios.md").write_text(_FAQ, encoding="utf-8")
+    (root / "faq" / "envios.md").write_text(_FAQ.format(status=status), encoding="utf-8")
     return load_bundle(root)
 
 
@@ -105,3 +105,51 @@ def test_question_generation_names_the_language(tmp_path):
     assert [q.question for q in questions] == ["¿Envían a Canarias?"]
     evaluator.generate_questions(_bundle(tmp_path / "u"), LLM())
     assert "LANGUAGE: undeclared" in captured["user"]
+
+
+# --- the derived tier speaks the language -----------------------------------
+
+def test_derived_tier_carries_the_language(example_bundle, tmp_path):
+    import json
+
+    from okf_web.publisher import publish
+
+    result = publish(example_bundle, tmp_path / "dist",
+                     site="https://www.alpinepeakoutfitters.example")
+    dist = tmp_path / "dist"
+    faq = json.loads((dist / "jsonld/faq/general.json").read_text())
+    assert faq["inLanguage"] == "en" and faq["subjectOf"]["inLanguage"] == "en"
+    product = json.loads((dist / "jsonld/catalog/products/alpine-2-tent.json").read_text())
+    assert "inLanguage" not in product  # Product is not a CreativeWork: nothing invented
+    assert product["subjectOf"]["inLanguage"] == "en"
+    # The attested Spanish translation ships its own markup, under its tag.
+    assert "jsonld/l10n/es/faq/general.json" in result.structured
+    es = json.loads((dist / "jsonld/l10n/es/faq/general.json").read_text())
+    assert es["inLanguage"] == "es" and es["subjectOf"]["inLanguage"] == "es"
+    assert es["subjectOf"]["url"].endswith("/l10n/es/faq/general.md")
+    assert es["name"] == "Preguntas frecuentes"
+    manifest = json.loads((dist / "manifest.json").read_text())
+    assert manifest["language"] == "en" and manifest["languages"] == ["en", "es"]
+    assert list(manifest)[:4] == ["okf_version", "profile", "language", "languages"]
+    assert manifest["files"]["l10n/es/faq/general.md"]["language"] == "es"
+    assert "language" not in manifest["files"]["faq/general.md"]
+    llms = (dist / "llms.txt").read_text()
+    assert "The default language is `en`; translations follow in their own sections." in llms
+    assert "## Translations (es)" in llms and "/l10n/es/faq/general.md" in llms
+
+
+def test_undeclared_bundle_derives_without_language_tags(tmp_path):
+    import json
+
+    from okf_web import review
+    from okf_web.publisher import publish
+
+    bundle = _bundle(tmp_path, status="draft")  # Spanish content, no declaration
+    review.batch_approve(bundle, "owner@tienda.example")
+    publish(bundle.root, tmp_path / "dist")
+    obj = json.loads((tmp_path / "dist" / "jsonld/faq/envios.json").read_text())
+    assert "inLanguage" not in obj and "inLanguage" not in obj["subjectOf"]
+    manifest = json.loads((tmp_path / "dist" / "manifest.json").read_text())
+    assert "language" not in manifest and "languages" not in manifest
+    assert list(manifest)[:3] == ["okf_version", "profile", "published_at"]
+    assert "default language" not in (tmp_path / "dist" / "llms.txt").read_text()

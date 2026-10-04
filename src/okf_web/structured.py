@@ -101,7 +101,7 @@ def _sections(body: str) -> list[tuple[str, str]]:
     ]
 
 
-def _subject_of(concept: Concept, base: str) -> dict:
+def _subject_of(concept: Concept, base: str, lang: str = "") -> dict:
     """The bundle concept as the CreativeWork this object is about, with
     its freshness (GAPS item 7): ``dateModified`` is the latest human or
     machine verification (else the generation stamp) and ``expires`` the
@@ -112,6 +112,11 @@ def _subject_of(concept: Concept, base: str) -> dict:
         "url": f"{base}/{concept.rel_path}",
         "encodingFormat": "text/markdown",
     }
+    if lang:
+        # The concept's language (profile 1.12): a translation's tag, else
+        # the bundle's declared one — a CreativeWork property, so the typed
+        # object above it invents nothing.
+        obj["inLanguage"] = lang
     modified = concept.verified_at
     if not modified:
         generated = concept.frontmatter.get("generated")
@@ -125,7 +130,7 @@ def _subject_of(concept: Concept, base: str) -> dict:
     return obj
 
 
-def _product(concept: Concept, base: str) -> dict:
+def _product(concept: Concept, base: str, lang: str = "") -> dict:
     obj: dict = {
         "@context": _CONTEXT,
         "@type": "Product",
@@ -145,11 +150,11 @@ def _product(concept: Concept, base: str) -> dict:
     # Deliberately no `offers`: price and availability are live values.
     # The capability that serves them is in the bundle concept behind
     # `subjectOf` (x_geo.live_price / live_stock).
-    obj["subjectOf"] = _subject_of(concept, base)
+    obj["subjectOf"] = _subject_of(concept, base, lang)
     return obj
 
 
-def _faq(concept: Concept, base: str) -> dict | None:
+def _faq(concept: Concept, base: str, lang: str = "") -> dict | None:
     questions = [
         {
             "@type": "Question",
@@ -166,13 +171,15 @@ def _faq(concept: Concept, base: str) -> dict | None:
         "name": concept.title,
         "mainEntity": questions,
     }
+    if lang:
+        obj["inLanguage"] = lang  # FAQPage is a CreativeWork: the property is its own
     if _is_http(concept.resource):
         obj["url"] = concept.resource
-    obj["subjectOf"] = _subject_of(concept, base)
+    obj["subjectOf"] = _subject_of(concept, base, lang)
     return obj
 
 
-def _organization(concept: Concept, base: str, site: str | None) -> dict:
+def _organization(concept: Concept, base: str, site: str | None, lang: str = "") -> dict:
     obj: dict = {
         "@context": _CONTEXT,
         "@type": "Organization",
@@ -183,7 +190,7 @@ def _organization(concept: Concept, base: str, site: str | None) -> dict:
         obj["url"] = site
     elif _is_http(concept.resource):
         obj["url"] = concept.resource
-    obj["subjectOf"] = _subject_of(concept, base)
+    obj["subjectOf"] = _subject_of(concept, base, lang)
     return obj
 
 
@@ -206,7 +213,7 @@ def _opening_hours(hours: dict) -> list[str]:
     return out
 
 
-def _local_business(concept: Concept, base: str) -> dict:
+def _local_business(concept: Concept, base: str, lang: str = "") -> dict:
     obj: dict = {
         "@context": _CONTEXT,
         "@type": "LocalBusiness",
@@ -228,11 +235,11 @@ def _local_business(concept: Concept, base: str) -> dict:
             opening = _opening_hours(hours)
             if opening:
                 obj["openingHours"] = opening
-    obj["subjectOf"] = _subject_of(concept, base)
+    obj["subjectOf"] = _subject_of(concept, base, lang)
     return obj
 
 
-def _return_policy(concept: Concept, base: str) -> dict:
+def _return_policy(concept: Concept, base: str, lang: str = "") -> dict:
     # The profile keeps policy terms as verified prose, not structured
     # fields, so this stays minimal-but-valid: universal properties
     # only. Engines wanting the terms follow url/subjectOf.
@@ -244,7 +251,7 @@ def _return_policy(concept: Concept, base: str) -> dict:
     }
     if _is_http(concept.resource):
         obj["url"] = concept.resource
-    obj["subjectOf"] = _subject_of(concept, base)
+    obj["subjectOf"] = _subject_of(concept, base, lang)
     return obj
 
 
@@ -255,19 +262,22 @@ def _is_return_policy(concept: Concept) -> bool:
     return "return" in haystack
 
 
-def jsonld_for(concept: Concept, base: str, site: str | None = None) -> dict | None:
+def jsonld_for(concept: Concept, base: str, site: str | None = None,
+               lang: str = "") -> dict | None:
     """The schema.org object for one concept, or None when the type has
-    no faithful mapping (better no markup than invented markup)."""
+    no faithful mapping (better no markup than invented markup).
+    ``lang`` is the language the object speaks (a translation's tag or
+    the bundle's declared language); empty means untagged."""
     if concept.type == "Product":
-        return _product(concept, base)
+        return _product(concept, base, lang)
     if concept.type == "FAQ":
-        return _faq(concept, base)
+        return _faq(concept, base, lang)
     if concept.type == "Store Identity":
-        return _organization(concept, base, site)
+        return _organization(concept, base, site, lang)
     if concept.type == "Store Location":
-        return _local_business(concept, base)
+        return _local_business(concept, base, lang)
     if concept.type == "Policy" and _is_return_policy(concept):
-        return _return_policy(concept, base)
+        return _return_policy(concept, base, lang)
     return None
 
 
@@ -283,11 +293,16 @@ def write_structured(
     written: list[str] = []
     for rel in sorted(published):
         concept = bundle.concepts.get(rel)
-        if concept is None or split_l10n(rel) is not None:
+        if concept is None:
             continue
         if concept.trust_tier not in (TRUST_HUMAN, TRUST_HUMAN_BATCH):
             continue
-        obj = jsonld_for(concept, base, site)
+        # A translation speaks its tag and ships under jsonld/l10n/<lang>/;
+        # everything else speaks the bundle's declared language (profile
+        # 1.12), or goes untagged when the bundle declares none.
+        parsed = split_l10n(rel)
+        lang = parsed[0] if parsed is not None else bundle.language
+        obj = jsonld_for(concept, base, site, lang=lang)
         if obj is None:
             continue
         out_rel = "jsonld/" + rel[:-3] + ".json" if rel.endswith(".md") else f"jsonld/{rel}.json"
@@ -331,9 +346,12 @@ def write_llms_txt(
         None,
     )
     by_type: dict[str, list[Concept]] = {}
+    by_lang: dict[str, list[Concept]] = {}
     covered: set[str] = set()
     for rel in sorted(published):
-        if split_l10n(rel) is not None:
+        parsed = split_l10n(rel)
+        if parsed is not None:
+            by_lang.setdefault(parsed[0], []).append(bundle.concepts[rel])
             continue
         concept = bundle.concepts[rel]
         by_type.setdefault(concept.type or "", []).append(concept)
@@ -351,6 +369,11 @@ def write_llms_txt(
         "it goes stale. Live values (price, stock) are deliberately not "
         "stated — execute the capability concepts instead."
     )
+    if bundle.language:
+        lines.append(
+            f"The default language is `{bundle.language}`"
+            + ("; translations follow in their own sections." if by_lang else ".")
+        )
 
     def _entry(concept: Concept) -> str:
         desc = _plain(str(concept.frontmatter.get("description") or ""))
@@ -383,6 +406,14 @@ def write_llms_txt(
     ]
     if leftovers:
         lines += ["", "## More", ""] + [_entry(c) for c in leftovers]
+
+    # Translations, one section per language tag (profile 1.12): a
+    # consumer reading in that language finds them without knowing the
+    # directory convention; links are navigation, so they list even what
+    # the derived tier would not restate.
+    for tag in sorted(by_lang):
+        lines += ["", f"## Translations ({tag})", ""]
+        lines += [_entry(c) for c in by_lang[tag]]
 
     lines += [
         "",

@@ -47,6 +47,7 @@ from .model import (
     load_bundle,
     marked_dists,
     write_atomic,
+    split_l10n,
 )
 from .net import ROBOTS_POLICY, FetchPolicy, safe_fetch
 from .structured import write_llms_txt, write_structured
@@ -424,16 +425,32 @@ def _write_manifest(
                 entry["stale_after"] = concept.stale_after_iso
             if concept.verified_at:
                 entry["verified_at"] = concept.verified_at
+            parsed = split_l10n(rel)
+            if parsed is not None:
+                entry["language"] = parsed[0]  # a translation names its tag (1.12)
         files[rel] = entry
-    manifest = {
-        "okf_version": OKF_VERSION,
-        "profile": PROFILE,
-        "published_at": _dt.datetime.now(_dt.timezone.utc)
+    manifest: dict = {"okf_version": OKF_VERSION, "profile": PROFILE}
+    # The languages a consumer will find (profile 1.12): the bundle's own
+    # declared one and every translation tree that published. Absent when
+    # nothing is declared and nothing is translated.
+    declared = bundle.language if bundle is not None else ""
+    translated = {
+        split_l10n(rel)[0]
+        for rel in published
+        if bundle is not None and rel in bundle.concepts and split_l10n(rel) is not None
+    }
+    languages = sorted({declared, *translated} - {""})
+    if declared:
+        manifest["language"] = declared
+    if languages:
+        manifest["languages"] = languages
+    manifest["published_at"] = (
+        _dt.datetime.now(_dt.timezone.utc)
         .replace(microsecond=0)
         .isoformat()
-        .replace("+00:00", "Z"),
-        "files": files,
-    }
+        .replace("+00:00", "Z")
+    )
+    manifest["files"] = files
     # The bundle→store half of the delegation binding (the store→bundle
     # half is the pointer on the site itself). Consumers of an
     # off-origin bundle MUST check manifest.site against the origin

@@ -316,10 +316,15 @@ stop words, generated questions are written in it, and the derived
 tier tags its output with it.
 
 At publish time, generated artifacts `manifest.json`
-(per-file sha256 + bytes, and for every concept file its
+(per-file sha256 + bytes; for every concept file its
 `stale_after` and `verified_at` instants — freshness in the one file
-consumers fetch anyway; the JSON-LD `subjectOf` objects carry the same
-as `expires` and `dateModified`), `linkmap.json` (live URL → concept path),
+consumers fetch anyway; since 1.12 the bundle's `language`, the
+`languages` it is published in and each translation file's `language`;
+the JSON-LD `subjectOf` objects carry the same freshness as `expires`
+and `dateModified` and the concept's language as `inLanguage`, with
+attested translations emitted under `jsonld/l10n/<lang>/`, and
+`llms.txt` lists each language's translations in its own section),
+`linkmap.json` (live URL → concept path),
 `llms-snippet.txt`, and optionally `manifest.json.sigstore.json` — a
 sigstore signature over the manifest that authenticates the entire
 published bundle (consumers probe this conventional name, verify the
@@ -427,9 +432,12 @@ lexical retriever reads for its stop-word list (lists ship for
 English, Spanish, German, French, Portuguese, Italian and Dutch; a
 declared language without a list drops none, and an undeclared
 bundle keeps the English list, so existing rankings are unchanged),
-that question generation writes in, and that lint checks for shape
-(W043). Additive; concepts declaring earlier minors remain fully
-valid.
+that question generation writes in, that lint checks for shape
+(W043), and that the derived tier carries: `inLanguage` on every
+JSON-LD `subjectOf` (and on `FAQPage`), JSON-LD for attested
+translations under `jsonld/l10n/<lang>/`, a translations section per
+language in `llms.txt`, and `language`/`languages` in `manifest.json`.
+Additive; concepts declaring earlier minors remain fully valid.
 
 **1.11** closes GAPS items 3, 5 and 7 (GAPS.md, 2026-09-20):
 per-type freshness SLA defaults stamped at the write gate and lint

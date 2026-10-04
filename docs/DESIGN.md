@@ -345,7 +345,9 @@ The bundle is static files — publishable to the same CDN as the site:
   launder unverified text into the merchant's own markup; links, being
   navigation, cover the whole published set); every object carries
   `subjectOf` pointing back at its bundle concept, so provenance stays
-  one hop away; and the **live-values rule survives the downgrade** —
+  one hop away, and names the concept's language as `inLanguage` when
+  the bundle declares one (a translation carries its own tag and ships
+  under `jsonld/l10n/<lang>/`); and the **live-values rule survives the downgrade** —
   Product markup carries identity (name, brand, GTIN/MPN/SKU, URL) and
   deliberately no `offers`, price, or availability. Mappings: Product,
   FAQ → FAQPage (sections become Q&A, footnote apparatus stripped),
