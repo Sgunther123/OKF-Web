@@ -477,3 +477,50 @@ bridge treats a batch as the protocol does (an array of answers) rather
 than refusing it; the proxied resolver check lets an unresolvable name
 through to the proxy, since corporate resolvers often answer only for
 the proxy, and refuses only a name that resolves privately here.
+
+### U3 · Operator-loop correctness (S–M) — landed 2026-10-23
+
+Closes L-U2, L-U3, L-U4, L-U6, L-U7, L-U8, L-U10, L-U11 and A-U9's
+lock half (its scorecard half landed with U1). Each is one direct
+test in `tests/test_operator_loop.py`.
+
+- **L-U2 (medium).** `review approve --stale-after` on a concept the
+  same reviewer had already approved printed "no change" and wrote
+  nothing, so the remedy USER-GUIDE gives for W041 failed. The CLI
+  skips the no-op shortcut whenever a date is given; the library
+  already honoured it.
+- **L-U3 (medium).** `drift` hashed the source *page* of a concept a
+  feed produced, whose fingerprint is the feed *row*, so every
+  feed-derived concept read as drifted forever. Such concepts
+  (`generated.by == feed.FEED_ACTOR`) are now counted as
+  `feed_derived`, never fetched, and left to the next ingest; the CLI
+  summary names them and exits clean.
+- **L-U4 (medium).** `--include-machine-confirmed` shipped `deprecated`
+  concepts while the viewer called them drafts. The option ships
+  low-risk *drafts* only; the viewer names any other status.
+- **L-U6 (medium).** `generate_questions` dropped the `paraphrase` the
+  prompt asks for and the CLI never wrote it, so generated packs had
+  no paraphrase metrics. Both keep it.
+- **L-U7 (low).** `localized_view` labelled the view with the
+  normalized tag but matched the `l10n/` tree with the raw argument, so
+  `--lang ES` served English labelled Spanish. One normalized tag
+  drives label, overlay and index, and a regional tag without a tree
+  of its own (`es-ES`) falls back to its primary subtag's.
+- **L-U8 (low).** A promotion's last valid day was stale (`>=` on a
+  `stale_after` stamped at the start of `ends_at`) but not expired
+  (`>`), so the strictest publish withheld a live sale. A sale is valid
+  through `ends_at`: the surveyor stamps the following midnight UTC,
+  W027 accepts anything up to it, and the example promotion carries
+  the new stamp (GEO-PROFILE F5 states the rule).
+- **L-U10 (low).** A malformed `.embeddings.json` entry whose hash
+  matched (a null vector, a string, the wrong dimension) crashed
+  retrieval. Such an entry is a miss to re-embed, like the parse cache
+  (S8).
+- **L-U11 (low).** llms.txt's "Guides and compatibility" matched
+  `Guide` and `Ownership`, which no concept is typed as; it now lists
+  `Buying Guide` and `Ownership Guide`.
+- **A-U9 (low).** `report` writes into the bundle without the lock; it
+  joins `_MUTATING`.
+
+Suite 441 locally, 442 in CI; lint 0/0; the dry-run numbers unchanged
+(the promotion's stamp is not retrieval text).

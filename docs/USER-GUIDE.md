@@ -303,7 +303,10 @@ okf-web drift my-store
 checks — without any AI cost — whether the pages your fact sheets
 came from have changed since, and names the ones to re-survey; it
 exits 1 when pages changed and 3 when some could not be fetched at all
-(a network problem, not a change). And if
+(a network problem, not a change). Fact sheets that came from a
+product feed are left to the next feed run instead (their fingerprint
+is the feed row's, not a page's; `drift` counts them as feed-derived
+and never calls them changed). And if
 life gets busy, publish with `--freshness withhold`: fact sheets past
 their freshness date are quietly left out of the public folder
 instead of shipped stale. A neglected folder then *says less* rather

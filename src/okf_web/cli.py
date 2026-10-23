@@ -197,7 +197,9 @@ def cmd_review(args) -> int:
     if args.action == "approve":
         rel = review.resolve_path(bundle, args.path)
         note = review.approval_state(bundle.get(rel), args.by)
-        if note:
+        if note and not args.stale_after:
+            # A new freshness date is a change even for an approved
+            # concept (the W041 remedy, review 2026-10-21 L-U2).
             print(f"{rel}: {note}")
             return 0
         concept = review.approve(bundle, rel, args.by, stale_after=args.stale_after)
@@ -342,7 +344,8 @@ def cmd_questions(args) -> int:
         yaml.safe_dump(
             {
                 "questions": [
-                    {"id": q.id, "archetype": q.archetype, "question": q.question}
+                    {"id": q.id, "archetype": q.archetype, "question": q.question,
+                     **({"paraphrase": q.paraphrase} if q.paraphrase else {})}
                     for q in questions
                 ]
             },
@@ -534,7 +537,8 @@ def cmd_drift(args) -> int:
     print(
         f"\n{len(report.unchanged)} unchanged, {len(report.drifted)} drifted, "
         f"{len(report.unreachable)} unreachable, {len(report.skipped)} skipped "
-        "(no surveyed source)"
+        f"(no surveyed source), {len(report.feed_derived)} feed-derived "
+        "(checked by the next feed ingest, not by a page fetch)"
     )
     if report.drifted:
         print("re-survey the drifted URLs to refresh those concepts")
@@ -1365,7 +1369,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 # Commands that write into a bundle hold its lock for the run; the value
 # says whether the command may create the bundle directory.
-_MUTATING: dict[str, bool] = {"survey": True, "init": True, "index": False}
+# `report` writes the page into the bundle (review 2026-10-21, A-U9).
+_MUTATING: dict[str, bool] = {"survey": True, "init": True, "index": False,
+                              "report": False}
 
 
 def _lock_for(args) -> tuple[bool, bool]:

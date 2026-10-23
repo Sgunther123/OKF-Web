@@ -341,14 +341,16 @@ def survey_page(
         # model's choice (EDGE-CASES S3).
         fm["resource"] = url
         # Promotions retire with their sale: default stale_after to the
-        # end date so the freshness machinery tracks the time bound.
-        # `ends_at` is a profile calendar date; `stale_after` is a spec
-        # timestamp, stamped at instant precision since F5 (midnight UTC
-        # of the end date — W027's date-granular equality still holds).
+        # instant the sale is over. `ends_at` is a profile calendar date
+        # the sale is valid *through*, so the spec timestamp is midnight
+        # UTC at the end of that day (GEO-PROFILE F5; review 2026-10-21,
+        # L-U8 — stamping the start of the day withheld the last valid
+        # day as stale while W028 still called the sale live).
         if fm.get("type") == "Promotion" and x_geo.get("ends_at") and not fm.get("stale_after"):
             ends = _as_date(x_geo["ends_at"])
             fm["stale_after"] = (
-                f"{ends.isoformat()}T00:00:00Z" if ends else x_geo["ends_at"]
+                f"{(ends + _dt.timedelta(days=1)).isoformat()}T00:00:00Z"
+                if ends else x_geo["ends_at"]
             )
 
         concept = Concept(rel, fm, body)

@@ -328,11 +328,13 @@ def build_viewer(
         concept = bundle.concepts[rel]
         if concept.type == "Promotion" and concept.promo_expired(today):
             reason = "expired promotion, retired automatically"
-        else:
+        elif concept.status == "draft":
             reason = "draft awaiting human review" + (
                 " (high risk: only a named person's approval can publish it)"
                 if concept.is_high_risk else ""
             )
+        else:
+            reason = f"status {concept.status}: only stable concepts publish"
         held.append((concept, reason))
 
     languages = sorted({

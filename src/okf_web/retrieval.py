@@ -173,6 +173,25 @@ class EmbeddingIndex:
         # SIGTERM mid-write leaves the previous cache, never a torn one.
         write_atomic(self.cache_path, json.dumps(cache))
 
+    def _cached_vector(self, entry, digest: str) -> list[float] | None:
+        """The cached vector for a concept whose text hashes to ``digest``,
+        or None when the entry is absent, for another text, or not a
+        vector at all (a null, a string, a wrong dimension): a malformed
+        working-state entry is a miss to re-embed, never an exception
+        (review 2026-10-21, L-U10; the parse cache already held this
+        rule, EDGE-CASES S8)."""
+        if not isinstance(entry, dict) or entry.get("hash") != digest:
+            return None
+        vector = entry.get("vector")
+        if not isinstance(vector, list) or not vector:
+            return None
+        if not all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in vector):
+            return None
+        expected = getattr(self.embedder, "_dim", None)
+        if expected is not None and len(vector) != expected:
+            return None
+        return [float(x) for x in vector]
+
     # -- build -------------------------------------------------------------
     def build(self, bundle: Bundle) -> int:
         """(Re)build vectors for the bundle; returns how many concepts
@@ -186,9 +205,9 @@ class EmbeddingIndex:
                 continue
             text = concept.retrieval_text()
             digest = sha256_text(text)
-            entry = cached.get(rel)
-            if entry and entry.get("hash") == digest:
-                self._vectors[rel] = entry["vector"]
+            vector = self._cached_vector(cached.get(rel), digest)
+            if vector is not None:
+                self._vectors[rel] = vector
                 self._hashes[rel] = digest
             else:
                 todo.append((rel, text))

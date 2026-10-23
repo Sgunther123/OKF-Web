@@ -292,15 +292,19 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                     )
                 )
         else:
+            # The sale is valid through `ends_at`, so `stale_after` may
+            # fall anywhere up to the midnight that ends that day (the
+            # surveyor stamps exactly that); later outlives the sale.
             stale_date = _as_date(concept.frontmatter.get("stale_after"))
-            if stale_date is None or stale_date > ends:
+            if stale_date is None or stale_date > ends + _dt.timedelta(days=1):
                 findings.append(
                     Finding(
                         WARNING,
                         "W027",
                         rel,
-                        "Promotion `stale_after` should equal `x_geo.ends_at` "
-                        "so the freshness machinery retires it with the sale",
+                        "Promotion `stale_after` should be the midnight after "
+                        "`x_geo.ends_at` (or earlier) so the freshness machinery "
+                        "retires it with the sale",
                     )
                 )
             if (today or utc_today()) > ends:

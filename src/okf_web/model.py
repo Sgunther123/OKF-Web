@@ -788,14 +788,27 @@ def localized_view(bundle: Bundle, lang: str) -> Bundle:
     out. ``l10n/<lang>/index.md``, when present, replaces the root
     index.
     """
-    view = Bundle(root=bundle.root,
-                  language_override=language_tag(lang) or str(lang).strip().lower())
+    # One normalized tag for the label, the overlay and the index: `ES`
+    # is the `es` tree, and a regional tag with no tree of its own
+    # (`es-ES`, `es_ES`) falls back to its primary subtag's — never
+    # English labeled Spanish (review 2026-10-21, L-U7). The label is
+    # the tree actually served.
+    tag = language_tag(lang) or str(lang).strip().lower()
+    trees = {
+        parsed[0]
+        for rel in (*bundle.concepts, *bundle.indexes)
+        for parsed in (split_l10n(rel),)
+        if parsed
+    }
+    if tag not in trees and language_primary(tag) in trees:
+        tag = language_primary(tag)
+    view = Bundle(root=bundle.root, language_override=tag)
     view.concepts = {
         rel: c for rel, c in bundle.concepts.items() if split_l10n(rel) is None
     }
     for rel, concept in bundle.concepts.items():
         parsed = split_l10n(rel)
-        if parsed and parsed[0] == lang:
+        if parsed and parsed[0] == tag:
             # Re-key *and* re-path: the overlay must advertise the same
             # rel_path a consumer can look back up (search → get, the
             # citability metric), not an l10n/ path this view no longer
@@ -807,7 +820,7 @@ def localized_view(bundle: Bundle, lang: str) -> Bundle:
     view.indexes = {
         rel: doc for rel, doc in bundle.indexes.items() if split_l10n(rel) is None
     }
-    localized_index = bundle.indexes.get(f"{L10N_DIR}/{lang}/index.md")
+    localized_index = bundle.indexes.get(f"{L10N_DIR}/{tag}/index.md")
     if localized_index is not None:
         view.indexes["index.md"] = Concept(
             "index.md", localized_index.frontmatter, localized_index.body,

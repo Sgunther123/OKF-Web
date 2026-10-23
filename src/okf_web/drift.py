@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .feed import FEED_ACTOR
 from .model import load_bundle
 from .surveyor import fetch, html_to_text, stable_page_hash
 
@@ -47,6 +48,10 @@ class DriftReport:
     drifted: list[tuple[str, str]] = field(default_factory=list)      # (rel, url)
     unreachable: list[tuple[str, str]] = field(default_factory=list)  # (rel, error)
     skipped: list[str] = field(default_factory=list)
+    # Concepts a feed produced: their hash is the row's, not a page's, so
+    # a page fetch can only ever disagree (review 2026-10-21, L-U3). The
+    # next feed ingest is their drift check.
+    feed_derived: list[str] = field(default_factory=list)
 
     @property
     def clean(self) -> bool:
@@ -81,6 +86,9 @@ def check_bundle(
         url = concept.resource
         if not url or not concept.source_hash or not url.startswith(("http://", "https://")):
             report.skipped.append(rel)
+            continue
+        if concept.generated_by == FEED_ACTOR:
+            report.feed_derived.append(rel)
             continue
         if url not in pages:
             try:

@@ -318,7 +318,7 @@ _LLMS_SECTIONS = (
     ("Policies", ("Policy",)),
     ("FAQ", ("FAQ",)),
     ("Store", ("Store Identity", "Store Location")),
-    ("Guides and compatibility", ("Guide", "Compatibility", "Ownership")),
+    ("Guides and compatibility", ("Buying Guide", "Compatibility", "Ownership Guide")),
     ("Catalog", ("Product Collection",)),
     ("Products", ("Product",)),
     ("Live values (executable)", ("Attested Computation",)),

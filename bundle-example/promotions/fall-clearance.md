@@ -5,7 +5,7 @@ description: 15% discount on all sleeping bags with code FALL15 at checkout, run
 resource: https://www.alpinepeakoutfitters.example/sale/fall-clearance
 tags: [promotion, sale, sleeping-bags]
 status: stable
-stale_after: 2027-12-31T00:00:00Z
+stale_after: 2028-01-01T00:00:00Z
 generated:
   by: okf-web-surveyor/claude-sonnet-5
   at: 2026-08-04T09:38:11Z

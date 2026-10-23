@@ -148,7 +148,10 @@ def select_publishable(
             withheld.append(rel)
         elif concept.status == "stable":
             include.add(rel)
-        elif include_machine_confirmed and not concept.is_high_risk:
+        elif (include_machine_confirmed and concept.status == "draft"
+              and not concept.is_high_risk):
+            # A low-risk draft, on request; a deprecated or unknown status
+            # never ships (review 2026-10-21, L-U4).
             include.add(rel)
         else:
             withheld.append(rel)

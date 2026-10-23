@@ -370,6 +370,9 @@ def generate_questions(bundle: Bundle, llm, per_archetype: int = 3) -> list[Ques
                 id=str(item.get("id") or f"gen{i}"),
                 archetype=str(item.get("archetype") or "discovery"),
                 question=str(item.get("question") or "").strip(),
+                # The prompt asks for it; dropping it left generated packs
+                # without paraphrase metrics (review 2026-10-21, L-U6).
+                paraphrase=str(item.get("paraphrase") or "").strip(),
             )
         )
     return [q for q in questions if q.question]

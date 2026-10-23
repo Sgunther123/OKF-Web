@@ -55,9 +55,11 @@ tooling and engines can dispatch on them.
   `http` runtime.
 - **`Promotion`:** the time bound is the contract. `x_geo.ends_at`
   required before `stable` (lint E014 — unbounded promotions are what
-  engines misquote); `x_geo.starts_at` recommended; `stale_after`
-  SHOULD equal `ends_at` so freshness machinery retires the concept
-  with the sale (W027, and the surveyor defaults it). The discount's
+  engines misquote); `x_geo.starts_at` recommended; the sale is valid
+  *through* `ends_at`, so `stale_after` SHOULD be the midnight UTC
+  that ends that day (or earlier) and freshness machinery retires the
+  concept with the sale (W027 warns when it is later; the surveyor
+  defaults it to exactly that instant — EDGE-CASES §7, U3). The discount's
   *terms* are stated in the body; the resulting price never is (§4).
   **The publisher auto-withholds expired promotions** — `ends_at` is
   machine-readable, so this is the one content class with unambiguous
@@ -295,7 +297,11 @@ own `x_geo` date keys — `starts_at`, `ends_at`, `source_fetched_at` —
 remain **calendar dates by design**: a sale ends on a date, not at an
 instant, and a survey stamp needs day precision only. Where a spec
 timestamp derives from a profile date (a Promotion's `stale_after`
-from its `ends_at`), midnight UTC of that date is stamped.
+from its `ends_at`), the stamp is midnight UTC at the *end* of that
+date — the sale is valid through `ends_at`, and the concept turns
+stale at the same instant the publisher's expiry rule (`>`) retires
+it (U3, 2026-10-23; before that the start of the day was stamped and
+the last valid day shipped as stale).
 Additionally reserved by this profile:
 `_review/` (drift proposals awaiting humans) and `_quarantine/`
 (rejected LLM output) — working-copy state that MUST NOT be
@@ -393,7 +399,7 @@ path position is the binding.
 | W020 | warn | Footnote ref without matching `sources[].id`/definition |
 | W021 | warn | `stale_after` has passed (publish `--freshness withhold` retires such concepts instead of shipping them) |
 | W022 | warn | Broken bundle-internal link |
-| W027 | warn | `Promotion` missing end date (draft) or `stale_after` ≠ `ends_at` |
+| W027 | warn | `Promotion` missing end date (draft) or `stale_after` later than the midnight after `ends_at` |
 | W028 | warn | Promotion ended; publisher withholds it — retire the concept |
 | W024 | warn | Risk-`a` concept with no claim-level footnotes |
 | W026 | warn | Attested Computation without `executor.resource` |
@@ -427,7 +433,10 @@ Errors block publishing; `--strict` promotes warnings for CI.
 Lint-only additions do not bump the profile: E020 and W038 (EDGE-CASES
 E3) and E021 (EDGE-CASES E4), all 2026-09-16, and E022 and E023
 (EDGE-CASES §7, U1 and U2, 2026-10-23) extend the vocabulary in §9
-without changing a key or a type.
+without changing a key or a type. U3 (2026-10-23) fixes the Promotion
+end day without changing a key: a sale is valid through `ends_at`, so
+the surveyor stamps `stale_after` at the following midnight UTC and
+W027 accepts anything up to that instant (F5 states the rule).
 
 **1.12** (current) declares the bundle's language (2026-10-04):
 `x_geo.language` on the root index (§2, §7), a BCP-47 tag that the

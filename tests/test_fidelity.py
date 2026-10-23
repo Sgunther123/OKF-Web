@@ -423,8 +423,8 @@ def test_scorecard_carries_instant_sla(tmp_path, example_bundle):
 
 def test_promotion_stale_after_stamped_as_instant(tmp_path):
     """The surveyor's promotion defaulting: ends_at (a profile calendar
-    date) becomes a spec instant at midnight UTC, and W027's
-    date-granular equality still holds."""
+    date the sale is valid through) becomes a spec instant at the
+    midnight UTC that ends that day, and W027 accepts it."""
     from okf_web.llm import StaticClient
 
     response = (
@@ -456,7 +456,7 @@ def test_promotion_stale_after_stamped_as_instant(tmp_path):
     )
     assert result.written == ["promotions/flash.md"]
     concept = load_bundle(tmp_path, use_cache=False).concepts["promotions/flash.md"]
-    assert str(concept.frontmatter["stale_after"]).startswith("2027-03-01T00:00:00")
+    assert str(concept.frontmatter["stale_after"]).startswith("2027-03-02T00:00:00")
     assert not any(
         f.code == "W027" for f in lint_concept(concept, today=dt.date(2026, 8, 5))
     )
