@@ -353,3 +353,60 @@ Closes A4, A5, A6 and A7 as planned, the last phase of the plan; `tests/test_edg
 - Quarantine names carry eight hex digits of the payload's SHA-256 after the second-resolution stamp, with a counter suffix for an exact duplicate, so two bad blocks in one second are two files.
 - The CI workflow splits into a `tests` job (matrix 3.10, 3.11, 3.12; `fail-fast: false`) and the `test-and-lint` job that needs it and runs the bundle-level checks on 3.11, so the required status check keeps its name and now implies every matrix leg passed. `release.yml` refuses a tag whose `pyproject.toml` version differs from `okf_web.__version__`, and a test asserts the same equality on every run.
 - `init` prints the MCP snippet with the bundle's absolute path, since a desktop assistant does not share the shell's working directory.
+
+## 7. Review of 2026-10-21
+
+A second review of the whole package, six months of use after the
+first: security, logic and correctness, architecture and test adequacy,
+each as a separate read of every module, every finding confirmed by a
+reproduction on a scratch copy or an unambiguous read of the code. The
+plan groups the fixes into seven upstream phases, U1 to U7, ordered by
+what reaches an operator or a merchant first; the hosted edition has its
+own phases in its own register. The findings each phase closes are
+named in its entry below, with one line per finding, so the register
+stays self-contained.
+
+### U1 · Rendered truth (M) — landed 2026-10-23
+
+Closes S-U1, L-U1, T-U2, L-U9 and the scorecard half of A-U9.
+
+- **S-U1 (high).** The viewer and the report picked the scorecard by
+  type, drafts included, so a producer's draft typed `GEO Scorecard`
+  at a path sorting before `evaluations/` was the record they showed,
+  and its `answered`/`questions` values were interpolated into HTML
+  unescaped. Now both pages and `okf_info` read only
+  `evaluations/geo-scorecard.md`; lint E022 refuses a `GEO Scorecard`
+  anywhere else or in `draft` (so a surveyor draft wearing the type is
+  quarantined by the ordinary gate); counts render through
+  `report._count`, a whole number or escaped text, never markup.
+- **L-U1 (high).** A dry-run scorecard rendered as judged verdicts: the
+  evaluator wrote `by_archetype.answered` for dry runs (`None` counted
+  as 0), so the report showed every topic red at `0 / N`, the detail
+  tier said "judged not answered" for retrieval misses, and the footer
+  asserted an LLM measurement over the published bundle. Now a dry run
+  records `{questions, found}` per archetype and no `answered`; the
+  report, the viewer and `okf_info` present it as not judged;
+  `_judged_verdicts` returns nothing unless the results table carries a
+  yes/no cell; and the footer names the view and the method from the
+  scorecard's new `x_geo.evaluated` record (`view`, `retriever`,
+  `top_k`, `language`), which `write_scorecard` fills from the report.
+- **T-U2 (medium).** `bool(verdict.get("answered"))` counted a judge's
+  `"false"` string as answered. Verdicts are now JSON booleans or the
+  words yes/true in any case; anything else reads as not answered.
+- **L-U9 (low).** `freshness` was 1.0 whenever nothing was cited. It is
+  now measured over the answers that cited something and omitted when
+  none did. The example's recorded 1.0 is unchanged by construction:
+  the old value asserted every cited concept fresh, which is exactly
+  the new measurement.
+- **A-U9, scorecard half (low).** `evaluate --lang es --write-scorecard`
+  overwrote the store's scorecard with the Spanish view's numbers.
+  A localized view's scorecard now goes to
+  `evaluations/geo-scorecard.<lang>.md` with its `language` recorded;
+  the report still reads the store's own. The lock around `report` is
+  U3's.
+
+Where the shipped code differs from the plan, on purpose: `found` is
+recorded in judged runs too, so one scorecard shape serves both modes;
+`okf_info` gains `scorecard_judged` beside the metrics, since an
+assistant reading found-knowledge counts needs the same label a person
+gets. `tests/test_rendered_truth.py` adds 7 tests (417 in all).

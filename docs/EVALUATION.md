@@ -97,12 +97,12 @@ With `N` questions, `R_q` the result for question `q`:
 | `coverage` | fraction with `answered = true` |
 | `groundedness` | fraction answered **and** fully supported by context |
 | `citability` | fraction whose cited concepts all exist and have trust tier ≥ `machine-confirmed` |
-| `freshness` | fraction whose cited concepts are all within `stale_after` |
+| `freshness` | of the answers that cited something, the fraction whose cited concepts are all within `stale_after`; absent when no answer cited anything, so a bundle that answers nothing cannot score a perfect freshness (review 2026-10-21, L-U9) |
 | `context_tokens_mean` | mean tokens of retrieved context per question (~4 chars/token) |
 | `paraphrase_questions` / `paraphrase_hit_rate` | questions carrying a shopper-vocabulary `paraphrase`, and the fraction whose paraphrase retrieved ≥1 concept (READINESS R3; saturates on small bundles) |
 | `paraphrase_agreement` | fraction whose paraphrase retrieval shares ≥1 concept with the curated phrasing's — the honest phrasing-gap number: did shopper words find the *same* knowledge? (reference bundle: 0.897) |
 | `trust_mix` | concept counts by trust tier — how much a person actually read (`human-reviewed`) vs. attested wholesale (`human-attested`) vs. machine-checked |
-| `by_archetype` | `{questions, answered}` per archetype |
+| `by_archetype` | `{questions, found}` per archetype in every run (how many questions retrieved knowledge), plus `answered` in a judged run only: a dry run records no verdict, so nothing downstream can read a retrieval pass as one (L-U1) |
 | `baseline.*` | optional same-questions run over raw site HTML: `coverage`, `context_tokens_mean` |
 
 Grading can be decoupled from answering: `evaluate --judge-model M`
@@ -125,8 +125,18 @@ it.
 `okf-web evaluate --write-scorecard` writes
 `evaluations/geo-scorecard.md`, a `GEO Scorecard` concept:
 machine-generated (`generated.by: okf-web-evaluator/<model>`), risk
-`c`, metrics under `x_geo.metrics`, per-question table and the
-**knowledge gaps** list in the body. Publishing it inside the bundle
+`c`, metrics under `x_geo.metrics`, what was measured under
+`x_geo.evaluated` (`view`: `working` or `published`; `retriever`;
+`top_k`; `language` for a localized view), per-question table and the
+**knowledge gaps** list in the body. The report's footer states the
+view and the method from that record instead of assuming them. The
+report, the viewer and the bridge's `okf_info` read the scorecard only
+at this path (lint E022 refuses a `GEO Scorecard` anywhere else or in
+`draft`), render its counts as whole numbers or as escaped text, and
+present a dry-run scorecard as "not judged". A localized view's
+scorecard (`evaluate --lang es --write-scorecard`) is written to
+`evaluations/geo-scorecard.<lang>.md`, so measuring a translation never
+overwrites the store's own numbers. Publishing it inside the bundle
 is deliberate:
 
 - engines can read the store's own audited answerability and its

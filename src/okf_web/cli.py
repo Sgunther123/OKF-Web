@@ -405,6 +405,7 @@ def cmd_evaluate(args) -> int:
         for r in gaps:
             print(f"  {r.question.id} [{r.question.archetype}] {r.question.question}")
     if args.write_scorecard:
+        report.view = "published" if args.published else "working"
         out = evaluator.write_scorecard(bundle, report, force=args.force)
         print(f"\nscorecard written to {out}")
     failed = False

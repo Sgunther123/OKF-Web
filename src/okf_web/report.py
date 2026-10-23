@@ -30,7 +30,7 @@ import html
 import re
 from pathlib import Path
 
-from .evaluator import evaluate as _dry_evaluate, load_questions
+from .evaluator import SCORECARD_PATH, evaluate as _dry_evaluate, load_questions
 from .model import (
     write_atomic,
     Bundle,
@@ -64,14 +64,30 @@ class ReportError(RuntimeError):
 
 
 def _scorecard(bundle: Bundle) -> Concept:
-    for rel in sorted(bundle.concepts):
-        if bundle.concepts[rel].type == "GEO Scorecard":
-            return bundle.concepts[rel]
-    raise ReportError(
-        "no GEO Scorecard concept in the bundle; run "
-        "`okf-web evaluate <bundle> --write-scorecard` (full, LLM-backed) "
-        "or author one, then re-run `okf-web report`"
-    )
+    """The evaluator's own record, read only at its path. A concept
+    merely typed `GEO Scorecard` elsewhere (a producer's draft, say) is
+    never the measurement (review 2026-10-21, S-U1; lint E022)."""
+    concept = bundle.concepts.get(SCORECARD_PATH)
+    if concept is None or concept.type != "GEO Scorecard":
+        raise ReportError(
+            f"no GEO Scorecard at {SCORECARD_PATH}; run "
+            "`okf-web evaluate <bundle> --write-scorecard` (full, LLM-backed) "
+            "or author one there, then re-run `okf-web report`"
+        )
+    return concept
+
+
+def _count(value) -> int | None:
+    """A recorded count, or None for anything that is not a whole
+    number: hostile or malformed metrics render as escaped text, never
+    as markup (review 2026-10-21, S-U1)."""
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        return None
+    try:
+        number = int(str(value).strip())
+    except ValueError:
+        return None
+    return number if number >= 0 else None
 
 
 def _gaps(scorecard: Concept) -> list[str]:
@@ -105,6 +121,7 @@ def _judged_verdicts(scorecard: Concept) -> dict[str, bool]:
     non-answer. Nothing is inferred; a question the scorecard does not
     pronounce on stays absent."""
     verdicts: dict[str, bool] = {}
+    gap_ids: list[str] = []
     answered_col: int | None = None
     in_gaps = False
     for line in scorecard.body.splitlines():
@@ -116,7 +133,7 @@ def _judged_verdicts(scorecard: Concept) -> dict[str, bool]:
         if in_gaps:
             match = _GAP_ID.match(stripped)
             if match:
-                verdicts.setdefault(match.group(1), False)
+                gap_ids.append(match.group(1))
             continue
         if not stripped.startswith("|"):
             continue
@@ -129,6 +146,13 @@ def _judged_verdicts(scorecard: Concept) -> dict[str, bool]:
         verdict = cells[answered_col].lower()
         if verdict in ("yes", "no"):
             verdicts[cells[0].strip("`")] = verdict == "yes"
+    if not verdicts:
+        # No judged cell anywhere: a dry-run scorecard records retrieval
+        # misses as gaps, and a miss is not a verdict (review
+        # 2026-10-21, L-U1).
+        return {}
+    for gap in gap_ids:
+        verdicts.setdefault(gap, False)
     return verdicts
 
 
@@ -199,10 +223,11 @@ def _question_blocks(bundle: Bundle, by_archetype: dict | None,
                 f'<td class="num">{r.context_tokens:,}</td></tr>'
             )
         recorded = (by_archetype or {}).get(archetype) or {}
+        answered = _count(recorded.get("answered"))
+        total = _count(recorded.get("questions"))
         judged = (
-            f' &middot; judged answers {recorded.get("answered", 0)} / '
-            f'{recorded["questions"]} (recorded)'
-            if recorded.get("questions") else ""
+            f" &middot; judged answers {answered} / {total} (recorded)"
+            if answered is not None and total else ""
         )
         blocks.append(
             f'<details class="arch"><summary>{e(label)} '
@@ -330,14 +355,20 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
         )
 
     rows = []
+    measure_key = "answered" if full_run else "found"
     for archetype, slot in (metrics.get("by_archetype") or {}).items():
         label = ARCHETYPE_LABELS.get(archetype, archetype)
-        answered, total = slot.get("answered", 0), slot.get("questions", 0)
-        state = "ok" if answered == total else ("warn" if answered else "gap")
-        rows.append(
-            f'<tr class="{state}"><td>{e(label)}</td>'
-            f"<td>{answered} / {total}</td></tr>"
-        )
+        slot = slot if isinstance(slot, dict) else {}
+        measure, total = _count(slot.get(measure_key)), _count(slot.get("questions"))
+        if measure is None or total is None:
+            # Not a whole number: shown as text, never trusted as one.
+            shown = e(f"{slot.get(measure_key)} / {slot.get('questions')}")
+            state = "gap"
+        else:
+            shown = f"{measure} / {total} {measure_key}"
+            state = "ok" if measure == total else ("warn" if measure else "gap")
+        rows.append(f'<tr class="{state}"><td>{e(label)}</td><td>{shown}</td></tr>')
+    topic_heading = "Coverage by topic" if full_run else "Knowledge found by topic (not judged)"
 
     gaps = _gaps(scorecard)
     # Gap bullets open with the question id (write_scorecard's format),
@@ -359,6 +390,18 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
 
     generated_by = str((scorecard.frontmatter.get("generated") or {}).get("by") or "okf-web")
     evaluated_on = str(scorecard.title).rsplit("—", 1)[-1].strip()
+    evaluated = scorecard.x_geo.get("evaluated") or {}
+    evaluated = evaluated if isinstance(evaluated, dict) else {}
+    scope = {
+        "published": "the published view",
+        "working": "the working copy",
+    }.get(str(evaluated.get("view") or ""), "the bundle")
+    if evaluated.get("language"):
+        scope += f" ({e(str(evaluated['language']))} view)"
+    method = (
+        "an LLM-based measurement" if full_run
+        else "a retrieval-only measurement, no language model involved"
+    )
 
     if full_run:
         meaning = (
@@ -442,11 +485,11 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   <div class="tiles">{''.join(tiles)}</div>
   <h2>What this means</h2>
   <p class="meaning">{e(meaning)}</p>
-  <h2>Coverage by topic</h2>
+  <h2>{topic_heading}</h2>
   <table>{''.join(rows) or '<tr><td>No per-topic data in this scorecard.</td><td>—</td></tr>'}</table>
   <h2 id="gaps">What the store still can't answer</h2>
   <ul>{gaps_html}</ul>
-  {_question_detail(bundle, metrics.get("by_archetype"),
+  {_question_detail(bundle, metrics.get("by_archetype") if full_run else None,
                     _judged_verdicts(scorecard), gap_ids)}
   <h2>Why these answers can be trusted</h2>
   <p class="meaning">Of {len(concepts)} knowledge entries: {human} were
@@ -458,8 +501,8 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   are past their freshness date. High-risk facts — prices, policies,
   safety — cannot be published without an individual human review.</p>
   <footer>Measured by the okf-web evaluation harness
-  ({e(generated_by)}) over the published bundle — an LLM-based
-  measurement; method in docs/EVALUATION.md. Regenerate with
+  ({e(generated_by)}) over {scope} — {method}; method in
+  docs/EVALUATION.md. Regenerate with
   <code>okf-web report &lt;bundle&gt;</code>.</footer>
 </main>
 </body>

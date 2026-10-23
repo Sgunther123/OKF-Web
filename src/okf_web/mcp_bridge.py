@@ -234,13 +234,18 @@ def _tool_info(state: BridgeState, args: dict) -> dict[str, Any]:
     identity = next(
         (c for c in state.bundle.concepts.values() if c.type == "Store Identity"), None
     )
-    scorecard = next(
-        (c for c in state.bundle.concepts.values() if c.type == "GEO Scorecard"), None
-    )
+    # The scorecard is read only at its own path (S-U1; lint E022).
+    scorecard = state.bundle.concepts.get(evaluator.SCORECARD_PATH)
+    if scorecard is not None and scorecard.type != "GEO Scorecard":
+        scorecard = None
+    metrics = (scorecard.x_geo.get("metrics") if scorecard else None) or None
     return {
         "store": _concept_summary(identity) if identity else None,
         "concepts_by_type": dict(sorted(by_type.items())),
-        "scorecard_metrics": (scorecard.x_geo.get("metrics") if scorecard else None),
+        "scorecard_metrics": metrics,
+        # A retrieval-only scorecard carries no verdicts: say so, so an
+        # assistant never reads found-knowledge counts as answers.
+        "scorecard_judged": bool(metrics and "coverage" in metrics),
         "source": state.source.describe() if hasattr(state.source, "describe") else None,
         "usage": (
             "okf_search finds concepts for a shopper question; okf_get reads "

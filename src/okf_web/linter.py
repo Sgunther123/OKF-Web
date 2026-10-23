@@ -101,6 +101,25 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
             )
         )
 
+    # The scorecard is the evaluator's own record: the report, the viewer
+    # and `okf_info` read it only at evaluations/geo-scorecard.md, and a
+    # draft typed `GEO Scorecard` anywhere else is a producer's text
+    # wearing the measurement's name (review 2026-10-21, S-U1).
+    if concept.type == "GEO Scorecard" and (
+        not rel.startswith("evaluations/") or concept.status == "draft"
+    ):
+        findings.append(
+            Finding(
+                ERROR,
+                "E022",
+                rel,
+                "a GEO Scorecard is the evaluator's own record: it lives under "
+                "evaluations/ and is never a draft (the report, the viewer and "
+                "okf_info read only evaluations/geo-scorecard.md; a produced "
+                "one is not a measurement)",
+            )
+        )
+
     # -- profile: human-in-the-loop gate -----------------------------------
     # Keyed on the *effective* classification: declared risk `a`, plus
     # types that are high-risk by definition (Product Passports carry

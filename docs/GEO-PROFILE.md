@@ -406,6 +406,7 @@ path position is the binding.
 | E019 | error | Stable `Trade Program` missing `trade.payment_terms`/`min_order` |
 | E020 | error | `resource` is not an `http(s)` URL — a non-web scheme (`javascript:`, `file:`, `data:`) is never a page ↔ concept binding, and the viewer, `linkmap.json` and the JSON-LD `url` do not link it |
 | E021 | error | `status` outside `draft`, `stable`, `deprecated` — a misspelling (`Stable`) would be withheld silently and, on a high-risk concept, would dodge E010 |
+| E022 | error | A `GEO Scorecard` outside `evaluations/` or in `draft` — the evaluator's own record lives at `evaluations/geo-scorecard.md`, the only scorecard the report, the viewer and `okf_info` read; a produced one wearing the type is not a measurement |
 | W032 | warn | Compatibility/Ownership Guide/Passport draft missing its refs, or a `fits`/`works_with`/`covers`/`passport_for` id that resolves to no concept's `entity` |
 | W033 | warn | `Compatibility`/`Ownership Guide`/`Store Location` classified risk `c`, or `Product Passport`/`Trade Program` declaring anything but `a` (both are gated as `a` regardless) |
 | W034 | warn | `Policy`/`Promotion`/`Store Identity` declaring a risk below the type table's `a` floor — a lower declared risk would unlock batch approval |
@@ -423,8 +424,9 @@ Errors block publishing; `--strict` promotes warnings for CI.
 ## 10. Versioning
 
 Lint-only additions do not bump the profile: E020 and W038 (EDGE-CASES
-E3) and E021 (EDGE-CASES E4), all 2026-09-16, extend the vocabulary in
-§9 without changing a key or a type.
+E3) and E021 (EDGE-CASES E4), all 2026-09-16, and E022 (EDGE-CASES §7,
+U1, 2026-10-23) extend the vocabulary in §9 without changing a key or
+a type.
 
 **1.12** (current) declares the bundle's language (2026-10-04):
 `x_geo.language` on the root index (§2, §7), a BCP-47 tag that the

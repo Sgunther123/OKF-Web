@@ -195,6 +195,11 @@ class Report:
     results: list[QuestionResult]
     generated_by: str
     dry_run: bool
+    # What was evaluated, recorded on the scorecard so the report can
+    # say it instead of assuming it (review 2026-10-21, L-U1).
+    top_k: int = 4
+    retriever: str = "lexical"
+    view: str = "working"
 
     def _fraction(self, predicate) -> float:
         if not self.results:
@@ -260,16 +265,33 @@ class Report:
                         self._fraction(lambda r: bool(r.answered and r.grounded)), 3
                     ),
                     "citability": round(self._fraction(cited_ok), 3),
-                    "freshness": round(self._fraction(fresh_ok), 3),
                 }
             )
+            # Freshness is a property of citations: measured over the
+            # answers that cited something and absent when none did, so
+            # a bundle that answers nothing cannot score a perfect
+            # freshness (review 2026-10-21, L-U9).
+            cited = [r for r in self.results if r.cited_paths]
+            if cited:
+                metrics["freshness"] = round(
+                    sum(1 for r in cited if fresh_ok(r)) / len(cited), 3
+                )
+        # Per archetype: how many questions found knowledge (measured in
+        # every run) and, in a judged run only, how many were answered. A
+        # dry run records no `answered` at all, so nothing downstream can
+        # read a retrieval pass as a verdict (review 2026-10-21, L-U1).
         by_archetype: dict[str, dict[str, int]] = {}
         for r in self.results:
             slot = by_archetype.setdefault(
-                r.question.archetype, {"questions": 0, "answered": 0}
+                r.question.archetype,
+                {"questions": 0, "found": 0}
+                if self.dry_run
+                else {"questions": 0, "found": 0, "answered": 0},
             )
             slot["questions"] += 1
-            if r.answered:
+            if r.retrieved:
+                slot["found"] += 1
+            if not self.dry_run and r.answered:
                 slot["answered"] += 1
         metrics["by_archetype"] = by_archetype
         return metrics
@@ -540,6 +562,35 @@ def _extract_yaml(text: str) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+_AFFIRMATIVE = {"yes", "true"}
+
+
+def _verdict_flag(value) -> bool:
+    """A judge verdict is a JSON boolean, or the word yes/true in any
+    case. Anything else, a string "false", a number, prose, is not an
+    affirmative verdict and reads as False, so a loosely worded judge
+    can never inflate coverage (review 2026-10-21, T-U2)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in _AFFIRMATIVE
+    return False
+
+
+def _retriever_name(retriever) -> str:
+    """The retriever's name for the scorecard record: the lexical
+    default, an embedding index by its embedder's model id, or whatever
+    the callable calls itself."""
+    if retriever is None:
+        return "lexical"
+    embedder = getattr(retriever, "embedder", None)
+    if embedder is not None and getattr(embedder, "model", None):
+        return f"embedding/{embedder.model}"
+    func = getattr(retriever, "func", retriever)  # a functools.partial
+    name = getattr(func, "__name__", None) or type(retriever).__name__
+    return "lexical" if name == "retrieve" else str(name)
+
+
 def evaluate(
     bundle: Bundle,
     questions: list[Question],
@@ -591,8 +642,8 @@ def evaluate(
                 )
             )
             result.answer = answer.strip()
-            result.answered = bool(verdict.get("answered"))
-            result.grounded = bool(verdict.get("grounded"))
+            result.answered = _verdict_flag(verdict.get("answered"))
+            result.grounded = _verdict_flag(verdict.get("grounded"))
             result.cited_paths = [
                 str(p).lstrip("/") for p in verdict.get("cited", []) if p
             ]
@@ -606,12 +657,24 @@ def evaluate(
         generated_by = f"okf-web-evaluator/{llm.model}+judge/{judge_llm.model}"
     else:
         generated_by = f"okf-web-evaluator/{llm.model}"
-    return Report(results=results, generated_by=generated_by, dry_run=dry_run)
+    return Report(
+        results=results,
+        generated_by=generated_by,
+        dry_run=dry_run,
+        top_k=top_k,
+        retriever=_retriever_name(retriever),
+    )
 
 
 # ---------------------------------------------------------------------------
 # Scorecard
 # ---------------------------------------------------------------------------
+
+# The one path the report, the viewer and `okf_info` read the scorecard
+# from. A concept merely typed `GEO Scorecard` anywhere else is never the
+# measurement (review 2026-10-21, S-U1; lint E022).
+SCORECARD_PATH = "evaluations/geo-scorecard.md"
+
 
 def _is_judged_scorecard(path: Path) -> bool:
     if not path.is_file():
@@ -628,13 +691,20 @@ def _is_judged_scorecard(path: Path) -> bool:
 def write_scorecard(
     bundle: Bundle,
     report: Report,
-    rel_path: str = "evaluations/geo-scorecard.md",
+    rel_path: str | None = None,
     force: bool = False,
 ) -> Path:
     """Write the scorecard concept. A dry-run report never silently
     replaces a judged scorecard (one carrying ``coverage``): that would
     erase the graded numbers the report and the viewer show; pass
-    ``force`` to do it on purpose (EDGE-CASES A3)."""
+    ``force`` to do it on purpose (EDGE-CASES A3). A localized view's
+    scorecard is its own record at ``evaluations/geo-scorecard.<lang>.md``,
+    so measuring a translation never overwrites the store's numbers
+    (review 2026-10-21, A-U9)."""
+    if rel_path is None:
+        rel_path = SCORECARD_PATH
+        if bundle.language_override:
+            rel_path = f"evaluations/geo-scorecard.{bundle.language_override}.md"
     out = bundle.root / rel_path
     if report.dry_run and not force and _is_judged_scorecard(out):
         raise ScorecardGuard(
@@ -645,6 +715,13 @@ def write_scorecard(
         )
     now = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
     metrics = report.metrics(bundle)
+    evaluated: dict = {
+        "view": report.view,
+        "retriever": report.retriever,
+        "top_k": report.top_k,
+    }
+    if bundle.language_override:
+        evaluated["language"] = bundle.language_override
     fm = {
         "type": "GEO Scorecard",
         "title": f"Answerability evaluation — {now.date().isoformat()}",
@@ -660,7 +737,7 @@ def write_scorecard(
         # renew. Stamped at the spec's instant precision.
         "stale_after": utc_instant(now + _dt.timedelta(days=30)),
         "generated": {"by": report.generated_by, "at": now.isoformat().replace("+00:00", "Z")},
-        "x_geo": {"risk": "c", "metrics": metrics},
+        "x_geo": {"risk": "c", "metrics": metrics, "evaluated": evaluated},
     }
     lines = ["# Results", ""]
     lines.append("| id | archetype | retrieved | paraphrase | answered | cited |")

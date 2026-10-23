@@ -29,7 +29,7 @@ from pathlib import Path
 
 from . import __version__
 from .discover import WELL_KNOWN_PATH
-from .evaluator import ARCHETYPES
+from .evaluator import ARCHETYPES, SCORECARD_PATH
 from .llm import estimate_tokens
 from .logscan import LogScanReport
 from .mcp_bridge import TOOLS
@@ -47,7 +47,7 @@ from .model import (
     utc_today,
 )
 from .publisher import AI_USER_AGENTS, select_publishable
-from .report import ARCHETYPE_LABELS, _gaps, _judged_verdicts, _question_blocks
+from .report import ARCHETYPE_LABELS, _count, _gaps, _judged_verdicts, _question_blocks
 from .structured import _LLMS_SECTIONS, jsonld_for
 
 # The purchase moment each question archetype serves, and why it
@@ -311,9 +311,10 @@ def build_viewer(
     store = identity.title if identity else bundle.root.name
     root_index = bundle.indexes.get("index.md")
     site = str(((root_index.x_geo if root_index else {}) or {}).get("site") or "").rstrip("/")
-    scorecard = next(
-        (c for c in concepts.values() if c.type == "GEO Scorecard"), None
-    )
+    # The scorecard is read only at its own path (S-U1; lint E022).
+    scorecard = concepts.get(SCORECARD_PATH)
+    if scorecard is not None and scorecard.type != "GEO Scorecard":
+        scorecard = None
     metrics = (scorecard.x_geo.get("metrics") if scorecard else None) or {}
     baseline = (scorecard.x_geo.get("baseline") if scorecard else None) or {}
     by_archetype = metrics.get("by_archetype") or {}
@@ -438,8 +439,8 @@ def build_viewer(
     # --- where the revenue is ----------------------------------------------
     verdicts = _judged_verdicts(scorecard) if scorecard else {}
     revenue_rows = []
-    blocks = _question_blocks(bundle, by_archetype or None, verdicts or None,
-                              None)
+    blocks = _question_blocks(bundle, by_archetype if full_run else None,
+                              verdicts or None, None)
     for archetype in ARCHETYPES:
         moment, why = REVENUE_MOMENTS[archetype]
         holds = intent_index.get(archetype, [])
@@ -451,10 +452,19 @@ def build_viewer(
             if holds else '<span class="miss">nothing declared</span>'
         )
         recorded = by_archetype.get(archetype) or {}
-        if recorded.get("questions"):
-            answered, total = recorded.get("answered", 0), recorded["questions"]
+        recorded = recorded if isinstance(recorded, dict) else {}
+        total = _count(recorded.get("questions"))
+        answered = _count(recorded.get("answered")) if full_run else None
+        found = _count(recorded.get("found"))
+        if total and answered is not None:
             state = "ok" if answered == total else ("warn" if answered else "gap")
             measured = f'<span class="{state}">{answered} / {total} answered</span>'
+        elif total and found is not None:
+            # A retrieval-only run: knowledge found is not an answer.
+            measured = (
+                f'<span class="sub">knowledge found for {found} / {total}, '
+                "not judged</span>"
+            )
         else:
             measured = '<span class="sub">not measured yet</span>'
         revenue_rows.append(
@@ -591,7 +601,7 @@ def build_viewer(
         gap_ids = {
             g.split("(", 1)[0].strip() for g in gaps if " " not in g.split("(", 1)[0].strip()
         }
-        blocks = _question_blocks(bundle, by_archetype or None,
+        blocks = _question_blocks(bundle, by_archetype if full_run else None,
                                   verdicts or None, gap_ids)
         questions_html = (
             '<p class="meaning">Every row is recomputed from the committed '
