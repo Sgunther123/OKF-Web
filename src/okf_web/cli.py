@@ -1411,6 +1411,11 @@ def main(argv: list[str] | None = None) -> int:
     except yaml.YAMLError as exc:
         print(f"error: invalid YAML: {exc}", file=sys.stderr)
         return 2
+    except UnicodeDecodeError as exc:
+        # The loader records a non-UTF-8 concept as broken (E001); this is
+        # the backstop for any other file read (review 2026-10-21, L-U5).
+        print(f"error: a file is not valid UTF-8: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

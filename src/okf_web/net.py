@@ -281,12 +281,31 @@ class _PinnedHTTPSConnection(_PinnedHTTPConnection, http.client.HTTPSConnection)
         self.sock = self._context.wrap_socket(sock, server_hostname=server_hostname)
 
 
+def _vet_proxied_target(req, policy: FetchPolicy) -> None:
+    """Behind a proxy the socket goes to the proxy, so the target's
+    addresses cannot be pinned; they are still looked up here and a
+    private answer is refused, so a public name that resolves privately
+    is not handed to a proxy that can reach it (review 2026-10-21,
+    S-U5). A name the local resolver cannot answer is left to the proxy."""
+    parts = urllib.parse.urlsplit(req.full_url)
+    host = parts.hostname or ""
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    try:
+        _vetted_address(host, port, policy)
+    except UnsafeURL:
+        raise
+    except FetchError:
+        return  # unresolvable here: the proxy resolves
+
+
 class _HTTPHandler(urllib.request.HTTPHandler):
     def __init__(self, policy: FetchPolicy):
         super().__init__()
         self._policy = policy
 
     def http_open(self, req):
+        if req.has_proxy():
+            _vet_proxied_target(req, self._policy)
         return self.do_open(
             _PinnedHTTPConnection, req, policy=self._policy, pin=not req.has_proxy()
         )
@@ -299,6 +318,8 @@ class _HTTPSHandler(urllib.request.HTTPSHandler):
         self._ssl = context
 
     def https_open(self, req):
+        if req.has_proxy():
+            _vet_proxied_target(req, self._policy)
         return self.do_open(
             _PinnedHTTPSConnection,
             req,
@@ -309,9 +330,10 @@ class _HTTPSHandler(urllib.request.HTTPSHandler):
 
 
 class _RedirectHandler(urllib.request.HTTPRedirectHandler):
-    def __init__(self, policy: FetchPolicy):
+    def __init__(self, policy: FetchPolicy, started: float | None = None):
         super().__init__()
         self._policy = policy
+        self._started = started if started is not None else time.monotonic()
         self.hops = 0
 
     def http_error_302(self, req, fp, code, msg, headers):
@@ -332,17 +354,27 @@ class _RedirectHandler(urllib.request.HTTPRedirectHandler):
                 f"more than {self._policy.max_redirects} redirects from {req.full_url}"
             )
         check_url(newurl, self._policy)
+        # The deadline covers the whole fetch, hops included: a slow chain
+        # of redirects gets only the time that is left, and none when
+        # none is (review 2026-10-21, S-U6).
+        remaining = self._policy.deadline - (time.monotonic() - self._started)
+        if remaining <= 0:
+            raise FetchTimeout(
+                f"fetch of {req.full_url} exceeded the {self._policy.deadline:.0f}s "
+                "deadline while following redirects"
+            )
+        req.timeout = min(req.timeout or self._policy.timeout, remaining)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def _opener(policy: FetchPolicy) -> urllib.request.OpenerDirector:
+def _opener(policy: FetchPolicy, started: float | None = None) -> urllib.request.OpenerDirector:
     opener = urllib.request.OpenerDirector()
     for handler in (
         urllib.request.ProxyHandler(),
         _HTTPHandler(policy),
         _HTTPSHandler(policy, ssl.create_default_context()),
         urllib.request.HTTPDefaultErrorHandler(),
-        _RedirectHandler(policy),
+        _RedirectHandler(policy, started),
         urllib.request.HTTPErrorProcessor(),
     ):
         opener.add_handler(handler)
@@ -464,9 +496,10 @@ def safe_fetch(
         url, data=data, headers=request_headers, method=method
     )
     started = time.monotonic()
-    opener = _opener(policy)
+    opener = _opener(policy, started)
     try:
-        response = opener.open(request, timeout=policy.timeout)
+        # No single socket operation may outlast the deadline either.
+        response = opener.open(request, timeout=min(policy.timeout, policy.deadline))
     except urllib.error.HTTPError as exc:
         response = exc
     except FetchError:
@@ -475,7 +508,17 @@ def safe_fetch(
         inner = exc.reason
         if isinstance(inner, FetchError):
             raise inner
+        if isinstance(inner, TimeoutError):
+            raise FetchTimeout(
+                f"fetch of {url} timed out ({policy.timeout:.0f}s per operation "
+                f"under the {policy.deadline:.0f}s deadline)"
+            ) from exc
         raise FetchError(f"could not fetch {url}: {inner}") from exc
+    except TimeoutError as exc:
+        raise FetchTimeout(
+            f"fetch of {url} timed out ({policy.timeout:.0f}s per operation "
+            f"under the {policy.deadline:.0f}s deadline)"
+        ) from exc
     except (OSError, http.client.HTTPException) as exc:
         raise FetchError(f"could not fetch {url}: {exc}") from exc
     with response:

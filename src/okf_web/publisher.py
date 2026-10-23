@@ -85,11 +85,19 @@ _OPERATOR_SUFFIXES = {".csv", ".tsv"}
 def check_dist(bundle_root: Path | str, dist: Path | str, force: bool = False) -> None:
     """Refuse a dist that publishing would wrongly replace. The target is
     swapped out whole once the new build is complete, so it must be
-    outside the bundle, must not contain it, and must be either empty, a
-    previous publish (it carries ``manifest.json``), or explicitly
-    forced."""
+    outside the bundle, must not contain it, must not be the home or the
+    working directory, and must be either empty, a previous publish (it
+    carries the hidden ``.okf-dist`` marker every publish writes; a
+    ``manifest.json`` alone is any web app's), or explicitly forced
+    (review 2026-10-21, S-U4)."""
     bundle_root, dist = Path(bundle_root), Path(dist)
     root, target = bundle_root.resolve(), dist.resolve()
+    for name, special in (("home", Path.home()), ("current working", Path.cwd())):
+        if target == special.resolve():
+            raise UnsafeDist(
+                f"refusing to publish into {dist}: it is your {name} directory, "
+                "and publishing empties the target first; name a subdirectory"
+            )
     if target == root or root in target.parents:
         raise UnsafeDist(
             f"refusing to publish into the bundle itself ({dist}); choose a "
@@ -104,10 +112,10 @@ def check_dist(bundle_root: Path | str, dist: Path | str, force: bool = False) -
         return
     if not dist.is_dir():
         raise UnsafeDist(f"{dist} exists and is not a directory")
-    if any(dist.iterdir()) and not (dist / "manifest.json").exists() and not force:
+    if any(dist.iterdir()) and not (dist / DIST_MARKER).exists() and not force:
         raise UnsafeDist(
             f"refusing to empty {dist}: it is not empty and carries no "
-            "manifest.json from a previous publish (pass --force to replace it)"
+            f"{DIST_MARKER} marker from a previous publish (pass --force to replace it)"
         )
 
 

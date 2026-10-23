@@ -64,21 +64,34 @@ class LLMUnavailable(RuntimeError):
 
 
 # Flags the agent CLI must offer before untrusted page text is allowed
-# anywhere near it: no tools, and the rules delivered out of band.
-_REQUIRED_CLI_FLAGS = ("--tools", "--system-prompt")
-_OPTIONAL_CLI_FLAGS = ("--strict-mcp-config",)
+# anywhere near it: no tools, the rules delivered out of band, and no
+# MCP servers from the operator's own settings (``--tools ""`` disables
+# the built-in tools only; review 2026-10-21, S-U9).
+_REQUIRED_CLI_FLAGS = ("--tools", "--system-prompt", "--strict-mcp-config")
+# Added when the installed CLI offers them: settings files ignored too.
+_OPTIONAL_CLI_FLAGS = ("--restricted",)
 
 
 def probe_cli_help(executable: str, timeout: float = 30.0) -> str | None:
     """``<executable> --help`` as text, or ``None`` when the binary is
-    missing or the probe fails; it never raises, because a missing
-    binary gets its own actionable error at the first completion."""
+    missing (a missing binary gets its own actionable error at the first
+    completion). A probe that fails for any other reason (a timeout, a
+    permission error) raises :class:`LLMUnavailable`: a CLI whose flags
+    could not be read is not run on untrusted text (S-U9)."""
     try:
         proc = subprocess.run(
             [executable, "--help"], capture_output=True, text=True, timeout=timeout
         )
-    except (OSError, subprocess.SubprocessError):
+    except FileNotFoundError:
         return None
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise LLMUnavailable(
+            f"could not read `{executable} --help` ({exc}); okf-web runs an "
+            "agent CLI only after confirming it supports "
+            + ", ".join(_REQUIRED_CLI_FLAGS)
+            + ", so the probe has to succeed first. Retry, or use the API path "
+            "instead (drop --llm claude-code and set ANTHROPIC_API_KEY)"
+        ) from exc
     return (proc.stdout or "") + (proc.stderr or "")
 
 
@@ -165,18 +178,19 @@ def claude_code_client(
     binary is not a refusal here; the first completion reports it."""
     if help_text is None:
         help_text = probe_cli_help("claude")
-    command = ["claude", "-p", "--tools", ""]
+    command = ["claude", "-p", "--tools", "", "--strict-mcp-config"]
     if help_text is not None:
         missing = [flag for flag in _REQUIRED_CLI_FLAGS if flag not in help_text]
         if missing:
             raise LLMUnavailable(
                 "the installed `claude` CLI does not support "
                 + ", ".join(missing)
-                + ": okf-web runs Claude Code with all tools disabled and the "
-                "extraction rules as its system prompt, so text from surveyed "
-                "pages cannot steer an agent that has tools. Update Claude Code "
-                "(`claude update`), or use the API path instead (drop "
-                "--llm claude-code and set ANTHROPIC_API_KEY)"
+                + ": okf-web runs Claude Code with all tools disabled, no MCP "
+                "servers from your settings, and the extraction rules as its "
+                "system prompt, so text from surveyed pages cannot steer an "
+                "agent that has tools. Update Claude Code (`claude update`), or "
+                "use the API path instead (drop --llm claude-code and set "
+                "ANTHROPIC_API_KEY)"
             )
         command += [flag for flag in _OPTIONAL_CLI_FLAGS if flag in help_text]
     if model:

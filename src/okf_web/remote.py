@@ -43,6 +43,7 @@ from .publisher import published_view
 USER_AGENT = "okf-web-mcp/0.1"
 META_NAME = ".okf-remote.json"
 MAX_FILES = 20_000  # a manifest listing more than this is not a bundle we mirror
+MAX_TOTAL_BYTES = 256 * 1024 * 1024  # and one declaring (or sending) more than this fills no disk
 DEFAULT_REFRESH_SECONDS = 300.0  # HOSTING §0's Cache-Control max-age
 
 
@@ -106,6 +107,42 @@ def _digest(path: Path) -> str:
     return digest.hexdigest()
 
 
+def check_mirror_dir(cache_dir: Path) -> None:
+    """Refuse a cache directory the mirror would wrongly write into or
+    prune: the home or working directory, or a non-empty directory that
+    carries no ``.okf-remote.json`` from a previous mirror (review
+    2026-10-21, S-U3; the publisher's ``check_dist`` rule, applied here)."""
+    cache_dir = Path(cache_dir)
+    if not cache_dir.exists():
+        return
+    if not cache_dir.is_dir():
+        raise RemoteError(f"{cache_dir} exists and is not a directory")
+    target = cache_dir.resolve()
+    for name, special in (("home", Path.home()), ("current working", Path.cwd())):
+        if target == special.resolve():
+            raise RemoteError(
+                f"refusing to mirror into {cache_dir}: it is your {name} "
+                "directory; pass an empty directory with --cache-dir or omit it"
+            )
+    if any(cache_dir.iterdir()) and not (cache_dir / META_NAME).exists():
+        raise RemoteError(
+            f"refusing to mirror into {cache_dir}: it is not empty and carries "
+            f"no {META_NAME} from a previous mirror; pass an empty directory "
+            "with --cache-dir or omit it for the default under the cache home"
+        )
+
+
+def _inside(cache_dir: Path, target: Path) -> bool:
+    """True when ``target``'s parent resolves inside the mirror and the
+    target itself is not a symlink: a planted link never redirects a write."""
+    try:
+        parent = target.parent.resolve(strict=False)
+        return (parent == cache_dir.resolve() or cache_dir.resolve() in parent.parents) \
+            and not target.is_symlink()
+    except OSError:
+        return False
+
+
 @dataclass
 class RemoteSource:
     """A published bundle at ``base_url`` (the directory holding
@@ -165,14 +202,36 @@ class RemoteSource:
             raise RemoteError(
                 f"{self.base_url} lists {len(wanted)} markdown files; the mirror stops at {MAX_FILES}"
             )
+        declared = sum(
+            int(meta["bytes"]) for meta in wanted.values()
+            if isinstance(meta.get("bytes"), int) and meta["bytes"] > 0
+        )
+        if declared > MAX_TOTAL_BYTES:
+            raise RemoteError(
+                f"{self.base_url} declares {declared} bytes of markdown; the mirror "
+                f"stops at {MAX_TOTAL_BYTES}"
+            )
+        check_mirror_dir(self.cache_dir)
+        # What this mirror itself wrote last time: the only files it may
+        # remove when the origin delists them (S-U3). Anything else under
+        # the directory is somebody's, and stays.
+        previous: set[str] = set()
+        own_manifest = self.cache_dir / "manifest.json"
+        if own_manifest.is_file() and (self.cache_dir / META_NAME).is_file():
+            try:
+                listed = json.loads(own_manifest.read_text(encoding="utf-8")).get("files")
+                previous = {rel for rel in listed if isinstance(rel, str)} if isinstance(listed, dict) else set()
+            except (OSError, json.JSONDecodeError, AttributeError):
+                previous = set()
 
         fetched = 0
+        received = 0
         for rel, meta in sorted(wanted.items()):
             expected = meta.get("sha256")
             if not isinstance(expected, str):
                 raise RemoteError(f"manifest lists {rel} without a sha256")
             target = self.cache_dir / rel
-            if target.is_file() and _digest(target) == expected:
+            if target.is_file() and not target.is_symlink() and _digest(target) == expected:
                 continue
             page = self.fetch(self._url(rel), self.policy)
             if page.status != 200:
@@ -182,16 +241,24 @@ class RemoteSource:
                     f"{rel} does not match the sha256 its manifest lists (changed in "
                     "transit or after publish); refusing to serve it"
                 )
+            received += len(page.body)
+            if received > MAX_TOTAL_BYTES:
+                raise RemoteError(
+                    f"{self.base_url} sent more than {MAX_TOTAL_BYTES} bytes of markdown; "
+                    "the mirror stops here"
+                )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not _inside(self.cache_dir, target):
+                raise RemoteError(f"{rel} would be written outside the mirror; refusing")
             _write_bytes_atomic(target, page.body)
             fetched += 1
 
         removed = 0
-        if self.cache_dir.is_dir():
-            for path in sorted(self.cache_dir.rglob("*.md")):
-                rel = path.relative_to(self.cache_dir).as_posix()
-                if rel not in wanted and not any(p.startswith(".") for p in path.relative_to(self.cache_dir).parts):
-                    path.unlink()
-                    removed += 1
+        for rel in sorted(previous - set(wanted)):
+            path = self.cache_dir / rel
+            if path.is_file() and not path.is_symlink():
+                path.unlink()
+                removed += 1
 
         # The mirror's own manifest lists what it holds (the markdown); the
         # origin's other artifacts (JSON-LD, llms.txt) are not needed here.

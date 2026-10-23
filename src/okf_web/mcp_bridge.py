@@ -345,7 +345,6 @@ def _tool_execute(state: BridgeState, args: dict) -> dict[str, Any]:
     template = str(executor.get("resource") or "")
     if not template.startswith(("http://", "https://")):
         raise ValueError(f"{path} has no http(s) executor.resource")
-
     declared = concept.frontmatter.get("parameters") or []
     missing = [
         str(p.get("name"))
@@ -371,6 +370,16 @@ def _tool_execute(state: BridgeState, args: dict) -> dict[str, Any]:
     # as DNS noise from a literal `{region}` hostname.
     if "{" in url:
         raise ValueError(f"executor template has undeclared placeholders: {url}")
+    authority = urllib.parse.urlsplit(template)
+    if "{" in authority.scheme or "{" in authority.netloc:
+        # Every placeholder is declared by now, so one in the host is a
+        # declared parameter that would let the caller choose the target;
+        # placeholders belong in the path or query (review 2026-10-21,
+        # S-U10; lint E023 says the same at publish time).
+        raise ValueError(
+            f"{path} executor template puts a placeholder in its scheme or host "
+            f"({authority.netloc}); placeholders belong in the path or query"
+        )
 
     # A bundle is data; the hosts it names must not become a bridge into
     # the operator's own network (READINESS A4). Loopback, private, and
@@ -487,12 +496,27 @@ def _tool_result(payload: Any, is_error: bool = False) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": text}], "isError": is_error}
 
 
-def handle_message(state: BridgeState, msg: dict[str, Any]) -> dict[str, Any] | None:
+def handle_message(state: BridgeState, msg: Any) -> dict[str, Any] | list | None:
     """Handle one JSON-RPC message; returns the response, or None for
-    notifications (which get no response by protocol)."""
+    notifications (which get no response by protocol). A batch (a JSON
+    array) answers with the array of its responses; a message that is
+    not an object, or has no string ``method``, is an invalid request
+    (-32600) rather than an exception that ends the session (review
+    2026-10-21, A-U8)."""
+    if isinstance(msg, list):
+        if not msg:
+            return _error(None, -32600, "invalid request: empty batch")
+        responses = [r for r in (handle_message(state, m) for m in msg) if r is not None]
+        return responses or None
+    if not isinstance(msg, dict):
+        return _error(None, -32600, "invalid request: expected a JSON object")
     method = msg.get("method")
-    msg_id = msg.get("id")
+    msg_id = msg.get("id") if isinstance(msg.get("id"), (str, int, type(None))) else None
     is_notification = "id" not in msg
+    if not isinstance(method, str) or not method:
+        if is_notification:
+            return None
+        return _error(msg_id, -32600, "invalid request: `method` must be a string")
 
     if method == "initialize":
         from . import __version__
@@ -529,7 +553,10 @@ def handle_message(state: BridgeState, msg: dict[str, Any]) -> dict[str, Any] | 
 
 
 def serve_stdio(state: BridgeState, stdin=None, stdout=None) -> None:
-    """Blocking newline-delimited JSON-RPC loop over stdio."""
+    """Blocking newline-delimited JSON-RPC loop over stdio. No input line
+    ends the loop: a parse error, an invalid request or an unexpected
+    exception each answer with the protocol's error and the session
+    goes on (review 2026-10-21, A-U8)."""
     stdin = stdin or sys.stdin
     stdout = stdout or sys.stdout
     for line in stdin:
@@ -541,7 +568,11 @@ def serve_stdio(state: BridgeState, stdin=None, stdout=None) -> None:
         except json.JSONDecodeError:
             response = _error(None, -32700, "parse error")
         else:
-            response = handle_message(state, msg)
+            try:
+                response = handle_message(state, msg)
+            except Exception as exc:  # noqa: BLE001 — the session must outlive one bad message
+                msg_id = msg.get("id") if isinstance(msg, dict) else None
+                response = _error(msg_id, -32603, f"internal error: {exc}")
         if response is not None:
             stdout.write(json.dumps(response) + "\n")
             stdout.flush()

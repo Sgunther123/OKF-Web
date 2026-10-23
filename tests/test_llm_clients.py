@@ -5,7 +5,10 @@ import pytest
 from okf_web import llm as llm_mod
 from okf_web.llm import LLMUnavailable, SubscriptionCLIClient, claude_code_client
 
-_HELP_WITH_FLAGS = "Usage: claude [options]\n  --tools <list>\n  --system-prompt <text>\n"
+_HELP_WITH_FLAGS = (
+    "Usage: claude [options]\n  --tools <list>\n  --system-prompt <text>\n"
+    "  --strict-mcp-config   Only use MCP servers from --mcp-config\n"
+)
 
 
 def _fake_cli(tmp_path, body: str):
@@ -38,20 +41,23 @@ def test_subscription_cli_client_missing_binary_is_actionable():
         client.complete("sys", "user")
 
 
+_BASE = ["claude", "-p", "--tools", "", "--strict-mcp-config"]
+
+
 def test_claude_code_client_builds_print_mode_command():
     client = claude_code_client(model="claude-sonnet-5", help_text=_HELP_WITH_FLAGS)
-    assert client.command == ["claude", "-p", "--tools", "", "--model", "claude-sonnet-5"]
+    assert client.command == _BASE + ["--model", "claude-sonnet-5"]
     assert client.model == "claude-sonnet-5"
     assert client.system_flag == "--system-prompt"
     # Without a model, let the local Claude Code default apply.
-    assert claude_code_client(help_text=_HELP_WITH_FLAGS).command == ["claude", "-p", "--tools", ""]
+    assert claude_code_client(help_text=_HELP_WITH_FLAGS).command == _BASE
 
 
 # --- EDGE-CASES S6: no tools, rules out of band, empty working directory ---
 
 def test_claude_code_client_argv_carries_the_rules_on_the_system_flag():
-    client = claude_code_client(help_text=_HELP_WITH_FLAGS + "  --strict-mcp-config\n")
-    assert client.command == ["claude", "-p", "--tools", "", "--strict-mcp-config"]
+    client = claude_code_client(help_text=_HELP_WITH_FLAGS + "  --restricted\n")
+    assert client.command == _BASE + ["--restricted"]
     assert client.argv("RULES") == client.command + ["--system-prompt", "RULES"]
 
 
@@ -60,6 +66,9 @@ def test_claude_code_client_refuses_a_cli_without_the_flags():
         claude_code_client(help_text="Usage: claude [options]\n  --model <m>\n")
     with pytest.raises(LLMUnavailable, match="--system-prompt"):
         claude_code_client(help_text="Usage: claude\n  --tools <list>\n")
+    # S-U9: MCP servers from the operator's settings stay out, or no run.
+    with pytest.raises(LLMUnavailable, match="--strict-mcp-config"):
+        claude_code_client(help_text="Usage: claude\n  --tools <list>\n  --system-prompt <s>\n")
 
 
 def test_claude_code_client_keeps_the_flags_when_the_binary_is_absent(monkeypatch):
@@ -67,12 +76,25 @@ def test_claude_code_client_keeps_the_flags_when_the_binary_is_absent(monkeypatc
     # completion reports the missing binary in its own words.
     monkeypatch.setattr(llm_mod, "probe_cli_help", lambda executable, timeout=30.0: None)
     client = claude_code_client()
-    assert client.command == ["claude", "-p", "--tools", ""]
+    assert client.command == _BASE
     assert client.system_flag == "--system-prompt"
 
 
 def test_probe_never_raises_for_a_missing_binary():
     assert llm_mod.probe_cli_help("definitely-not-a-real-binary-okfweb") is None
+
+
+def test_probe_failure_other_than_a_missing_binary_refuses_the_cli(monkeypatch):
+    # S-U9: a probe that times out or cannot run leaves the flags unknown,
+    # and an agent CLI with unknown flags is not run on untrusted text.
+    import subprocess
+
+    def boom(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="claude --help", timeout=30)
+
+    monkeypatch.setattr(llm_mod.subprocess, "run", boom)
+    with pytest.raises(LLMUnavailable, match="could not read"):
+        llm_mod.probe_cli_help("claude")
 
 
 def test_subscription_client_passes_system_via_flag_and_runs_in_an_empty_dir(tmp_path):

@@ -36,8 +36,12 @@ from urllib.parse import urlsplit
 
 from .publisher import AI_USER_AGENTS
 
+# The request line's pieces do not overlap (the path ends at the first
+# space or quote, and whatever follows must start with a space), so a
+# long request line without a closing quote matches in linear time
+# instead of backtracking quadratically (review 2026-10-21, S-U8).
 _CLF_RE = re.compile(
-    r'^\S+ \S+ \S+ \[(?P<time>[^\]]+)\] "(?P<method>[A-Z]+) (?P<path>\S+)[^"]*"'
+    r'^\S+ \S+ \S+ \[(?P<time>[^\]]+)\] "(?P<method>[A-Z]+) (?P<path>[^"\s]+)(?: [^"]*)?"'
     r' (?P<status>\d{3}) \S+(?:\s+"[^"]*"\s+"(?P<ua>[^"]*)")?'
 )
 

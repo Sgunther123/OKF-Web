@@ -253,6 +253,20 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                     "cannot run it",
                 )
             )
+        elif isinstance(executor.get("resource"), str):
+            authority = urllib.parse.urlsplit(executor["resource"])
+            if "{" in authority.scheme or "{" in authority.netloc:
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "E023",
+                        rel,
+                        "executor.resource puts a placeholder in its scheme or "
+                        "host; a caller could then choose the target, so "
+                        "placeholders belong in the path or query only (the "
+                        "bridge refuses such a template)",
+                    )
+                )
     if concept.type == "Promotion":
         ends = concept.promo_ends
         if ends is None:

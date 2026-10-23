@@ -313,9 +313,11 @@ The bundle is static files — publishable to the same CDN as the site:
 - **Path:** `/.well-known/okf/` (works today; requires nothing from
   the OKF spec). `okf-web publish bundle/ dist/` emits the tree.
   Publishing empties `dist/` first, so `publisher.check_dist` refuses
-  a dist that is the bundle, sits inside it, contains it, or is a
-  non-empty directory without a previous `manifest.json` (`--force`
-  overrides only the last). Every dist carries a hidden `.okf-dist`
+  a dist that is the bundle, sits inside it, contains it, is the home
+  or the working directory, or is a non-empty directory without the
+  hidden `.okf-dist` marker of a previous publish (`--force` overrides
+  only the last; a `manifest.json` alone proves nothing, every web app
+  has one). Every dist carries a hidden `.okf-dist`
   marker; the loader and the publisher skip any marked directory
   found inside a bundle, so a published copy left there never
   becomes knowledge. Symlinks are never bundle content: the loader

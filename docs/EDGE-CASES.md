@@ -410,3 +410,70 @@ recorded in judged runs too, so one scorecard shape serves both modes;
 `okf_info` gains `scorecard_judged` beside the metrics, since an
 assistant reading found-knowledge counts needs the same label a person
 gets. `tests/test_rendered_truth.py` adds 7 tests (417 in all).
+
+### U2 · Refusals and robustness (M) — landed 2026-10-23
+
+Closes S-U3, S-U4, S-U5, S-U6, S-U7, S-U8, S-U9, S-U10, A-U8, L-U5 and
+the tests T-U1, T-U4, T-U5 and T-U11; the CI cache from A-U11.
+
+- **S-U3 (medium).** `okf-web mcp --url … --cache-dir DIR` deleted every
+  non-hidden `*.md` under DIR that the origin's manifest did not list,
+  and wrote through symlinked directories. `remote.check_mirror_dir`
+  refuses the home and working directories and a non-empty directory
+  without the mirror's own `.okf-remote.json`; the sync prunes only
+  files its previous manifest listed, refuses a write that would land
+  outside the mirror, and stops at 256 MiB declared or received.
+- **S-U4 (medium).** `check_dist` took any directory with a
+  `manifest.json` for a previous publish; a web root with a PWA
+  manifest was replaced and deleted. The exemption now keys on the
+  publisher's own `.okf-dist` marker, and the home and working
+  directories are refused outright.
+- **S-U5 (low).** Behind an HTTP(S) proxy the resolver-based private-host
+  check was skipped. The target is still resolved and a private answer
+  refused; a name the local resolver cannot answer is left to the proxy.
+- **S-U6 (low).** The deadline bounded only the body read. Each redirect
+  hop now gets the time that remains and none when none does, the first
+  open's socket timeout is capped by the deadline, and a socket timeout
+  surfaces as `FetchTimeout`.
+- **S-U7 (low).** Two processes taking over one dead holder's lock could
+  both succeed. The stale file is renamed aside first (one rename wins),
+  re-read, and only then removed; a live holder moved by mistake gets
+  its lock back.
+- **S-U8 (low).** The access-log regex backtracked quadratically on a
+  request line without a closing quote (150 ms per 16 KiB line). The
+  path now ends at the first space or quote; matching is linear.
+- **S-U9 (low).** A failed or timed-out `claude --help` probe skipped the
+  flag check, and `--strict-mcp-config` was optional, so MCP servers
+  from the operator's settings stayed reachable from a session fed
+  page text. The flag is required, `--restricted` is added when
+  offered, and a probe that fails for any reason but a missing binary
+  refuses the CLI.
+- **S-U10 (low).** `okf_execute` substituted declared parameters into the
+  URL authority, so `https://{region}.example.com/` let the caller pick
+  the host. The bridge refuses a template with a placeholder in its
+  scheme or host, and lint E023 says the same at publish time.
+- **A-U8 (medium).** A JSON line that was not an object ended the stdio
+  bridge; a request without `method` answered `-32601`. Invalid requests
+  answer `-32600`, a batch answers an array, an exception inside a
+  message answers `-32603`, and no line ends the session.
+- **L-U5 (medium).** One non-UTF-8 byte in a `.md` file ended every
+  command with a traceback. The loader records the file as broken
+  (E001 names it), `log.md` decodes with replacement, and the CLI maps
+  a stray `UnicodeDecodeError` to exit 2.
+- **Tests.** `tests/test_refusals.py` (11), `tests/test_net_proxy.py`
+  (2: a loopback forwarding proxy, and a slow redirect chain under a
+  short deadline), `tests/test_packaging.py` (the built wheel ships the
+  prompts and the ten packs; skipped where `build` is absent, so
+  `build` joins the dev extras and runs in CI), one more CLI-client
+  test, and a conftest fixture that clears every proxy variable for
+  the loopback suites. 431 tests pass locally; CI runs 432.
+- **CI.** `cache: pip` keyed on `pyproject.toml` on both setup-python
+  steps.
+
+Where the shipped code differs from the plan, on purpose: the mirror's
+byte cap is enforced twice, on the manifest's declared sizes and on the
+bytes actually received, since a manifest may lie about either; the
+bridge treats a batch as the protocol does (an array of answers) rather
+than refusing it; the proxied resolver check lets an unresolvable name
+through to the proxy, since corporate resolvers often answer only for
+the proxy, and refuses only a name that resolves privately here.

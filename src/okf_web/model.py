@@ -310,10 +310,30 @@ def bundle_lock(root: Path | str, create: bool = False) -> Iterator[Path]:
                     f"{holder[1]}; wait for that okf-web run to finish, or "
                     f"delete {lock} if it died"
                 )
+            # Take a dead or unreadable holder's lock over without a window
+            # in which two takers both succeed: move the file aside first
+            # (one rename wins; the loser finds nothing and retries the
+            # exclusive create), confirm the moved file still names no live
+            # holder, then retry (review 2026-10-21, S-U7).
+            stale = lock.with_name(f"{LOCK_NAME}.stale.{os.getpid()}.{secrets.token_hex(4)}")
             try:
-                lock.unlink()
+                os.rename(lock, stale)
             except FileNotFoundError:
-                pass
+                continue
+            moved = _lock_holder(stale)
+            if moved is not None and _pid_alive(moved[0]):
+                # A live holder re-created the lock between our read and the
+                # rename: give it back if the slot is still free, and yield.
+                try:
+                    os.link(stale, lock)
+                except (FileExistsError, OSError):
+                    pass
+                stale.unlink(missing_ok=True)
+                raise BundleLocked(
+                    f"bundle {root} is locked by process {moved[0]} since "
+                    f"{moved[1]}; wait for that okf-web run to finish"
+                )
+            stale.unlink(missing_ok=True)
             continue
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(f"{os.getpid()} {utc_instant()}\n")
@@ -916,17 +936,21 @@ def load_bundle(
             continue
         name = path.name
         if name == "log.md":
-            bundle.logs[rel] = path.read_text(encoding="utf-8")
+            bundle.logs[rel] = path.read_text(encoding="utf-8", errors="replace")
             continue
         data = path.read_bytes()
         digest = hashlib.sha256(data).hexdigest()
         entry = _cache_hit(cached.get(rel), digest)
         if entry is None:
-            entry = {
-                "hash": digest,
-                "size": len(data),
-                **_parse_entry(name, data.decode("utf-8")),
-            }
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                # A stray Latin-1 byte is a broken file the linter names
+                # (E001), never a traceback (review 2026-10-21, L-U5).
+                parsed = {"fm": None, "body": "", "broken": f"not valid UTF-8: {exc}"}
+            else:
+                parsed = _parse_entry(name, text)
+            entry = {"hash": digest, "size": len(data), **parsed}
             dirty = True
         fresh[rel] = entry
         if entry["broken"] is not None:
