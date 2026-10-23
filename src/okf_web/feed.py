@@ -32,15 +32,27 @@ from __future__ import annotations
 import csv
 import datetime as _dt
 import io
-import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import PROFILE
 from .linter import ERROR, lint_concept
-from .model import Concept, load_bundle, utc_instant
+from .errors import Refusal
+from .model import Concept, load_bundle, slug, utc_instant
 from .surveyor import SurveyResult, place_draft, stable_page_hash
+
+__all__ = [
+    "FEED_ACTOR",
+    "REQUIRED_COLUMNS",
+    "FeedError",
+    "DROPPED_FIELDS",
+    "FeedItem",
+    "parse_feed",
+    "item_text",
+    "item_to_document",
+    "ingest_feed",
+]
 
 FEED_ACTOR = "process:okf-web-feed-ingest"
 
@@ -48,7 +60,7 @@ FEED_ACTOR = "process:okf-web-feed-ingest"
 REQUIRED_COLUMNS = ("title", "link")
 
 
-class FeedError(ValueError):
+class FeedError(ValueError, Refusal):
     """The feed file as a whole cannot be used, with the reason in plain
     words (EDGE-CASES U6)."""
 
@@ -188,7 +200,7 @@ def _item_from(fields: dict[str, str]) -> FeedItem:
 
 
 def _slug(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:60]
+    return slug(text).strip("-")[:60]
 
 
 def item_text(item: FeedItem) -> str:
@@ -325,7 +337,7 @@ def ingest_feed(
         fm["status"] = "draft"
         fm["generated"] = {
             "by": FEED_ACTOR,
-            "at": now.isoformat().replace("+00:00", "Z"),
+            "at": utc_instant(now),
         }
         fm["x_geo"]["source_hash"] = source_hash
         fm["x_geo"]["source_fetched_at"] = now.date().isoformat()

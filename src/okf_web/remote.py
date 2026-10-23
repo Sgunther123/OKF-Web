@@ -23,24 +23,38 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import secrets
 import time
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Callable
 
+from .config import user_agent
 from .model import (
     DIST_MARKER,
     Bundle,
+    file_digest,
     load_bundle,
     localized_view,
     utc_instant,
     write_atomic,
 )
 from .net import PAGE_POLICY, FetchError, FetchPolicy, FetchResult, safe_fetch
-from .publisher import published_view
+from .views import published_view
 
-USER_AGENT = "okf-web-mcp/0.1"
+__all__ = [
+    "USER_AGENT",
+    "META_NAME",
+    "MAX_FILES",
+    "MAX_TOTAL_BYTES",
+    "DEFAULT_REFRESH_SECONDS",
+    "RemoteError",
+    "default_policy",
+    "cache_dir_for",
+    "check_mirror_dir",
+    "RemoteSource",
+]
+
+USER_AGENT = user_agent("mirror")
 META_NAME = ".okf-remote.json"
 MAX_FILES = 20_000  # a manifest listing more than this is not a bundle we mirror
 MAX_TOTAL_BYTES = 256 * 1024 * 1024  # and one declaring (or sending) more than this fills no disk
@@ -53,10 +67,7 @@ class RemoteError(FetchError):
 
 
 def default_policy(allow_private: bool = False) -> FetchPolicy:
-    return FetchPolicy(
-        max_bytes=PAGE_POLICY.max_bytes,
-        timeout=PAGE_POLICY.timeout,
-        deadline=PAGE_POLICY.deadline,
+    return PAGE_POLICY.derive(
         allow_private=allow_private,
         allow_loopback=allow_private,
         user_agent=USER_AGENT,
@@ -80,31 +91,6 @@ def _safe_rel(rel: str) -> bool:
         return False
     parts = PurePosixPath(rel).parts
     return all(part not in ("..", ".") and not part.startswith(".") for part in parts)
-
-
-def _write_bytes_atomic(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
-    try:
-        with open(tmp, "wb") as fh:
-            fh.write(data)
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp, path)
-    finally:
-        if tmp.exists():
-            try:
-                tmp.unlink()
-            except OSError:
-                pass
-
-
-def _digest(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 16), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def check_mirror_dir(cache_dir: Path) -> None:
@@ -231,7 +217,7 @@ class RemoteSource:
             if not isinstance(expected, str):
                 raise RemoteError(f"manifest lists {rel} without a sha256")
             target = self.cache_dir / rel
-            if target.is_file() and not target.is_symlink() and _digest(target) == expected:
+            if target.is_file() and not target.is_symlink() and file_digest(target)[0] == expected:
                 continue
             page = self.fetch(self._url(rel), self.policy)
             if page.status != 200:
@@ -250,7 +236,8 @@ class RemoteSource:
             target.parent.mkdir(parents=True, exist_ok=True)
             if not _inside(self.cache_dir, target):
                 raise RemoteError(f"{rel} would be written outside the mirror; refusing")
-            _write_bytes_atomic(target, page.body)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            write_atomic(target, page.body)
             fetched += 1
 
         removed = 0

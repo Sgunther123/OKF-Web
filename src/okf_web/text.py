@@ -18,6 +18,11 @@ from __future__ import annotations
 import re
 import unicodedata
 
+__all__ = [
+    "fold",
+    "words",
+]
+
 _WORD_RE = re.compile(r"[^\W_]+")  # letters and digits, any script; never `_`
 _ASCII_WORD_RE = re.compile(r"[a-z0-9]+")
 # Scripts written without spaces: a run of these is one "word" to the

@@ -33,6 +33,7 @@ from pathlib import Path
 
 import yaml
 
+from .errors import Refusal
 from .llm import estimate_tokens
 from .model import (
     Bundle,
@@ -47,6 +48,28 @@ from .model import (
     language_primary,
 )
 from .text import words
+
+__all__ = [
+    "ARCHETYPES",
+    "STOPWORDS",
+    "stopwords_for",
+    "Question",
+    "QuestionResult",
+    "Report",
+    "QuestionSetError",
+    "ScorecardGuard",
+    "validate_questions",
+    "load_questions",
+    "generate_questions",
+    "RELEVANCE_FLOOR",
+    "META_TYPES",
+    "retrieve_scored",
+    "retrieve",
+    "render_context",
+    "evaluate",
+    "SCORECARD_PATH",
+    "write_scorecard",
+]
 
 ARCHETYPES = [
     "discovery",      # does this store sell something for my need?
@@ -306,11 +329,11 @@ class Report:
 # Question sets
 # ---------------------------------------------------------------------------
 
-class QuestionSetError(ValueError):
+class QuestionSetError(ValueError, Refusal):
     """The question set cannot be evaluated as it stands (EDGE-CASES A3)."""
 
 
-class ScorecardGuard(ValueError):
+class ScorecardGuard(ValueError, Refusal):
     """A dry-run scorecard would replace a judged one (EDGE-CASES A3)."""
 
 
@@ -739,7 +762,7 @@ def write_scorecard(
         # before the freshness machinery retires it — re-evaluate to
         # renew. Stamped at the spec's instant precision.
         "stale_after": utc_instant(now + _dt.timedelta(days=30)),
-        "generated": {"by": report.generated_by, "at": now.isoformat().replace("+00:00", "Z")},
+        "generated": {"by": report.generated_by, "at": utc_instant(now)},
         "x_geo": {"risk": "c", "metrics": metrics, "evaluated": evaluated},
     }
     lines = ["# Results", ""]

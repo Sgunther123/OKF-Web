@@ -27,30 +27,48 @@ from __future__ import annotations
 
 import contextlib
 import datetime as _dt
-import hashlib
 import json
 import os
 import shutil
-import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
 from urllib.robotparser import RobotFileParser
 
 from . import OKF_VERSION, PROFILE
+from .agents import AI_USER_AGENTS  # noqa: F401 — re-exported; the roster lives in agents.py
+from .config import WELL_KNOWN_PATH, user_agent
+from .errors import Failure, Refusal
 from .linter import has_errors, lint_bundle
 from .model import (
     Bundle,
     DIST_MARKER,
     INTERNAL_DIRS,
-    _linked,
+    file_digest,
+    is_linked,
     load_bundle,
     marked_dists,
+    utc_instant,
     write_atomic,
     split_l10n,
 )
-from .net import ROBOTS_POLICY, FetchPolicy, safe_fetch
+from .net import ROBOTS_POLICY, FetchPolicy, origin, safe_fetch
 from .structured import write_llms_txt, write_structured
+from .views import published_view, select_publishable, withhold_reason  # noqa: F401 — re-exported (A-U7)
+
+__all__ = [
+    "PublishResult",
+    "PublishError",
+    "UnsafeDist",
+    "check_dist",
+    "publish",
+    "evaluate_robots",
+    "check_robots",
+    "AI_USER_AGENTS",
+    "published_view",
+    "select_publishable",
+    "withhold_reason",
+]
 
 
 @dataclass
@@ -65,11 +83,11 @@ class PublishResult:
     assets: list[str] = field(default_factory=list)
 
 
-class PublishError(RuntimeError):
+class PublishError(RuntimeError, Failure):
     pass
 
 
-class UnsafeDist(PublishError):
+class UnsafeDist(PublishError, Refusal):
     """The dist path would destroy something: the bundle itself, a
     directory containing it, or a directory that is not a previous
     publish (EDGE-CASES U1, A1)."""
@@ -119,89 +137,6 @@ def check_dist(bundle_root: Path | str, dist: Path | str, force: bool = False) -
         )
 
 
-def select_publishable(
-    bundle: Bundle,
-    include_machine_confirmed: bool = False,
-    today: _dt.date | None = None,
-    freshness: str = "warn",
-) -> tuple[set[str], list[str]]:
-    """Split the bundle's concepts into (publishable, withheld).
-
-    Expired promotions are withheld even when stable and approved —
-    ``x_geo.ends_at`` is machine-readable, so this is the one content
-    class where auto-retirement is unambiguous: a publish after the
-    end date can never ship a dead sale.
-
-    ``freshness="withhold"`` extends that retirement to any concept
-    past its ``stale_after``: the merchant told consumers "do not
-    trust this after date X", so a publish after X stops shipping it.
-    The default ("warn") keeps shipping and warns — withholding a
-    stale returns policy may be worse than serving it a week late, so
-    strict retirement is opt-in.
-    """
-    include: set[str] = set()
-    withheld: list[str] = []
-    for rel, concept in bundle.concepts.items():
-        if concept.type == "Promotion" and concept.promo_expired(today):
-            withheld.append(rel)
-        elif freshness == "withhold" and concept.is_stale(today):
-            withheld.append(rel)
-        elif concept.status == "stable":
-            include.add(rel)
-        elif (include_machine_confirmed and concept.status == "draft"
-              and not concept.is_high_risk):
-            # A low-risk draft, on request; a deprecated or unknown status
-            # never ships (review 2026-10-21, L-U4).
-            include.add(rel)
-        else:
-            withheld.append(rel)
-    return include, withheld
-
-
-def withhold_reason(
-    concept,
-    today: _dt.date | None = None,
-    freshness: str = "warn",
-    include_machine_confirmed: bool = False,
-) -> str:
-    """Why ``select_publishable`` withholds ``concept``, in the words the
-    operator needs (EDGE-CASES U9): the actual status, never a generic
-    "drafts or stale"."""
-    if concept.type == "Promotion" and concept.promo_expired(today):
-        return "expired promotion"
-    if freshness == "withhold" and concept.is_stale(today):
-        return "stale (--freshness withhold)"
-    if concept.status == "stable":
-        return "published"
-    if concept.status == "draft":
-        if concept.is_high_risk:
-            return "draft, high-risk: needs `okf-web review approve`"
-        if include_machine_confirmed:
-            return "draft"
-        return "draft (low-risk; --include-machine-confirmed would ship it)"
-    return f"status {concept.status!r}: only stable concepts publish"
-
-
-def published_view(
-    bundle: Bundle,
-    include_machine_confirmed: bool = False,
-    today: _dt.date | None = None,
-    freshness: str = "warn",
-) -> Bundle:
-    """The bundle as consumers see it: withheld concepts removed.
-
-    Evaluating this view instead of the working bundle keeps the
-    scorecard honest — a full evaluation over the working copy would
-    happily answer questions from drafts the publisher withholds.
-    """
-    include, _ = select_publishable(bundle, include_machine_confirmed, today, freshness)
-    view = Bundle(root=bundle.root)
-    view.concepts = {rel: c for rel, c in bundle.concepts.items() if rel in include}
-    view.indexes = dict(bundle.indexes)
-    view.logs = dict(bundle.logs)
-    return view
-
-
 @contextlib.contextmanager
 def _staging(dist: Path) -> Iterator[Path]:
     """Build into a hidden sibling of ``dist``, then swap it in whole
@@ -230,7 +165,7 @@ def publish(
     bundle_root: Path | str,
     dist: Path | str,
     include_machine_confirmed: bool = False,
-    base_path: str = "/.well-known/okf",
+    base_path: str = WELL_KNOWN_PATH,
     freshness: str = "warn",
     today: _dt.date | None = None,
     site: str | None = None,
@@ -290,10 +225,10 @@ def publish(
     # concepts cite pages on a different origin is either misdeclared
     # or misassembled — either way consumers will reject the binding.
     if site:
-        site_origin = _origin(site)
+        site_origin = origin(site)
         for rel in sorted(concept_include):
             resource = bundle.concepts[rel].resource
-            if resource and resource.startswith(("http://", "https://")) and _origin(resource) != site_origin:
+            if resource and resource.startswith(("http://", "https://")) and origin(resource) != site_origin:
                 result.warnings.append(
                     f"{rel} resource {resource} is not on the declared site "
                     f"origin {site_origin} — delegation verifiers will flag it"
@@ -327,7 +262,7 @@ def publish(
             # droppings), never published knowledge.
             if any(part.startswith(".") for part in rel.split("/")):
                 continue
-            if _linked(bundle_root, path):
+            if is_linked(bundle_root, path):
                 if path.is_symlink():
                     result.warnings.append(f"{rel} is a symlink; not published")
                 continue
@@ -383,39 +318,6 @@ def publish(
     return result
 
 
-def _origin(url: str) -> str:
-    """The origin a URL belongs to, compared the way browsers compare
-    origins: scheme and host lower-cased, a default port (80 for http,
-    443 for https) dropped, any other port kept, user information never
-    part of it. ``www`` and the apex stay different origins, as they
-    are to a browser."""
-    parts = urllib.parse.urlsplit(url)
-    scheme = parts.scheme.lower()
-    try:
-        host, port = (parts.hostname or "").lower(), parts.port
-    except ValueError:  # a port that is not a number: compare it literally
-        return f"{scheme}://{parts.netloc}".lower()
-    if ":" in host:  # an IPv6 literal: urlsplit strips the brackets
-        host = f"[{host}]"
-    if port is None or port == {"http": 80, "https": 443}.get(scheme):
-        return f"{scheme}://{host}"
-    return f"{scheme}://{host}:{port}"
-
-
-def _file_digest(path: Path) -> tuple[str, int]:
-    """sha256 + size in 64 KB chunks: manifest hashing must not load a
-    whole file — spec-sheet PDFs and media assets publish alongside the
-    concepts, and peak memory must not track the largest asset
-    (READINESS R4)."""
-    digest = hashlib.sha256()
-    size = 0
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 16), b""):
-            digest.update(chunk)
-            size += len(chunk)
-    return digest.hexdigest(), size
-
-
 def _write_manifest(
     dist: Path,
     published: list[str],
@@ -425,7 +327,7 @@ def _write_manifest(
 ) -> None:
     files = {}
     for rel in sorted(published):
-        sha256, size = _file_digest(dist / rel)
+        sha256, size = file_digest(dist / rel)
         entry: dict = {"sha256": sha256, "bytes": size}
         concept = bundle.concepts.get(rel) if bundle is not None else None
         if concept is not None:
@@ -455,12 +357,7 @@ def _write_manifest(
         manifest["language"] = declared
     if languages:
         manifest["languages"] = languages
-    manifest["published_at"] = (
-        _dt.datetime.now(_dt.timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    manifest["published_at"] = utc_instant()
     manifest["files"] = files
     # The bundle→store half of the delegation binding (the store→bundle
     # half is the pointer on the site itself). Consumers of an
@@ -487,20 +384,10 @@ def _write_linkmap(dist: Path, bundle, published: list[str], prefix: str) -> Non
     write_atomic(dist / "linkmap.json", json.dumps(linkmap, indent=2) + "\n")
 
 
-# AI crawlers/agents a bundle exists to serve. If robots.txt blocks
-# them from the bundle path, publishing is a no-op in practice — the
-# check surfaces that before the merchant wonders why nothing reads it.
-AI_USER_AGENTS = [
-    "GPTBot",
-    "OAI-SearchBot",
-    "ClaudeBot",
-    "Claude-User",
-    "Google-Extended",
-    "PerplexityBot",
-    "CCBot",
-]
-
-
+# If robots.txt blocks the AI agents a bundle exists to serve
+# (`agents.AI_USER_AGENTS`) from the bundle path, publishing is a no-op in
+# practice — the check surfaces that before the merchant wonders why
+# nothing reads it.
 def evaluate_robots(robots_txt: str, site: str, base_path: str) -> list[str]:
     """Return the AI user agents that robots.txt blocks from the bundle."""
     parser = RobotFileParser()
@@ -526,12 +413,8 @@ def check_robots(
     check was inconclusive, not that agents are allowed.
     """
     robots_url = site.rstrip("/") + "/robots.txt"
-    policy = policy or FetchPolicy(
-        max_bytes=ROBOTS_POLICY.max_bytes,
-        timeout=timeout,
-        deadline=ROBOTS_POLICY.deadline,
-        allow_private=allow_private,
-        user_agent="okf-web-publisher/0.1",
+    policy = policy or ROBOTS_POLICY.derive(
+        timeout=timeout, allow_private=allow_private, user_agent=user_agent("publisher"),
     )
     try:
         result = safe_fetch(robots_url, policy)

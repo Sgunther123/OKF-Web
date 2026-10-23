@@ -37,12 +37,22 @@ the executable.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import subprocess
 from pathlib import Path
 
-from .publisher import _file_digest
+from .errors import Failure, Refusal
+from .model import file_digest
+
+__all__ = [
+    "SIGNATURE_NAME",
+    "SigningError",
+    "LabelError",
+    "signature_path",
+    "sign_manifest",
+    "verify_signature",
+    "verify_integrity",
+]
 
 SIGNATURE_NAME = "manifest.json.sigstore.json"
 
@@ -53,8 +63,12 @@ _LABEL_RE = __import__("re").compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
 _EXPECTED_EXTRAS = {"manifest.json", SIGNATURE_NAME, "linkmap.json", "llms-snippet.txt"}
 
 
-class SigningError(RuntimeError):
-    pass
+class SigningError(RuntimeError, Failure):
+    """Signing or verification did not succeed (exit 1)."""
+
+
+class LabelError(SigningError, Refusal):
+    """A countersignature label the tool will not accept (exit 2)."""
 
 
 def signature_path(dist: Path | str, label: str | None = None) -> Path:
@@ -63,7 +77,7 @@ def signature_path(dist: Path | str, label: str | None = None) -> Path:
     if label is None:
         return Path(dist) / SIGNATURE_NAME
     if not _LABEL_RE.match(label):
-        raise SigningError(
+        raise LabelError(
             f"invalid countersignature label {label!r}: lowercase letters, "
             "digits, and hyphens only"
         )
@@ -200,7 +214,7 @@ def verify_integrity(dist: Path | str) -> tuple[list[str], list[str]]:
         if not path.is_file():
             errors.append(f"not a regular file: {rel}")
             continue
-        digest, size = _file_digest(path)
+        digest, size = file_digest(path)
         if digest != meta.get("sha256"):
             errors.append(f"hash mismatch (file modified after publish): {rel}")
         elif meta.get("bytes") not in (None, size):

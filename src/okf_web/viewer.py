@@ -28,7 +28,9 @@ import html
 from pathlib import Path
 
 from . import __version__
-from .discover import WELL_KNOWN_PATH
+from .agents import AI_USER_AGENTS
+from .config import WELL_KNOWN_PATH
+from .errors import Refusal
 from .evaluator import ARCHETYPES, SCORECARD_PATH
 from .llm import estimate_tokens
 from .logscan import LogScanReport
@@ -46,9 +48,17 @@ from .model import (
     trust_mix,
     utc_today,
 )
-from .publisher import AI_USER_AGENTS, select_publishable
-from .report import ARCHETYPE_LABELS, _count, _gaps, _judged_verdicts, _question_blocks
-from .structured import _LLMS_SECTIONS, jsonld_for
+from .report import ARCHETYPE_LABELS, count_cell, judged_verdicts, question_blocks, scorecard_gaps
+from .structured import LLMS_SECTIONS, jsonld_for
+from .views import select_publishable
+
+__all__ = [
+    "REVENUE_MOMENTS",
+    "SOON_DAYS",
+    "ViewerError",
+    "build_viewer",
+    "write_viewer",
+]
 
 # The purchase moment each question archetype serves, and why it
 # matters to a store's revenue. Editorial vocabulary, not measurement:
@@ -144,7 +154,7 @@ _RISK_WORDS = {"a": "a · high", "b": "b · medium", "c": "c · low"}
 SOON_DAYS = 30
 
 
-class ViewerError(RuntimeError):
+class ViewerError(RuntimeError, Refusal):
     pass
 
 
@@ -310,7 +320,7 @@ def build_viewer(
     )
     store = identity.title if identity else bundle.root.name
     root_index = bundle.indexes.get("index.md")
-    site = str(((root_index.x_geo if root_index else {}) or {}).get("site") or "").rstrip("/")
+    site = (bundle.site or "").rstrip("/")
     # The scorecard is read only at its own path (S-U1; lint E022).
     scorecard = concepts.get(SCORECARD_PATH)
     if scorecard is not None and scorecard.type != "GEO Scorecard":
@@ -404,7 +414,7 @@ def build_viewer(
         if line.startswith("## ")
     )
     llms_sections = [
-        section for section, types in _LLMS_SECTIONS
+        section for section, types in LLMS_SECTIONS
         if any(c.type in types for c in published.values())
     ]
     edges = 0
@@ -439,9 +449,9 @@ def build_viewer(
 </div>"""
 
     # --- where the revenue is ----------------------------------------------
-    verdicts = _judged_verdicts(scorecard) if scorecard else {}
+    verdicts = judged_verdicts(scorecard) if scorecard else {}
     revenue_rows = []
-    blocks = _question_blocks(bundle, by_archetype if full_run else None,
+    blocks = question_blocks(bundle, by_archetype if full_run else None,
                               verdicts or None, None)
     for archetype in ARCHETYPES:
         moment, why = REVENUE_MOMENTS[archetype]
@@ -455,9 +465,9 @@ def build_viewer(
         )
         recorded = by_archetype.get(archetype) or {}
         recorded = recorded if isinstance(recorded, dict) else {}
-        total = _count(recorded.get("questions"))
-        answered = _count(recorded.get("answered")) if full_run else None
-        found = _count(recorded.get("found"))
+        total = count_cell(recorded.get("questions"))
+        answered = count_cell(recorded.get("answered")) if full_run else None
+        found = count_cell(recorded.get("found"))
         if total and answered is not None:
             state = "ok" if answered == total else ("warn" if answered else "gap")
             measured = f'<span class="{state}">{answered} / {total} answered</span>'
@@ -591,7 +601,7 @@ def build_viewer(
     )
 
     # --- questions → knowledge -----------------------------------------------
-    gaps = _gaps(scorecard) if scorecard else []
+    gaps = scorecard_gaps(scorecard) if scorecard else []
     gap_items = []
     for gap in gaps:
         qid = gap.split("(", 1)[0].strip()
@@ -603,7 +613,7 @@ def build_viewer(
         gap_ids = {
             g.split("(", 1)[0].strip() for g in gaps if " " not in g.split("(", 1)[0].strip()
         }
-        blocks = _question_blocks(bundle, by_archetype if full_run else None,
+        blocks = question_blocks(bundle, by_archetype if full_run else None,
                                   verdicts or None, gap_ids)
         questions_html = (
             '<p class="meaning">Every row is recomputed from the committed '

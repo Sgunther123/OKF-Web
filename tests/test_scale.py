@@ -109,9 +109,9 @@ def test_manifest_hashes_match_full_file_digests(example_bundle, tmp_path):
     big = tmp_path / "dist" / "media" / "blob.bin"
     big.parent.mkdir(parents=True, exist_ok=True)
     big.write_bytes(bytes(range(256)) * 1024)  # 256 KB, several chunks
-    from okf_web.publisher import _file_digest
+    from okf_web.model import file_digest
 
-    sha, size = _file_digest(big)
+    sha, size = file_digest(big)
     assert sha == hashlib.sha256(big.read_bytes()).hexdigest()
     assert size == big.stat().st_size
     manifest = json.loads((tmp_path / "dist" / "manifest.json").read_text())

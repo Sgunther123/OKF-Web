@@ -35,6 +35,11 @@ from .feed import FEED_ACTOR
 from .model import load_bundle
 from .surveyor import fetch, html_to_text, stable_page_hash
 
+__all__ = [
+    "DriftReport",
+    "check_bundle",
+]
+
 
 def _fetch_page_text(
     url: str, timeout: float = 30.0, allow_private: bool = False, policy=None

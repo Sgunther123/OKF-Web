@@ -31,6 +31,7 @@ import re
 from pathlib import Path
 
 from .evaluator import SCORECARD_PATH, evaluate as _dry_evaluate, load_questions
+from .errors import Refusal
 from .model import (
     write_atomic,
     Bundle,
@@ -40,6 +41,17 @@ from .model import (
     load_bundle,
     split_l10n,
 )
+
+__all__ = [
+    "ARCHETYPE_LABELS",
+    "ReportError",
+    "count_cell",
+    "scorecard_gaps",
+    "judged_verdicts",
+    "question_blocks",
+    "build_report",
+    "write_report",
+]
 
 # Archetype → the question a shopper would recognize.
 ARCHETYPE_LABELS = {
@@ -59,7 +71,7 @@ ARCHETYPE_LABELS = {
 }
 
 
-class ReportError(RuntimeError):
+class ReportError(RuntimeError, Refusal):
     pass
 
 
@@ -77,7 +89,7 @@ def _scorecard(bundle: Bundle) -> Concept:
     return concept
 
 
-def _count(value) -> int | None:
+def count_cell(value) -> int | None:
     """A recorded count, or None for anything that is not a whole
     number: hostile or malformed metrics render as escaped text, never
     as markup (review 2026-10-21, S-U1)."""
@@ -90,7 +102,7 @@ def _count(value) -> int | None:
     return number if number >= 0 else None
 
 
-def _gaps(scorecard: Concept) -> list[str]:
+def scorecard_gaps(scorecard: Concept) -> list[str]:
     lines: list[str] = []
     in_section = False
     for line in scorecard.body.splitlines():
@@ -113,7 +125,7 @@ def _pct(value) -> str:
 _GAP_ID = re.compile(r"^\*\s*`([^`]+)`")
 
 
-def _judged_verdicts(scorecard: Concept) -> dict[str, bool]:
+def judged_verdicts(scorecard: Concept) -> dict[str, bool]:
     """Per-question judged verdicts, read only from what the recorded
     scorecard states: the results table's ``answered`` column (located
     by header, so older five-column tables parse too), plus the gap
@@ -156,7 +168,7 @@ def _judged_verdicts(scorecard: Concept) -> dict[str, bool]:
     return verdicts
 
 
-def _question_blocks(bundle: Bundle, by_archetype: dict | None,
+def question_blocks(bundle: Bundle, by_archetype: dict | None,
                      verdicts: dict[str, bool] | None = None,
                      gap_ids: set[str] | None = None) -> list[str]:
     """One collapsible block per archetype, each a table of the
@@ -223,8 +235,8 @@ def _question_blocks(bundle: Bundle, by_archetype: dict | None,
                 f'<td class="num">{r.context_tokens:,}</td></tr>'
             )
         recorded = (by_archetype or {}).get(archetype) or {}
-        answered = _count(recorded.get("answered"))
-        total = _count(recorded.get("questions"))
+        answered = count_cell(recorded.get("answered"))
+        total = count_cell(recorded.get("questions"))
         judged = (
             f" &middot; judged answers {answered} / {total} (recorded)"
             if answered is not None and total else ""
@@ -252,7 +264,7 @@ def _question_detail(bundle: Bundle, by_archetype: dict | None,
     full evaluation was recorded: knowledge found (this pass) beside
     judged answers (the scorecard), so the two measurements cannot be
     mistaken for one another when they differ."""
-    blocks = _question_blocks(bundle, by_archetype, verdicts, gap_ids)
+    blocks = question_blocks(bundle, by_archetype, verdicts, gap_ids)
     if not blocks:
         return ""
     return (
@@ -359,7 +371,7 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
     for archetype, slot in (metrics.get("by_archetype") or {}).items():
         label = ARCHETYPE_LABELS.get(archetype, archetype)
         slot = slot if isinstance(slot, dict) else {}
-        measure, total = _count(slot.get(measure_key)), _count(slot.get("questions"))
+        measure, total = count_cell(slot.get(measure_key)), count_cell(slot.get("questions"))
         if measure is None or total is None:
             # Not a whole number: shown as text, never trusted as one.
             shown = e(f"{slot.get(measure_key)} / {slot.get('questions')}")
@@ -370,7 +382,7 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
         rows.append(f'<tr class="{state}"><td>{e(label)}</td><td>{shown}</td></tr>')
     topic_heading = "Coverage by topic" if full_run else "Knowledge found by topic (not judged)"
 
-    gaps = _gaps(scorecard)
+    gaps = scorecard_gaps(scorecard)
     # Gap bullets open with the question id (write_scorecard's format),
     # so each list item can carry an anchor the detail rows link to.
     gap_ids: set[str] = set()
@@ -490,7 +502,7 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   <h2 id="gaps">What the store still can't answer</h2>
   <ul>{gaps_html}</ul>
   {_question_detail(bundle, metrics.get("by_archetype") if full_run else None,
-                    _judged_verdicts(scorecard), gap_ids)}
+                    judged_verdicts(scorecard), gap_ids)}
   <h2>Why these answers can be trusted</h2>
   <p class="meaning">Of {len(concepts)} knowledge entries: {human} were
   read and approved individually by a named person, and {attested} were
@@ -521,3 +533,10 @@ def write_report(
     target.parent.mkdir(parents=True, exist_ok=True)
     write_atomic(target, build_report(bundle, today=today))
     return target
+
+
+# The names the viewer borrowed before these were public (A-U2).
+_count = count_cell
+_gaps = scorecard_gaps
+_judged_verdicts = judged_verdicts
+_question_blocks = question_blocks

@@ -21,7 +21,22 @@ import subprocess
 import tempfile
 from typing import Protocol
 
-DEFAULT_MODEL = "claude-sonnet-5"
+from .config import DEFAULT_MODEL
+from .errors import Refusal
+
+__all__ = [
+    "LLMClient",
+    "AnthropicClient",
+    "LLMUnavailable",
+    "probe_cli_help",
+    "SubscriptionCLIClient",
+    "claude_code_client",
+    "StaticClient",
+    "estimate_tokens",
+    "add_llm_args",
+    "client_from_args",
+    "DEFAULT_MODEL",
+]
 
 
 class LLMClient(Protocol):
@@ -58,7 +73,7 @@ class AnthropicClient:
         )
 
 
-class LLMUnavailable(RuntimeError):
+class LLMUnavailable(RuntimeError, Refusal):
     """The requested LLM path cannot run safely on this machine; the
     message says what to change."""
 
@@ -218,3 +233,31 @@ class StaticClient:
 def estimate_tokens(text: str) -> int:
     """Cheap token estimate (~4 chars/token) for efficiency metrics."""
     return max(1, len(text) // 4)
+
+
+# --- the CLI's wiring, public (review 2026-10-21, A-U2) -----------------------------
+
+def add_llm_args(parser) -> None:
+    """The two arguments every LLM-driven command takes: ``--model``
+    (default :data:`DEFAULT_MODEL`) and ``--llm`` (``api`` — the
+    Anthropic SDK; ``claude-code`` — a local ``claude -p`` under the
+    operator's subscription, interactive runs only)."""
+    parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument(
+        "--llm",
+        choices=["api", "claude-code"],
+        default="api",
+        help="api: Anthropic SDK (API key or `ant auth login` profile); "
+        "claude-code: your Claude subscription via a local `claude -p` "
+        "(interactive runs only)",
+    )
+
+
+def client_from_args(args, model: str | None = None):
+    """The LLM client the parsed arguments ask for; ``model`` overrides
+    ``args.model`` (a judge on a second model). The hosted edition's
+    `okf-hosted` wires its metered runs through this same door."""
+    model = model or args.model
+    if getattr(args, "llm", "api") == "claude-code":
+        return claude_code_client(model=model)
+    return AnthropicClient(model=model)

@@ -24,23 +24,41 @@ from pathlib import Path
 
 import yaml
 
+from . import OKF_VERSION
 from . import drift as drift_mod
 from . import report as report_mod
-from . import evaluator, linter, publisher, review, signing, surveyor
-from .evaluator import QuestionSetError, ScorecardGuard
-from .feed import FeedError
-from .llm import LLMUnavailable
+from . import evaluator, linter, packs, publisher, review, signing, surveyor
+from .config import WELL_KNOWN_PATH
+from .errors import OkfWebError, exit_code
+from .llm import add_llm_args, client_from_args
 from .model import (
     RISK_LOW,
     RISK_MEDIUM,
-    BundleLocked,
-    BundleNotFound,
     bundle_lock,
     load_bundle,
     write_atomic,
 )
-from .net import FetchError
-from .review import ReviewError
+
+__all__ = [
+    "cmd_lint",
+    "cmd_review",
+    "cmd_survey",
+    "cmd_index",
+    "cmd_questions",
+    "cmd_evaluate",
+    "cmd_publish",
+    "cmd_drift",
+    "cmd_discover",
+    "cmd_logscan",
+    "cmd_init",
+    "cmd_report",
+    "cmd_view",
+    "cmd_mcp",
+    "cmd_sign",
+    "cmd_verify",
+    "build_parser",
+    "main",
+]
 
 
 def _build_retriever(args, bundle_dir):
@@ -80,21 +98,14 @@ def _add_retriever_args(parser) -> None:
 
 def _bundle_site(bundle_root) -> str | None:
     """The store origin declared on the root index.md (x_geo.site)."""
-    root_index = load_bundle(bundle_root).indexes.get("index.md")
-    x_geo = (root_index.frontmatter.get("x_geo") or {}) if root_index else {}
-    site = x_geo.get("site") if isinstance(x_geo, dict) else None
-    return str(site) if site else None
+    return load_bundle(bundle_root).site
 
 
-def _llm(args, model: str | None = None):
-    model = model or args.model
-    if getattr(args, "llm", "api") == "claude-code":
-        from .llm import claude_code_client
-
-        return claude_code_client(model=model)
-    from .llm import AnthropicClient
-
-    return AnthropicClient(model=model)
+# The wiring lives in `llm` and `packs` now (review 2026-10-21, A-U2);
+# these names stay for the hosted edition until its adapter lands.
+_llm = client_from_args
+_add_llm_args = add_llm_args
+_question_packs = packs.available
 
 
 def _add_network_args(parser) -> None:
@@ -104,18 +115,6 @@ def _add_network_args(parser) -> None:
         help="also fetch loopback, private and link-local hosts — for a "
         "local dev or staging host only; never the default, because page, "
         "sitemap and pointer URLs are untrusted input",
-    )
-
-
-def _add_llm_args(parser) -> None:
-    parser.add_argument("--model", default="claude-sonnet-5")
-    parser.add_argument(
-        "--llm",
-        choices=["api", "claude-code"],
-        default="api",
-        help="api: Anthropic SDK (API key or `ant auth login` profile); "
-        "claude-code: your Claude subscription via a local `claude -p` "
-        "(interactive runs only)",
     )
 
 
@@ -280,17 +279,6 @@ def cmd_index(args) -> int:
     return 0
 
 
-def _question_packs() -> dict[str, str]:
-    """Available starter packs: name -> YAML text."""
-    from importlib import resources
-
-    packs = {}
-    for entry in resources.files("okf_web").joinpath("questionpacks").iterdir():
-        if entry.name.endswith(".yaml"):
-            packs[entry.name[: -len(".yaml")]] = entry.read_text("utf-8")
-    return packs
-
-
 def cmd_questions(args) -> int:
     out = Path(args.bundle) / "evaluations" / "questions.yaml"
     if args.list_packs:
@@ -430,24 +418,17 @@ def cmd_evaluate(args) -> int:
 
 def cmd_publish(args) -> int:
     site = args.site or _bundle_site(args.bundle)
-    try:
-        result = publisher.publish(
-            args.bundle,
-            args.dist,
-            include_machine_confirmed=args.include_machine_confirmed,
-            base_path=args.base_path,
-            freshness=args.freshness,
-            site=site,
-            bundle_url=args.bundle_url,
-            structured=not args.no_structured,
-            force=args.force,
-        )
-    except publisher.UnsafeDist as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    except publisher.PublishError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+    result = publisher.publish(
+        args.bundle,
+        args.dist,
+        include_machine_confirmed=args.include_machine_confirmed,
+        base_path=args.base_path,
+        freshness=args.freshness,
+        site=site,
+        bundle_url=args.bundle_url,
+        structured=not args.no_structured,
+        force=args.force,
+    )
     print(f"published {len(result.published)} file(s) to {result.dist}")
     if result.assets:
         print(
@@ -485,13 +466,9 @@ def cmd_publish(args) -> int:
             "tag from llms-snippet.txt into the storefront's <head>"
         )
     if args.sign:
-        try:
-            out = signing.sign_manifest(
-                args.dist, sigstore_bin=args.sigstore_bin, staging=args.staging
-            )
-        except signing.SigningError as exc:
-            print(f"signing failed: {exc}", file=sys.stderr)
-            return 1
+        out = signing.sign_manifest(
+            args.dist, sigstore_bin=args.sigstore_bin, staging=args.staging
+        )
         print(f"signed: {out} (verify with `okf-web verify {args.dist} "
               "--cert-identity <id> --cert-oidc-issuer <issuer>`)")
     if args.check_robots:
@@ -657,7 +634,7 @@ def cmd_init(args) -> int:
 
     index_path = bundle_root / "index.md"
     if not index_path.exists():
-        fm: dict = {"okf_version": "0.2"}
+        fm: dict = {"okf_version": OKF_VERSION}
         title = args.title or bundle_root.name
         fm["title"] = title
         if args.site:
@@ -733,11 +710,7 @@ def cmd_init(args) -> int:
         print("[6/7] skipped scorecard — no question set")
 
     site = args.site or _bundle_site(bundle_root)
-    try:
-        pub = publisher.publish(bundle_root, dist, site=site, force=args.force)
-    except publisher.UnsafeDist as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
+    pub = publisher.publish(bundle_root, dist, site=site, force=args.force)
     print(
         f"[7/7] published {len(pub.published)} file(s) to {dist} "
         f"({len(pub.withheld)} withheld"
@@ -774,11 +747,7 @@ def cmd_init(args) -> int:
 
 
 def cmd_report(args) -> int:
-    try:
-        out = report_mod.write_report(args.bundle, out=args.out)
-    except report_mod.ReportError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
+    out = report_mod.write_report(args.bundle, out=args.out)
     print(f"report written to {out}")
     print(
         "open it in a browser, or send it as-is — it is a single "
@@ -800,17 +769,13 @@ def cmd_view(args) -> int:
                     yield from fh
 
         logs = logscan.scan_lines(_lines(), base_path=args.base_path)
-    try:
-        out = viewer_mod.write_viewer(
-            args.bundle,
-            out=args.out,
-            access_logs=logs,
-            log_sources=list(args.access_log or []),
-            base_path=args.base_path,
-        )
-    except viewer_mod.ViewerError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
+    out = viewer_mod.write_viewer(
+        args.bundle,
+        out=args.out,
+        access_logs=logs,
+        log_sources=list(args.access_log or []),
+        base_path=args.base_path,
+    )
     print(f"viewer written to {out}")
     print(
         "it is a single self-contained HTML file, kept outside the bundle "
@@ -894,16 +859,12 @@ def cmd_mcp(args) -> int:
 
 
 def cmd_sign(args) -> int:
-    try:
-        out = signing.sign_manifest(
-            args.dist,
-            sigstore_bin=args.sigstore_bin,
-            staging=args.staging,
-            label=args.label,
-        )
-    except signing.SigningError as exc:
-        print(f"signing failed: {exc}", file=sys.stderr)
-        return 1
+    out = signing.sign_manifest(
+        args.dist,
+        sigstore_bin=args.sigstore_bin,
+        staging=args.staging,
+        label=args.label,
+    )
     print(f"signed: {out}")
     if args.label:
         print(
@@ -930,11 +891,7 @@ def cmd_verify(args) -> int:
         print("integrity: all manifest hashes match")
 
     failed = bool(errors)
-    try:
-        has_sig = signing.signature_path(args.dist, args.countersignature).exists()
-    except signing.SigningError as exc:
-        print(f"signature: {exc}", file=sys.stderr)
-        return 2
+    has_sig = signing.signature_path(args.dist, args.countersignature).exists()
     if args.cert_identity or args.cert_oidc_issuer:
         if not (args.cert_identity and args.cert_oidc_issuer):
             print(
@@ -1129,7 +1086,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="also publish non-high-risk drafts (they surface as unverified/machine-confirmed)",
     )
-    p.add_argument("--base-path", default="/.well-known/okf")
+    p.add_argument("--base-path", default=WELL_KNOWN_PATH)
     p.add_argument(
         "--freshness",
         choices=["warn", "withhold"],
@@ -1244,7 +1201,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="server/CDN access log(s) to draw the read-activity panel from "
         "(Combined Log Format or JSON lines, as for `okf-web logscan`)",
     )
-    p.add_argument("--base-path", default="/.well-known/okf")
+    p.add_argument("--base-path", default=WELL_KNOWN_PATH)
     p.set_defaults(func=cmd_view)
 
     p = sub.add_parser("sign", help="sigstore-sign a published bundle's manifest.json")
@@ -1288,7 +1245,7 @@ def build_parser() -> argparse.ArgumentParser:
         "— the consumption feedback loop (see docs/MEASUREMENT.md)",
     )
     p.add_argument("logfile", nargs="+", help="access log file(s), or - for stdin")
-    p.add_argument("--base-path", default="/.well-known/okf")
+    p.add_argument("--base-path", default=WELL_KNOWN_PATH)
     p.add_argument(
         "--fail-empty",
         action="store_true",
@@ -1396,19 +1353,12 @@ def main(argv: list[str] | None = None) -> int:
             with bundle_lock(args.bundle, create=create):
                 return args.func(args)
         return args.func(args)
-    except (
-        BundleNotFound,
-        BundleLocked,
-        LLMUnavailable,
-        FeedError,
-        ReviewError,
-        QuestionSetError,
-        ScorecardGuard,
-        FetchError,
-        surveyor.SitemapError,
-    ) as exc:
+    except OkfWebError as exc:
+        # Every error the toolchain raises on purpose carries its verdict
+        # (errors.py): a refusal exits 2, a failure 1 (review 2026-10-21,
+        # A-U1).
         print(f"error: {exc}", file=sys.stderr)
-        return 2
+        return exit_code(exc)
     except (FileNotFoundError, IsADirectoryError, NotADirectoryError, PermissionError) as exc:
         detail = exc.strerror or exc.__class__.__name__
         target = f": {exc.filename}" if exc.filename else ""

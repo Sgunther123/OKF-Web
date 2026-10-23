@@ -34,7 +34,15 @@ from collections import Counter
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
-from .publisher import AI_USER_AGENTS
+from .agents import AI_USER_AGENTS
+from .config import WELL_KNOWN_PATH
+
+__all__ = [
+    "match_agent",
+    "LogScanReport",
+    "MAX_LINE_LENGTH",
+    "scan_lines",
+]
 
 # The request line's pieces do not overlap (the path ends at the first
 # space or quote, and whatever follows must start with a space), so a
@@ -119,7 +127,7 @@ class LogScanReport:
 MAX_LINE_LENGTH = 16 * 1024
 
 
-def scan_lines(lines, base_path: str = "/.well-known/okf") -> LogScanReport:
+def scan_lines(lines, base_path: str = WELL_KNOWN_PATH) -> LogScanReport:
     report = LogScanReport()
     prefix = base_path.rstrip("/")
     for line in lines:

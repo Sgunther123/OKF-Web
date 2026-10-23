@@ -524,3 +524,60 @@ test in `tests/test_operator_loop.py`.
 
 Suite 441 locally, 442 in CI; lint 0/0; the dry-run numbers unchanged
 (the promotion's stamp is not retrieval text).
+
+### U4 · Errors, API and configuration (M–L) — landed 2026-10-23
+
+Closes A-U1, A-U2, A-U5, A-U6 and A-U7. Behaviour-preserving by
+construction: the suite passed unchanged before the new tests were
+added, and no measured number moves.
+
+- **A-U1 (high).** Fifteen exception classes on five stdlib bases;
+  `main` caught a hand-kept tuple of nine, `cmd_publish` mapped
+  `PublishError` to 1 while `cmd_init` let it traceback, `SigningError`
+  exited 1 in `sign` and 2 for `verify`'s label check. `errors.py`
+  gives every class one of two markers — `Refusal` (exit 2) or
+  `Failure` (exit 1) — on top of its stdlib base, `errors.exit_code` is
+  the one table, and `main` has one `except`. The observable codes are
+  unchanged: the label check is now its own `LabelError(SigningError,
+  Refusal)`, and a refused publish stays 2 because a refusal that is
+  also a failure is a refusal. `init`'s unmapped `PublishError` now
+  exits 1 with one line. Messages carry the `error:` prefix throughout.
+- **A-U2 (high).** No declared public API; the hosted edition imported
+  `cli._add_llm_args`, `_llm` and `_question_packs`, and modules
+  reached into each other's private names. `llm.add_llm_args` and
+  `llm.client_from_args`, `packs.available`, `net.origin`,
+  `model.file_digest`, `model.as_date`/`as_instant`/`is_linked`,
+  `report.scorecard_gaps`/`judged_verdicts`/`question_blocks`/
+  `count_cell` and `structured.LLMS_SECTIONS` are the public homes;
+  every module declares `__all__`; `docs/API.md` lists the stable
+  surface and a test imports every name in it. The old underscore
+  names stay as aliases until the hosted adapter (H4) lands.
+- **A-U5 (medium).** The spec's timestamp form was re-implemented in
+  five places, `review._verified_entries` duplicated
+  `Concept.verified_entries`, the mirror had its own byte writer and
+  digest, three slug regexes, and `x_geo.site` was read three ways.
+  `utc_instant` everywhere, `write_atomic` takes bytes, `file_digest`
+  serves the manifest, the signer and the mirror, `model.slug` is the
+  one regex (callers keep their strip and truncation, so no path
+  moves), `Bundle.site` is the one read, and `FetchPolicy.derive`
+  replaces five copied constructions. The footnote and link regexes in
+  `model` and `structured` stay separate on purpose: one validates
+  references, the other strips markers for llms.txt, and they match
+  different shapes.
+- **A-U6 (medium).** Six user-agent strings carried three version
+  numbers, none the package's; the well-known path was spelled in six
+  places and the OKF version in three. `config.py` holds
+  `WELL_KNOWN_PATH`, `DEFAULT_MODEL`, `REPOSITORY_URL` and
+  `user_agent(component)`, which carries `__version__`; every request
+  now identifies the release it comes from.
+- **A-U7 (medium).** `publisher.py` was a utility module six unrelated
+  commands imported for an origin rule, a digest, the crawler roster
+  and the publishable-set rules. `views.py` holds `select_publishable`,
+  `withhold_reason` and `published_view`; `agents.py` the roster;
+  `net.origin` and `model.file_digest` the rest. The publisher
+  re-exports what moved, so existing imports keep working.
+
+Tests: `tests/test_api_surface.py` — the exit code of every error
+class driven through `main` (parametrized), the declared surface, the
+API page's names, the one-home primitives, the static scans. Lint 0/0;
+dry-run unchanged.

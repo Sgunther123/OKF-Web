@@ -23,18 +23,28 @@ import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import OKF_VERSION
 from .model import (
     FRESHNESS_SLA_DAYS,
     Bundle,
     Concept,
     RISK_HIGH,
     TRUST_HUMAN,
-    _as_date,
+    as_date,
     concept_content_hash,
     load_bundle,
     split_l10n,
     utc_today,
 )
+
+__all__ = [
+    "ERROR",
+    "WARNING",
+    "Finding",
+    "lint_concept",
+    "lint_bundle",
+    "has_errors",
+]
 
 ERROR = "error"
 WARNING = "warning"
@@ -49,8 +59,8 @@ _RISK_FLOOR_TYPES = ("Policy", "Promotion", "Store Identity")
 def _valid_usage_window(value) -> bool:
     return (
         isinstance(value, dict)
-        and _as_date(value.get("from")) is not None
-        and _as_date(value.get("to")) is not None
+        and as_date(value.get("from")) is not None
+        and as_date(value.get("to")) is not None
     )
 
 
@@ -58,12 +68,8 @@ def _site_host(bundle: Bundle) -> str:
     """Hostname of the bundle's declared site (`index.md` x_geo.site),
     lowercased; empty when no site is declared (nothing to judge
     endpoint locality against)."""
-    root_index = bundle.indexes.get("index.md")
-    if root_index is None:
-        return ""
-    x_geo = root_index.frontmatter.get("x_geo")
-    site = x_geo.get("site") if isinstance(x_geo, dict) else None
-    if not isinstance(site, str):
+    site = bundle.site
+    if not site:
         return ""
     return (urllib.parse.urlsplit(site).hostname or "").lower()
 
@@ -177,7 +183,7 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
                 )
             )
         last_modified = entry.get("last_modified")
-        if last_modified is not None and _as_date(last_modified) is None:
+        if last_modified is not None and as_date(last_modified) is None:
             findings.append(
                 Finding(
                     WARNING,
@@ -295,7 +301,7 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
             # The sale is valid through `ends_at`, so `stale_after` may
             # fall anywhere up to the midnight that ends that day (the
             # surveyor stamps exactly that); later outlives the sale.
-            stale_date = _as_date(concept.frontmatter.get("stale_after"))
+            stale_date = as_date(concept.frontmatter.get("stale_after"))
             if stale_date is None or stale_date > ends + _dt.timedelta(days=1):
                 findings.append(
                     Finding(
@@ -616,7 +622,7 @@ def lint_bundle(
         findings.append(Finding(ERROR, "E001", rel, f"unparseable frontmatter: {error}"))
 
     version = bundle.okf_version
-    if version is not None and version != "0.2":
+    if version is not None and version != OKF_VERSION:
         findings.append(
             Finding(ERROR, "E003", "index.md", f"okf_version is {version!r}, expected '0.2'")
         )

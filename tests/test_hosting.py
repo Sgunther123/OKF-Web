@@ -22,7 +22,7 @@ from pathlib import Path
 
 import yaml
 
-from okf_web import publisher
+from okf_web import net, publisher
 from okf_web.discover import discover
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -262,7 +262,7 @@ def test_the_verifier_names_what_the_well_known_location_answered(example_bundle
 
 
 def test_origin_comparison_normalizes_default_ports_and_case():
-    origin = publisher._origin
+    origin = net.origin  # the one origin rule, in net since U4
     assert origin("https://Store.Example:443/shop/") == "https://store.example"
     assert origin("http://store.example:80/") == "http://store.example"
     assert origin("https://store.example:8443/") == "https://store.example:8443"

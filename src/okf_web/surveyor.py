@@ -43,22 +43,45 @@ from importlib import resources
 from pathlib import Path, PureWindowsPath
 
 from .linter import ERROR, lint_concept
+from . import OKF_VERSION
+from .config import user_agent
+from .errors import Refusal
 from .model import (
     Bundle,
     Concept,
     TRUST_HUMAN,
-    _as_date,
+    as_date,
     default_stale_after,
     load_bundle,
     parse_document,
     render_document,
     sha256_text,
+    slug,
+    utc_instant,
     utc_now,
     write_atomic,
 )
 from .net import PAGE_POLICY, FetchPolicy, UnsafeURL, check_url, fetch_text
 
-USER_AGENT = "okf-web-surveyor/0.1 (+https://github.com/sgunther123/okf-web)"
+__all__ = [
+    "USER_AGENT",
+    "html_to_text",
+    "SitemapError",
+    "page_policy",
+    "fetch",
+    "discover_sitemap",
+    "extraction_prompt",
+    "stable_page_hash",
+    "SurveyResult",
+    "parse_llm_concepts",
+    "PRODUCER_DENIED_DIRS",
+    "survey_page",
+    "place_draft",
+    "survey",
+    "rebuild_index",
+]
+
+USER_AGENT = user_agent("surveyor")
 _CONCEPT_BLOCK_RE = re.compile(
     r'<<<CONCEPT\s+path="(?P<path>[^"]+)">>>\s*\n(?P<doc>.*?)<<<END>>>', re.DOTALL
 )
@@ -109,7 +132,7 @@ def html_to_text(html: str) -> str:
     return parser.text()
 
 
-class SitemapError(ValueError):
+class SitemapError(ValueError, Refusal):
     """The sitemap could not be used at all (EDGE-CASES A4)."""
 
 
@@ -117,8 +140,7 @@ def page_policy(timeout: float = 30.0, allow_private: bool = False) -> FetchPoli
     """The policy every page fetch runs under: the 5 MiB page cap, the
     caller's socket timeout, a deadline of at least a minute, and private
     hosts refused unless the operator opted in for a staging host."""
-    return FetchPolicy(
-        max_bytes=PAGE_POLICY.max_bytes,
+    return PAGE_POLICY.derive(
         timeout=timeout,
         deadline=max(PAGE_POLICY.deadline, timeout * 2),
         allow_private=allow_private,
@@ -228,7 +250,7 @@ def stable_page_hash(page_text: str) -> str:
 def _url_slug(url: str) -> str:
     tail = url.rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0]
     tail = tail.rsplit(".", 1)[0]
-    return re.sub(r"[^a-z0-9]+", "-", tail.lower()).strip("-")[:40]
+    return slug(tail).strip("-")[:40]
 
 
 @dataclass
@@ -330,7 +352,7 @@ def survey_page(
         fm["status"] = "draft"
         fm["generated"] = {
             "by": f"okf-web-surveyor/{llm.model}",
-            "at": now.isoformat().replace("+00:00", "Z"),
+            "at": utc_instant(now),
         }
         fm.pop("verified", None)
         x_geo = fm.setdefault("x_geo", {})
@@ -347,7 +369,7 @@ def survey_page(
         # L-U8 — stamping the start of the day withheld the last valid
         # day as stale while W028 still called the sale live).
         if fm.get("type") == "Promotion" and x_geo.get("ends_at") and not fm.get("stale_after"):
-            ends = _as_date(x_geo["ends_at"])
+            ends = as_date(x_geo["ends_at"])
             fm["stale_after"] = (
                 f"{(ends + _dt.timedelta(days=1)).isoformat()}T00:00:00Z"
                 if ends else x_geo["ends_at"]
@@ -478,14 +500,14 @@ def _quarantine(bundle_root: Path, url: str, payload: str, reason: str) -> None:
     qdir = bundle_root / "_quarantine"
     qdir.mkdir(parents=True, exist_ok=True)
     stamp = utc_now().strftime("%Y%m%dT%H%M%S")
-    slug = re.sub(r"[^a-z0-9]+", "-", url.lower())[-60:].strip("-")
+    name = slug(url)[-60:].strip("-")
     # Unique per payload, and never overwritten: two bad blocks from one
     # page in one second are two files (EDGE-CASES A6).
     digest = sha256_text(payload)[7:15]
-    path = qdir / f"{stamp}-{slug}-{digest}.txt"
+    path = qdir / f"{stamp}-{name}-{digest}.txt"
     counter = 2
     while path.exists():
-        path = qdir / f"{stamp}-{slug}-{digest}-{counter}.txt"
+        path = qdir / f"{stamp}-{name}-{digest}-{counter}.txt"
         counter += 1
     write_atomic(path, f"reason: {reason}\nurl: {url}\n\n{payload}")
 
@@ -518,7 +540,7 @@ def rebuild_index(bundle_root: Path | str) -> str:
 
     existing = bundle.indexes.get("index.md")
     fm = dict(existing.frontmatter) if existing else {}
-    fm.setdefault("okf_version", "0.2")
+    fm.setdefault("okf_version", OKF_VERSION)
     title = "# " + str(fm.get("title") or "Knowledge Bundle")
 
     lines = [title, ""]

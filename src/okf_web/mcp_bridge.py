@@ -52,10 +52,25 @@ from typing import Any, Callable
 
 from . import evaluator
 from .model import INTERNAL_DIRS, Bundle, Concept, load_bundle, localized_view, marked_dists
+from .config import user_agent
 from .net import CAPABILITY_POLICY, FetchPolicy, is_private_host, safe_fetch
-from .publisher import published_view
+from .views import published_view
 
-USER_AGENT = "okf-web-mcp/0.1"
+__all__ = [
+    "USER_AGENT",
+    "MAX_TOP_K",
+    "WEAK_RELEVANCE",
+    "bundle_signature",
+    "LocalSource",
+    "BridgeState",
+    "refresh",
+    "build_state",
+    "TOOLS",
+    "handle_message",
+    "serve_stdio",
+]
+
+USER_AGENT = user_agent("mcp")
 _DEFAULT_PROTOCOL = "2025-03-26"
 _BODY_LIMIT = 4000  # chars of a capability response, or of a search hit's body
 MAX_TOP_K = 10  # a caller cannot ask for the whole bundle in one search
@@ -73,12 +88,8 @@ def _http_get(
     cap, deadline, redirect re-check, private hosts refused on every
     resolved address unless the merchant opted in). Any HTTP status is
     an answer the assistant gets to see."""
-    policy = policy or FetchPolicy(
-        max_bytes=CAPABILITY_POLICY.max_bytes,
-        timeout=timeout,
-        deadline=CAPABILITY_POLICY.deadline,
-        allow_private=allow_private,
-        user_agent=USER_AGENT,
+    policy = policy or CAPABILITY_POLICY.derive(
+        timeout=timeout, allow_private=allow_private, user_agent=USER_AGENT,
     )
     result = safe_fetch(url, policy)
     return result.status, result.text

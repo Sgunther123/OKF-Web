@@ -54,17 +54,38 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zlib
+import dataclasses
 from dataclasses import dataclass
 from email.message import Message
 
-from . import __version__
+from .config import user_agent
+from .errors import Refusal
 
-DEFAULT_USER_AGENT = f"okf-web/{__version__}"
+__all__ = [
+    "DEFAULT_USER_AGENT",
+    "FetchError",
+    "UnsafeURL",
+    "FetchTooLarge",
+    "FetchTimeout",
+    "TooManyRedirects",
+    "FetchPolicy",
+    "origin",
+    "PAGE_POLICY",
+    "ROBOTS_POLICY",
+    "CAPABILITY_POLICY",
+    "FetchResult",
+    "is_private_host",
+    "check_url",
+    "safe_fetch",
+    "fetch_text",
+]
+
+DEFAULT_USER_AGENT = user_agent()
 _ALLOWED_SCHEMES = ("http", "https")
 _CHUNK = 64 * 1024
 
 
-class FetchError(OSError):
+class FetchError(OSError, Refusal):
     """Any refusal or failure inside :func:`safe_fetch`. An ``OSError``
     so that callers which already treat fetch failures as one signal
     keep doing so."""
@@ -101,6 +122,30 @@ class FetchPolicy:
         literal spelling and the local-name conventions only; names are
         resolved and re-checked at connection time."""
         return _host_refusal(host, self)
+
+    def derive(self, **changes) -> "FetchPolicy":
+        """This policy with some fields changed — how every caller builds
+        its own from a base (A-U5): ``PAGE_POLICY.derive(timeout=10)``."""
+        return dataclasses.replace(self, **changes)
+
+
+def origin(url: str) -> str:
+    """The origin a URL belongs to, compared the way browsers compare
+    origins: scheme and host lower-cased, a default port (80 for http,
+    443 for https) dropped, any other port kept, user information never
+    part of it. ``www`` and the apex stay different origins, as they
+    are to a browser."""
+    parts = urllib.parse.urlsplit(url)
+    scheme = parts.scheme.lower()
+    try:
+        host, port = (parts.hostname or "").lower(), parts.port
+    except ValueError:  # a port that is not a number: compare it literally
+        return f"{scheme}://{parts.netloc}".lower()
+    if ":" in host:  # an IPv6 literal: urlsplit strips the brackets
+        host = f"[{host}]"
+    if port is None or port == {"http": 80, "https": 443}.get(scheme):
+        return f"{scheme}://{host}"
+    return f"{scheme}://{host}:{port}"
 
 
 PAGE_POLICY = FetchPolicy(max_bytes=5 * 1024 * 1024, timeout=30.0, deadline=60.0)

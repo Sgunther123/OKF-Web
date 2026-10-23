@@ -24,6 +24,7 @@ import difflib
 from dataclasses import dataclass
 from pathlib import Path
 
+from .errors import Refusal
 from .model import (
     Bundle,
     Concept,
@@ -38,10 +39,25 @@ from .model import (
     write_atomic,
 )
 
+__all__ = [
+    "STATUSES",
+    "ReviewError",
+    "resolve_path",
+    "approval_state",
+    "ReviewItem",
+    "pending",
+    "approve",
+    "batch_candidates",
+    "batch_approve",
+    "reject",
+    "append_log",
+    "load",
+]
+
 STATUSES = ("draft", "stable", "deprecated")
 
 
-class ReviewError(KeyError, ValueError):
+class ReviewError(KeyError, ValueError, Refusal):
     """A review action that cannot proceed, with the reason in plain
     words (a KeyError for callers that looked concepts up by path, a
     ValueError for callers that validated arguments; EDGE-CASES U5/U7)."""
@@ -106,22 +122,13 @@ def _check_reviewer(bundle: Bundle, actor: str) -> None:
         )
 
 
-def _verified_entries(concept: Concept) -> list[dict]:
-    existing = concept.frontmatter.get("verified")
-    if isinstance(existing, dict):
-        return [existing]
-    if isinstance(existing, list):
-        return [e for e in existing if isinstance(e, dict)]
-    return []
-
-
 def approval_state(concept: Concept, reviewer: str, actor_prefix: str = "human:") -> str | None:
     """Why approving ``concept`` again would change nothing, or ``None``
     when an approval is due: a stable, fresh concept already verified by
     this actor is a no-op (EDGE-CASES U5)."""
     actor = _actor_for(reviewer, actor_prefix)
     if concept.status == "stable" and not concept.is_stale():
-        for entry in _verified_entries(concept):
+        for entry in concept.verified_entries:
             if entry.get("by") == actor:
                 return f"already approved by {actor} on {entry.get('at', '?')} (no change)"
     return None
@@ -136,9 +143,7 @@ class ReviewItem:
 
 
 def _now_iso() -> str:
-    return _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat().replace(
-        "+00:00", "Z"
-    )
+    return utc_instant()
 
 
 def pending(bundle: Bundle) -> list[ReviewItem]:

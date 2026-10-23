@@ -21,6 +21,53 @@ from typing import Any, Iterator
 
 import yaml
 
+from .errors import Refusal
+
+__all__ = [
+    "RESERVED_FILENAMES",
+    "CONCEPT_CACHE_NAME",
+    "INTERNAL_DIRS",
+    "DIST_MARKER",
+    "BundleNotFound",
+    "marked_dists",
+    "is_linked",
+    "L10N_DIR",
+    "TRUST_UNVERIFIED",
+    "TRUST_MACHINE",
+    "TRUST_HUMAN_BATCH",
+    "TRUST_HUMAN",
+    "RISK_HIGH",
+    "RISK_MEDIUM",
+    "RISK_LOW",
+    "FrontmatterError",
+    "parse_document",
+    "render_document",
+    "sha256_text",
+    "as_date",
+    "as_instant",
+    "slug",
+    "file_digest",
+    "utc_now",
+    "utc_today",
+    "FRESHNESS_SLA_DAYS",
+    "default_stale_after",
+    "LOCK_NAME",
+    "BundleLocked",
+    "write_atomic",
+    "bundle_lock",
+    "utc_instant",
+    "Concept",
+    "Bundle",
+    "split_l10n",
+    "concept_content_hash",
+    "trust_mix",
+    "LANGUAGE_TAG_RE",
+    "language_tag",
+    "language_primary",
+    "localized_view",
+    "load_bundle",
+]
+
 RESERVED_FILENAMES = {"index.md", "log.md"}
 
 # Parse cache (READINESS R4): YAML frontmatter parsing dominates
@@ -43,7 +90,7 @@ INTERNAL_DIRS = {"_quarantine", "_review"}
 DIST_MARKER = ".okf-dist"
 
 
-class BundleNotFound(FileNotFoundError):
+class BundleNotFound(FileNotFoundError, Refusal):
     """The bundle root is not a directory. Raised instead of returning an
     empty bundle, so a mistyped path cannot lint clean, review clean, or
     publish a dist from nothing (EDGE-CASES U2)."""
@@ -59,7 +106,7 @@ def marked_dists(root: Path) -> set[Path]:
     return {p.parent for p in root.rglob(DIST_MARKER) if p.parent != root}
 
 
-def _linked(root: Path, path: Path) -> bool:
+def is_linked(root: Path, path: Path) -> bool:
     """True when ``path`` or any directory between ``root`` and it is a
     symlink. Links are never bundle content: git stores them, and a link
     to a file outside the bundle would otherwise be read, published, and
@@ -99,7 +146,7 @@ _FOOTNOTE_DEF_RE = re.compile(r"^\[\^([A-Za-z0-9_-]+)\]:", re.MULTILINE)
 _LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
 
-class FrontmatterError(ValueError):
+class FrontmatterError(ValueError, Refusal):
     """Raised when a document's YAML frontmatter is missing or unparseable."""
 
 
@@ -156,7 +203,10 @@ def sha256_text(text: str) -> str:
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def _as_date(value: Any) -> _dt.date | None:
+def as_date(value: Any) -> _dt.date | None:
+    """The value as a calendar date: datetimes lose their time, dates
+    pass through, strings parse their first ten characters. None when
+    unparseable."""
     if isinstance(value, _dt.datetime):
         return value.date()
     if isinstance(value, _dt.date):
@@ -169,7 +219,7 @@ def _as_date(value: Any) -> _dt.date | None:
     return None
 
 
-def _as_instant(value: Any) -> _dt.datetime | None:
+def as_instant(value: Any) -> _dt.datetime | None:
     """The value as a tz-aware instant (SPEC since ad30107): datetimes
     pass through (naive ⇒ UTC), bare dates mean midnight UTC, strings
     parse either form. None when unparseable."""
@@ -182,11 +232,42 @@ def _as_instant(value: Any) -> _dt.datetime | None:
     if isinstance(value, str):
         text = value.strip().replace("Z", "+00:00")
         try:
-            return _as_instant(_dt.datetime.fromisoformat(text))
+            return as_instant(_dt.datetime.fromisoformat(text))
         except ValueError:
-            date = _as_date(value)
-            return None if date is None else _as_instant(date)
+            date = as_date(value)
+            return None if date is None else as_instant(date)
     return None
+
+
+# The names the modules used before these had public homes (review
+# 2026-10-21, A-U2); kept so a pick into the hosted edition lands
+# before its adapter does.
+_as_date = as_date
+_as_instant = as_instant
+_linked = is_linked
+
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def slug(text: str) -> str:
+    """``text`` lower-cased with every run of characters outside
+    ``[a-z0-9]`` turned into one hyphen — the one slug rule (A-U5);
+    callers strip and truncate as their paths require, so no path moves."""
+    return _SLUG_RE.sub("-", text.lower())
+
+
+def file_digest(path: Path | str) -> tuple[str, int]:
+    """sha256 hex digest and size of a file, read in 64 KB chunks:
+    manifest hashing must not load a whole file — spec-sheet PDFs and
+    media assets publish alongside the concepts, and peak memory must
+    not track the largest asset (READINESS R4)."""
+    digest = hashlib.sha256()
+    size = 0
+    with Path(path).open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 16), b""):
+            digest.update(chunk)
+            size += len(chunk)
+    return digest.hexdigest(), size
 
 
 def utc_now() -> _dt.datetime:
@@ -235,7 +316,7 @@ def default_stale_after(type_: str | None, now: _dt.datetime | None = None) -> s
 LOCK_NAME = ".okf-lock"
 
 
-class BundleLocked(RuntimeError):
+class BundleLocked(RuntimeError, Refusal):
     """Another mutating command holds the bundle (EDGE-CASES A6)."""
 
 
@@ -246,14 +327,14 @@ def _write_bytes(path: Path, data: bytes) -> None:
         os.fsync(fh.fileno())
 
 
-def write_atomic(path: Path | str, text: str) -> None:
-    """Write ``text`` so that ``path`` is either the old file or the
-    whole new one, never a truncated middle: a hidden temporary sibling
-    in the same directory, then ``os.replace`` (EDGE-CASES A6)."""
+def write_atomic(path: Path | str, text: str | bytes) -> None:
+    """Write ``text`` (or bytes) so that ``path`` is either the old file
+    or the whole new one, never a truncated middle: a hidden temporary
+    sibling in the same directory, then ``os.replace`` (EDGE-CASES A6)."""
     path = Path(path)
     tmp = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
     try:
-        _write_bytes(tmp, text.encode("utf-8"))
+        _write_bytes(tmp, text if isinstance(text, bytes) else text.encode("utf-8"))
         os.replace(tmp, path)
     finally:
         if tmp.exists():
@@ -426,7 +507,7 @@ class Concept:
     @property
     def verified_at(self) -> str | None:
         """The latest ``verified[].at`` as a spec instant string, or None."""
-        instants = [i for i in (_as_instant(e.get("at")) for e in self.verified_entries) if i]
+        instants = [i for i in (as_instant(e.get("at")) for e in self.verified_entries) if i]
         return utc_instant(max(instants)) if instants else None
 
     @property
@@ -436,7 +517,7 @@ class Concept:
         raw = self.frontmatter.get("stale_after")
         if raw is None:
             return None
-        instant = _as_instant(raw)
+        instant = as_instant(raw)
         return utc_instant(instant) if instant else str(raw)
 
     @property
@@ -458,7 +539,7 @@ class Concept:
         if raw is None:
             return False
         if isinstance(today, _dt.datetime):
-            instant = _as_instant(raw)
+            instant = as_instant(raw)
             if instant is None:
                 return False
             now = (
@@ -471,7 +552,7 @@ class Concept:
             # No clock given: the exact UTC instant (the spec's semantics),
             # never the host's local date (EDGE-CASES A5).
             return self.is_stale(utc_now())
-        stale_after = _as_date(raw)
+        stale_after = as_date(raw)
         if stale_after is None:
             return False
         return today >= stale_after
@@ -595,11 +676,11 @@ class Concept:
     # -- promotion time bounds (type: Promotion) ---------------------------
     @property
     def promo_starts(self) -> _dt.date | None:
-        return _as_date(self.x_geo.get("starts_at"))
+        return as_date(self.x_geo.get("starts_at"))
 
     @property
     def promo_ends(self) -> _dt.date | None:
-        return _as_date(self.x_geo.get("ends_at"))
+        return as_date(self.x_geo.get("ends_at"))
 
     def promo_expired(self, today: _dt.date | None = None) -> bool:
         ends = self.promo_ends
@@ -693,6 +774,16 @@ class Bundle:
         x_geo = root_index.frontmatter.get("x_geo")
         value = x_geo.get("language") if isinstance(x_geo, dict) else None
         return None if value is None else str(value)
+
+    @property
+    def site(self) -> str | None:
+        """The store origin the root ``index.md`` declares (``x_geo.site``),
+        verbatim; None when absent or not a string — the one place the
+        CLI, the linter and the viewer read it (A-U5)."""
+        root_index = self.indexes.get("index.md")
+        x_geo = root_index.frontmatter.get("x_geo") if root_index else None
+        site = x_geo.get("site") if isinstance(x_geo, dict) else None
+        return site if isinstance(site, str) and site else None
 
     @property
     def language(self) -> str:
@@ -945,7 +1036,7 @@ def load_bundle(
             continue
         if marked and any(parent in marked for parent in path.parents):
             continue
-        if _linked(root, path):
+        if is_linked(root, path):
             continue
         name = path.name
         if name == "log.md":

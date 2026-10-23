@@ -32,6 +32,14 @@ from .evaluator import META_TYPES  # same exclusion as the lexical retriever
 from .model import Bundle, Concept, sha256_text, split_l10n, write_atomic
 from .text import words
 
+__all__ = [
+    "EmbeddingClient",
+    "VoyageClient",
+    "HashingEmbedder",
+    "CACHE_NAME",
+    "EmbeddingIndex",
+]
+
 
 class EmbeddingClient(Protocol):
     model: str

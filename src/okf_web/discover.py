@@ -30,17 +30,22 @@ from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from urllib.parse import urljoin
 
-from .net import PAGE_POLICY, FetchPolicy, UnsafeURL, check_url, safe_fetch
-from .publisher import _origin
+from .config import WELL_KNOWN_PATH, user_agent  # noqa: F401 — WELL_KNOWN_PATH re-exported
+from .net import PAGE_POLICY, FetchPolicy, UnsafeURL, check_url, origin, safe_fetch
 from .signing import SIGNATURE_NAME
 
-USER_AGENT = "okf-web-discover/0.2"
-WELL_KNOWN_PATH = "/.well-known/okf"
+__all__ = [
+    "USER_AGENT",
+    "DiscoveryReport",
+    "discover",
+    "WELL_KNOWN_PATH",
+]
+
+USER_AGENT = user_agent("discover")
 
 
 def _policy(timeout: float = 15.0, allow_private: bool = False) -> FetchPolicy:
-    return FetchPolicy(
-        max_bytes=PAGE_POLICY.max_bytes,
+    return PAGE_POLICY.derive(
         timeout=timeout,
         deadline=max(PAGE_POLICY.deadline, timeout * 2),
         allow_private=allow_private,
@@ -148,8 +153,8 @@ def discover(
         else:
             extra = {"allow_private": True} if allow_private else {}
             fetch = lambda url: _fetch(url, timeout=timeout, **extra)  # noqa: E731
-    origin = _origin(store_url)
-    report = DiscoveryReport(store_origin=origin)
+    store_origin = origin(store_url)
+    report = DiscoveryReport(store_origin=store_origin)
     try:
         check_url(store_url, policy)
     except UnsafeURL as exc:
@@ -157,7 +162,7 @@ def discover(
         return report
 
     # Route 1: the well-known location on the store's own origin.
-    well_known = origin + WELL_KNOWN_PATH
+    well_known = store_origin + WELL_KNOWN_PATH
     manifest, well_known_note = _try_manifest(fetch, well_known)
     if manifest is not None:
         report.routes.append("well-known")
@@ -210,9 +215,9 @@ def discover(
         report.signed = False
 
     site_claim = report.manifest.get("site")
-    if _origin(report.bundle_url) == origin:
+    if origin(report.bundle_url) == store_origin:
         report.binding = "same-origin"
-        if site_claim and _origin(str(site_claim)) != origin:
+        if site_claim and origin(str(site_claim)) != store_origin:
             report.problems.append(
                 f"manifest.site ({site_claim}) disagrees with the origin "
                 "serving the bundle — fix the publish --site value"
@@ -223,7 +228,7 @@ def discover(
             "off-origin bundle carries no manifest.site claim — consumers "
             "cannot verify it speaks for this store (republish with --site)"
         )
-    elif _origin(str(site_claim)) == origin:
+    elif origin(str(site_claim)) == store_origin:
         report.binding = "bound"
     else:
         report.binding = "mismatch"

@@ -36,7 +36,16 @@ import json
 import re
 from pathlib import Path
 
-from .model import Bundle, Concept, TRUST_HUMAN, TRUST_HUMAN_BATCH, split_l10n, write_atomic, _as_instant, utc_instant
+from .model import Bundle, Concept, TRUST_HUMAN, TRUST_HUMAN_BATCH, as_instant, split_l10n, write_atomic, utc_instant
+
+__all__ = [
+    "dumps_script_safe",
+    "LLMS_PRODUCT_CAP",
+    "jsonld_for",
+    "write_structured",
+    "LLMS_SECTIONS",
+    "write_llms_txt",
+]
 
 _CONTEXT = "https://schema.org"
 _HTTP = ("http://", "https://")
@@ -121,7 +130,7 @@ def _subject_of(concept: Concept, base: str, lang: str = "") -> dict:
     if not modified:
         generated = concept.frontmatter.get("generated")
         stamp = generated.get("at") if isinstance(generated, dict) else None
-        instant = _as_instant(stamp) if stamp is not None else None
+        instant = as_instant(stamp) if stamp is not None else None
         modified = utc_instant(instant) if instant else None
     if modified:
         obj["dateModified"] = modified
@@ -314,7 +323,7 @@ def write_structured(
 
 
 # llms.txt section order: what a consuming agent most wants first.
-_LLMS_SECTIONS = (
+LLMS_SECTIONS = (
     ("Policies", ("Policy",)),
     ("FAQ", ("FAQ",)),
     ("Store", ("Store Identity", "Store Location")),
@@ -380,7 +389,7 @@ def write_llms_txt(
         suffix = f": {desc}" if desc else ""
         return f"- [{concept.title}]({base}/{concept.rel_path}){suffix}"
 
-    for section, types in _LLMS_SECTIONS:
+    for section, types in LLMS_SECTIONS:
         concepts = [c for t in types for c in by_type.get(t, [])]
         for t in types:
             covered.add(t)
@@ -427,3 +436,6 @@ def write_llms_txt(
     ]
     write_atomic(dist / "llms.txt", "\n".join(lines) + "\n")
     return "llms.txt"
+
+
+_LLMS_SECTIONS = LLMS_SECTIONS  # the name the viewer borrowed before it was public (A-U2)
