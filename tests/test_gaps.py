@@ -101,15 +101,15 @@ def test_retrieve_scored_reports_relevance_and_applies_the_floor(tmp_path):
     assert evaluator.retrieve(bundle, "quantum flux capacitor") == []
 
 
-def test_example_bundle_keeps_its_hit_rate_under_the_default_floor():
-    bundle = load_bundle(REPO / "bundle-example")
-    questions = evaluator.load_questions(REPO / "bundle-example" / "evaluations" / "questions.yaml")
+def test_example_bundle_keeps_its_hit_rate_under_the_default_floor(example_bundle):
+    bundle = load_bundle(example_bundle)
+    questions = evaluator.load_questions(example_bundle / "evaluations" / "questions.yaml")
     assert all(evaluator.retrieve(bundle, q.question) for q in questions)
 
 
-def test_min_relevance_flag_reaches_the_evaluator(capsys):
+def test_min_relevance_flag_reaches_the_evaluator(capsys, example_bundle):
     assert cli_mod.main([
-        "evaluate", str(REPO / "bundle-example"), "--dry-run", "--min-relevance", "0.95",
+        "evaluate", str(example_bundle), "--dry-run", "--min-relevance", "0.95",
     ]) == 0
     out = capsys.readouterr().out
     rate = float(re.search(r"^retrieval_hit_rate: ([0-9.]+)", out, re.M).group(1))
@@ -155,8 +155,8 @@ def test_search_clamps_top_k_and_clips_long_bodies(tmp_path):
     assert "okf_get" in long_hit["note"]
 
 
-def test_get_miss_names_nearest_paths_not_the_whole_bundle():
-    state = mcp_bridge.build_state(REPO / "bundle-example")
+def test_get_miss_names_nearest_paths_not_the_whole_bundle(example_bundle):
+    state = mcp_bridge.build_state(example_bundle)
     is_error, message = _call(state, "okf_get", path="policies/return.md")
     assert is_error
     assert "policies/returns.md" in message
@@ -482,7 +482,7 @@ def test_approve_can_date_a_fresh_concept(tmp_path):
     assert load_bundle(root).concepts["faq/fresh.md"].frontmatter["stale_after"] == "2031-01-01T00:00:00Z"
 
 
-def test_profile_is_1_11_everywhere():
+def test_profile_is_the_same_everywhere():
     from okf_web import PROFILE
 
     assert PROFILE == "ecommerce-geo/1.12"

@@ -14,9 +14,15 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-pytestmark = pytest.mark.skipif(
-    importlib.util.find_spec("build") is None, reason="python -m build is not installed"
-)
+def _build_is_installed() -> bool:
+    """The `build` package, not a `build/` directory on the path: an
+    editable install leaves one in the project root, and a namespace
+    package of that name made this test run without the tool (U6)."""
+    spec = importlib.util.find_spec("build")
+    return spec is not None and spec.origin not in (None, "namespace")
+
+
+pytestmark = pytest.mark.skipif(not _build_is_installed(), reason="python -m build is not installed")
 
 
 def test_wheel_ships_prompts_and_question_packs(tmp_path):

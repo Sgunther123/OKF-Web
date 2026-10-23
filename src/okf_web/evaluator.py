@@ -43,6 +43,7 @@ from .model import (
     split_l10n,
     trust_mix,
     utc_instant,
+    utc_now,
     parse_document,
     write_atomic,
     language_primary,
@@ -739,7 +740,7 @@ def write_scorecard(
             "run the full evaluation with an LLM, or pass --force to overwrite "
             "it deliberately"
         )
-    now = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
+    now = utc_now().replace(microsecond=0)
     metrics = report.metrics(bundle)
     evaluated: dict = {
         "view": report.view,

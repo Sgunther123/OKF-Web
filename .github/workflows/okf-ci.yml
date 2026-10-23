@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -55,3 +55,14 @@ jobs:
         run: okf-web evaluate bundle-example --dry-run --min-hit-rate 1.0
       - name: Publish smoke test
         run: okf-web publish bundle-example /tmp/okf-dist
+      # The package data proven from a built wheel in a fresh interpreter, not
+      # from the editable install above (review 2026-10-21, A-U11): the
+      # prompts and the ten packs ship, and the console script runs.
+      - name: Wheel smoke test (fresh venv)
+        run: |
+          python -m build --wheel --outdir /tmp/wheel
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install -q /tmp/wheel/*.whl
+          /tmp/venv/bin/okf-web lint bundle-example --strict
+          /tmp/venv/bin/python -c "from okf_web import packs; assert len(packs.available()) == 10, packs.available().keys()"
+          /tmp/venv/bin/python -c "from importlib import resources; assert resources.files('okf_web').joinpath('prompts', 'evaluator_judge.md').is_file()"

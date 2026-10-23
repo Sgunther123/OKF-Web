@@ -467,7 +467,8 @@ correct action is to document the measured ceiling (§A6) in
 DESIGN.md's efficiency budget and move on.
 
 Shipped form, re-measured on the 5,000-product probe. (1) The parse
-cache (`.concepts-cache.json`, keyed by mtime_ns+size, JSON never
+cache (`.concepts-cache.json`, keyed by mtime_ns+size then, by the
+content's SHA-256 since the edge-case review's E3, JSON never
 pickle, hidden and gitignored) cuts the fixed load tax **11.9 s →
 0.58 s warm**; edits re-parse only what changed, and a corrupt or
 read-only cache degrades to a full parse, never an error. YAML's

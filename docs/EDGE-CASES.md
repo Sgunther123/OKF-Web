@@ -581,3 +581,71 @@ Tests: `tests/test_api_surface.py` — the exit code of every error
 class driven through `main` (parametrized), the declared surface, the
 API page's names, the one-home primitives, the static scans. Lint 0/0;
 dry-run unchanged.
+
+### U6 · Test hardening, CI and docs (M) — landed 2026-10-23
+
+Closes T-U3, T-U6, T-U7, T-U8, T-U9, T-U10, T-U12, A-U10 and A-U11.
+T-U4 (the proxy fixture and the loopback proxy test), T-U5 (the
+wheel's package data) and T-U11 (the lock's negative cases) had landed
+with U2, and `test_api_surface.py` carries U4's static scans. Taken
+before U5 so the decomposition lands under the hardened suite. Two
+behaviour changes, both recoveries, are named below; nothing else moves.
+
+- **T-U3 (medium).** The PYTHONHASHSEED incident (MEMORY, incidents)
+  had no enforcing test. Two interpreters with different seeds now rank
+  the example's questions and embed them identically, in a subprocess
+  test that fails the moment a salted hash reaches a ranking.
+- **T-U6 (medium).** The parse-cache test's `or` branch was always
+  true. The tamper now lands in the body and the assertion is that the
+  tampered body is what loads.
+- **T-U7 (medium).** The mirror's refusals — a manifest that is not
+  JSON, lists no files, lists too many, declares too many bytes, lists
+  a file without its hash, or a 5xx — are asserted one by one with a
+  fake origin, and so are the conditional re-check (`If-None-Match`,
+  304) and the mirror's service through a bad re-check. That last one
+  found a defect: `signature()` caught only `FetchError`, so an origin
+  that answered with a broken manifest, or a disk that refused the
+  write, raised out of the bridge instead of recording `last_error` and
+  serving the copy. It now catches `RemoteError` and `OSError` too;
+  only the first sync, with nothing yet to serve, raises.
+- **T-U8 (low).** The command paths never driven through `main`:
+  `index`; `publish --sign` (and a failing signer exits 1, as does
+  `sign`); `publish --check-robots` against a loopback `robots.txt` (a
+  blocked agent warns, `--fail-on-warnings` exits 1, a 404 permits, a
+  refused host is inconclusive); `publish` without `--site` recording
+  the root index's site in the manifest; `evaluate --judge-model`
+  recording both identities on the scorecard; `mcp` over stdio for a
+  bundle and, through `--url`, for a mirrored dist; `survey` recording
+  a page error and exiting 1.
+- **T-U9 (low).** A static scan now refuses `urlopen`,
+  `urllib.request` or `create_connection` outside `net.py`,
+  `datetime.now` or `date.today` outside `model.py`, and the builtin
+  `hash(` anywhere. Three clock sites (the surveyor's, the feed's and
+  the evaluator's `now`) read `utc_now()`; the stamps they write are
+  unchanged. The plan's fourth scan, concept writes outside
+  `place_draft`, is not added: `review` stamps approvals into concept
+  files on purpose, and a textual scan cannot tell that from a producer
+  write; the write gate stays guarded by the surveyor's own tests.
+- **T-U10 (low).** `example_bundle` is a session-scoped copy and
+  `bundle_copy` copies it; a session fixture fails the run if any test
+  left working state in the checked-in example, and the three loads of
+  the checked-in tree in `test_gaps.py` moved onto the fixture. (The
+  verification loop's first step stays: live runs still write caches.)
+- **T-U12 (medium).** An unclosed `<script>` (or any skipped element)
+  swallowed the rest of a page in silence. `html_to_text` now takes
+  such an element to end at the next block opener, so the text after it
+  is read and the script's own source still is not; a 2,000-row feed
+  canary, marked `slow`, lands whole.
+- **A-U10 (low).** The five drifted lines: EVALUATION's drift row
+  (exit 1 changed, exit 3 unreachable), READINESS's cache key (content
+  hash since E3), DESIGN's "Next" (what shipped, what remains), MEMORY's
+  open item (`mcp --url` shipped), and the profile test's name.
+- **A-U11 (low).** Python 3.13 joins the matrix (the suite passes on
+  3.13.12 here, so decision 6 is taken on evidence and the classifier
+  stays); `test-and-lint` builds the wheel and installs it into a fresh
+  venv that lints the example, counts the ten packs and finds the
+  prompts; the release workflow runs the suite first and refuses a tag
+  whose commit is not on `main`. The pre-PEP 639 license form stays: it
+  builds, and changing it is the release's decision.
+
+Tests: `tests/test_guards.py` (20). Lint 0/0; dry-run unchanged.

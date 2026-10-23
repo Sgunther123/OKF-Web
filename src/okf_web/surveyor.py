@@ -92,21 +92,37 @@ _BLOCK_TAGS = {
 }
 
 
+#: Where an unclosed skipped element is taken to end: at the next block
+#: opener, which no script or style sheet of its own would start.
+_BLOCK_OPENER_RE = re.compile(
+    "<(?:" + "|".join(sorted(_BLOCK_TAGS | {"body", "footer", "header", "main", "nav"})) + r")\b",
+    re.IGNORECASE,
+)
+_MAX_RECOVERIES = 8
+
+
 class _TextExtractor(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self._chunks: list[str] = []
         self._skip_depth = 0
+        #: Skipped elements opened and never closed, innermost last:
+        #: ``(line, column, tag)`` of each opener, for the recovery pass.
+        self.unclosed: list[tuple[int, int, str]] = []
 
     def handle_starttag(self, tag: str, attrs) -> None:
         if tag in _SKIP_TAGS:
             self._skip_depth += 1
+            line, column = self.getpos()
+            self.unclosed.append((line, column, tag))
         elif tag in _BLOCK_TAGS:
             self._chunks.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
         if tag in _SKIP_TAGS and self._skip_depth:
             self._skip_depth -= 1
+            if self.unclosed:
+                self.unclosed.pop()
         elif tag in _BLOCK_TAGS:
             self._chunks.append("\n")
 
@@ -126,9 +142,40 @@ class _TextExtractor(HTMLParser):
         return "\n".join(out).strip()
 
 
-def html_to_text(html: str) -> str:
+def _extract(html: str) -> _TextExtractor:
     parser = _TextExtractor()
     parser.feed(html)
+    parser.close()
+    return parser
+
+
+def _offset(html: str, line: int, column: int) -> int:
+    """The absolute index of the parser's ``(line, column)`` position."""
+    lines = html.split("\n")
+    return sum(len(text) + 1 for text in lines[: line - 1]) + column
+
+
+def html_to_text(html: str) -> str:
+    """The text a page carries, with scripts, styles and the other
+    skipped elements removed. A skipped element that is never closed —
+    an unclosed ``<script>`` is common in templated pages — used to
+    swallow the rest of the page in silence (review 2026-10-21,
+    T-U12); it is now taken to end at the next block opener (or at the
+    end of the page when none follows), so the text after it is read
+    and the script's own source still is not."""
+    parser = _extract(html)
+    for _ in range(_MAX_RECOVERIES):
+        if not parser.unclosed:
+            break
+        line, column, tag = parser.unclosed[-1]
+        start = _offset(html, line, column)
+        tag_end = html.find(">", start)
+        if tag_end == -1:
+            break
+        following = _BLOCK_OPENER_RE.search(html, tag_end + 1)
+        insert_at = following.start() if following else len(html)
+        html = f"{html[:insert_at]}</{tag}>{html[insert_at:]}"
+        parser = _extract(html)
     return parser.text()
 
 
@@ -319,7 +366,7 @@ def survey_page(
         result.skipped_unchanged.append(url)
         return
 
-    now = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
+    now = utc_now().replace(microsecond=0)
     user = (
         f"CANONICAL_URL: {url}\n"
         f"FETCHED_AT: {now.isoformat().replace('+00:00', 'Z')}\n\n"

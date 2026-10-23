@@ -163,13 +163,19 @@ def test_cache_is_keyed_on_content_not_time_and_size(bundle_copy):
     assert (bundle_copy / CONCEPT_CACHE_NAME).exists()
     st = path.stat()
     original = path.read_text(encoding="utf-8")
-    tampered = original.replace("e", "3", 1)  # same size, different bytes
+    frontmatter_end = original.index("\n---", 4) + 4
+    head, body = original[:frontmatter_end], original[frontmatter_end:]
+    assert "e" in body
+    tampered = head + body.replace("e", "3", 1)  # same size, different bytes, in the body
     assert len(tampered) == len(original) and tampered != original
     path.write_text(tampered, encoding="utf-8")
     os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))  # same mtime as before
     assert path.stat().st_mtime_ns == st.st_mtime_ns and path.stat().st_size == st.st_size
     concept = load_bundle(bundle_copy).get(rel)
-    assert concept is not None and concept.render() == tampered or (concept is not None and "3" in concept.body + str(concept.frontmatter))
+    assert concept is not None
+    # The tampered body is what loads — not the cached one (review
+    # 2026-10-21, T-U6: the previous assertion held for either).
+    assert concept.body.strip() == body.replace("e", "3", 1).strip()
 
 
 def test_hostile_cache_entries_are_misses_not_crashes(bundle_copy):

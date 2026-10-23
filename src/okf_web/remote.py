@@ -281,11 +281,15 @@ class RemoteSource:
         most every ``refresh_seconds``. A failed re-check keeps serving the
         mirror (the origin's outage is recorded in :attr:`last_error` and
         shown by ``okf_info``), so an assistant session degrades to
-        lateness, never to an error."""
+        lateness, never to an error. An origin that answers but answers
+        badly — a manifest that is not JSON, lists no files or fails the
+        mirror's limits — or a disk that will not take the write is the
+        same lateness (review 2026-10-21, T-U7): only the first sync, with
+        nothing yet to serve, raises."""
         if self._checked is None or time.monotonic() - self._checked >= self.refresh_seconds:
             try:
                 self.sync()
-            except FetchError as exc:
+            except (FetchError, RemoteError, OSError) as exc:
                 if self.manifest is None:
                     raise
                 self.last_error = str(exc)

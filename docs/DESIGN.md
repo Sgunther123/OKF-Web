@@ -591,7 +591,10 @@ product probes reproduce hit-for-hit.
   invariant fixes, consumer-surface corrections, O(N) feed ingestion,
   credibility signals, the code-artifact attester convention, and
   `lint --strict-okf`).
-- **Next:** see [ROADMAP.md](ROADMAP.md) for the phased remainder —
-  packaging and reviewer ergonomics first, then reach (multi-language
-  bundles, consumption measurement, a consumer-side delegation
-  verifier).
+- **Next:** multi-language bundles (profile 1.12, `x_geo.language`)
+  and consumption measurement (`okf-web logscan`) have shipped since
+  this list was written; what remains is the PyPI release
+  ([DISTRIBUTION.md](DISTRIBUTION.md) §6, a step only the maintainer
+  takes) and the review phases still open in
+  [EDGE-CASES.md](EDGE-CASES.md) §7. [ROADMAP.md](ROADMAP.md) keeps
+  the phased history.

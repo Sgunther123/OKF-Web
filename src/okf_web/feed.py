@@ -39,7 +39,7 @@ from pathlib import Path
 from . import PROFILE
 from .linter import ERROR, lint_concept
 from .errors import Refusal
-from .model import Concept, load_bundle, slug, utc_instant
+from .model import Concept, load_bundle, slug, utc_instant, utc_now
 from .surveyor import SurveyResult, place_draft, stable_page_hash
 
 __all__ = [
@@ -303,7 +303,7 @@ def ingest_feed(
         )
     )
 
-    now = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
+    now = utc_now().replace(microsecond=0)
     seen_links: dict[str, str] = {}
     for item in parse_feed(feed_path):
         for name in item.dropped:

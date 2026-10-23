@@ -156,7 +156,7 @@ Suggested CI policy (thresholds are merchant-tunable):
 | `okf-web lint --strict` | every PR | errors fail; warnings fail on release branches |
 | `evaluate --dry-run` | every PR | `retrieval_hit_rate` < 0.95 fails |
 | Full AnsEval | weekly + before big merges | `coverage` drop > 0.05 vs last scorecard fails; `groundedness` < 0.9 fails |
-| `okf-web drift` | nightly | exit 1 (source pages changed or unreachable) files a re-survey item |
+| `okf-web drift` | nightly | exit 1 (a source page changed) files a re-survey item; exit 3 (a source unreachable) files a reachability check |
 | Faithfulness sweep | nightly, on drifted URLs | claim/source mismatch demotes concept to `draft` + review item |
 
 ## 6. Judged-set hygiene

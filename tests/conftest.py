@@ -5,19 +5,43 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE_BUNDLE = REPO_ROOT / "bundle-example"
+#: The working-state files a load or an evaluation leaves in a bundle.
+WORKING_STATE = (".concepts-cache.json", ".embeddings.json")
+
+
+def _working_state(root: Path) -> set[str]:
+    return {str(p.relative_to(root)) for p in root.rglob(".*") if p.is_file() and p.name in WORKING_STATE}
+
+
+@pytest.fixture(scope="session")
+def example_bundle(tmp_path_factory) -> Path:
+    """The example bundle, copied once per session. Loading a bundle
+    writes its parse cache into it and an embedding retriever its
+    vectors, so a test that read the checked-in example left working
+    state in the repository (review 2026-10-21, T-U10); every test now
+    reads this copy, and the checked-in tree stays as committed."""
+    target = tmp_path_factory.mktemp("example") / "bundle-example"
+    shutil.copytree(EXAMPLE_BUNDLE, target, ignore=shutil.ignore_patterns(*WORKING_STATE))
+    return target
 
 
 @pytest.fixture
-def example_bundle() -> Path:
-    return EXAMPLE_BUNDLE
-
-
-@pytest.fixture
-def bundle_copy(tmp_path: Path) -> Path:
+def bundle_copy(tmp_path: Path, example_bundle: Path) -> Path:
     """A writable copy of the example bundle for mutation tests."""
     target = tmp_path / "bundle"
-    shutil.copytree(EXAMPLE_BUNDLE, target)
+    shutil.copytree(example_bundle, target, ignore=shutil.ignore_patterns(*WORKING_STATE))
     return target
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _the_checked_in_example_stays_as_committed():
+    """Fail the session if any test wrote working state into the
+    checked-in example: the reason CLAUDE.md's loop begins by deleting
+    those files was that the suite used to create them."""
+    before = _working_state(EXAMPLE_BUNDLE)
+    yield
+    written = _working_state(EXAMPLE_BUNDLE) - before
+    assert not written, f"tests wrote working state into bundle-example: {sorted(written)}"
 
 
 @pytest.fixture(autouse=True)

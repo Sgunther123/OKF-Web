@@ -48,3 +48,4 @@ okf_web = ["prompts/*.md", "questionpacks/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: a scale canary that takes seconds (run by default; deselect with -m 'not slow')"]
