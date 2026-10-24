@@ -24,10 +24,9 @@ from pathlib import Path
 
 import yaml
 
-from . import OKF_VERSION
 from . import drift as drift_mod
 from . import report as report_mod
-from . import evaluator, linter, packs, publisher, review, signing, surveyor
+from . import evaluator, init, linter, packs, publisher, review, signing, surveyor
 from .config import WELL_KNOWN_PATH
 from .errors import OkfWebError, exit_code
 from .llm import add_llm_args, client_from_args
@@ -133,7 +132,8 @@ def cmd_lint(args) -> int:
 def cmd_review(args) -> int:
     bundle = load_bundle(args.bundle)
     if args.action == "list":
-        items = review.pending(bundle)
+        queue = review.queue_summary(bundle)
+        items = queue.items
         shown = [i for i in items if not args.risk or i.concept.effective_risk == args.risk]
         if not items:
             print("review queue is empty")
@@ -143,20 +143,13 @@ def cmd_review(args) -> int:
                 f"[risk {c.risk}] {c.rel_path} ({c.type}, {c.trust_tier}) — "
                 + "; ".join(item.reasons)
             )
-        proposed = sorted((Path(args.bundle) / "_review" / "proposed").rglob("*.md"))
+        proposed = queue.proposed
         if proposed:
             print("\ndrift proposals (surveyor found changes to human-reviewed concepts):")
             for path in proposed:
                 print(f"  {path}")
         # Machine-greppable summary so CI can surface a rotting queue.
-        by_risk = {"a": 0, "b": 0, "c": 0}
-        for item in items:
-            tier = item.concept.effective_risk
-            by_risk[tier] = by_risk.get(tier, 0) + 1
-        print(
-            f"\npending: {len(items)} (a: {by_risk['a']}, b: {by_risk['b']}, "
-            f"c: {by_risk['c']}); drift proposals: {len(proposed)}"
-        )
+        print("\n" + queue.line)
         if args.fail_nonempty and (items or proposed):
             return 1
         return 0
@@ -237,21 +230,13 @@ def cmd_survey(args) -> int:
         # Feed ingestion is deterministic — no LLM, no credentials.
         from . import feed as feed_mod
 
-        feed_result = feed_mod.ingest_feed(args.feed, args.bundle)
-        for attr in ("written", "proposed", "skipped_unchanged",
-                     "quarantined", "collisions", "errors",
-                     "dropped_live_fields"):
-            getattr(result, attr).extend(getattr(feed_result, attr))
+        result.extend(feed_mod.ingest_feed(args.feed, args.bundle))
     if urls:
         if args.limit:
             urls = urls[: args.limit]
-        page_result = surveyor.survey(
+        result.extend(surveyor.survey(
             urls, args.bundle, _llm(args), allow_private=args.allow_private_hosts
-        )
-        for attr in ("written", "proposed", "skipped_unchanged",
-                     "quarantined", "collisions", "errors",
-                     "dropped_live_fields"):
-            getattr(result, attr).extend(getattr(page_result, attr))
+        ))
     print(
         f"written: {len(result.written)}  proposed: {len(result.proposed)}  "
         f"unchanged: {len(result.skipped_unchanged)}  "
@@ -590,15 +575,8 @@ def cmd_logscan(args) -> int:
 def cmd_init(args) -> int:
     """The guided first run (READINESS R3): feed → lint → attest →
     questions → dry-run scorecard → publish → report, one command, no
-    LLM required. Every skipped step says why and names the command
-    that runs it later."""
-    from . import feed as feed_mod
-    from .model import render_document
-
-    bundle_root = Path(args.bundle)
-    dist = Path(args.dist)
-    steps_skipped: list[str] = []
-
+    LLM required. The pipeline is `init.run_init` (review 2026-10-21,
+    A-U3); this command checks the arguments and prints as it goes."""
     if not args.feed:
         print(
             "okf-web init needs --feed PRODUCTS.csv for the no-LLM first "
@@ -608,142 +586,12 @@ def cmd_init(args) -> int:
             file=sys.stderr,
         )
         return 2
-
-    print(f"[1/7] ingesting {args.feed} (no LLM — feed rows become draft concepts)")
-    result = feed_mod.ingest_feed(args.feed, bundle_root)
-    print(
-        f"      {len(result.written)} drafted, "
-        f"{len(result.skipped_unchanged)} unchanged, {len(result.errors)} error(s)"
+    result = init.run_init(
+        args.bundle, args.dist, args.feed, title=args.title, site=args.site,
+        by=args.by, pack=args.pack, force=args.force,
+        emit=print, warn=functools.partial(print, file=sys.stderr),
     )
-    if result.dropped_live_fields:
-        print(
-            "      live-value fields dropped (never static claims): "
-            + ", ".join(result.dropped_live_fields)
-        )
-    for line in result.errors[:5]:
-        print(f"      error: {line}", file=sys.stderr)
-    for line in result.collisions[:5]:
-        print(f"      note: {line}")
-    if not result.written and not result.skipped_unchanged:
-        print(
-            "      nothing was drafted from the feed; fix the errors above and "
-            "re-run (nothing was published)",
-            file=sys.stderr,
-        )
-        return 1
-
-    index_path = bundle_root / "index.md"
-    if not index_path.exists():
-        fm: dict = {"okf_version": OKF_VERSION}
-        title = args.title or bundle_root.name
-        fm["title"] = title
-        if args.site:
-            fm["x_geo"] = {"site": args.site.rstrip("/")}
-        write_atomic(
-            index_path,
-            render_document(fm, "\n# " + title + "\n\nCatalog concepts live under /catalog/.\n"),
-        )
-        print(f"[2/7] wrote {index_path} (okf_version 0.2"
-              + (f", site {args.site})" if args.site else ")"))
-    else:
-        print(f"[2/7] {index_path} already exists — kept")
-
-    _, findings = linter.lint_bundle(bundle_root)
-    errors = [f for f in findings if f.severity == linter.ERROR]
-    print(f"[3/7] lint: {len(errors)} error(s), "
-          f"{len(findings) - len(errors)} warning(s)")
-    if errors:
-        for f in errors[:5]:
-            print(f"      {f}")
-        print("      fix the errors above, then re-run — publish refuses errors",
-              file=sys.stderr)
-        return 1
-
-    if args.by:
-        bundle = load_bundle(bundle_root)
-        approved = review.batch_approve(bundle, args.by)
-        print(
-            f"[4/7] attested {len(approved)} low-risk draft(s) as "
-            f"human-batch:{args.by} — a named bulk sign-off, deliberately "
-            "distinct from per-item review; high-risk drafts (if any) still "
-            "need `okf-web review approve`"
-        )
-    else:
-        steps_skipped.append(
-            "attestation (pass --by you@store.com to batch-attest the "
-            "low-risk drafts; until then everything stays draft and "
-            "publishes nothing)"
-        )
-        print("[4/7] skipped attestation — no --by given")
-
-    questions_path = bundle_root / "evaluations" / "questions.yaml"
-    if not questions_path.exists() and args.pack:
-        packs = _question_packs()
-        if args.pack in packs:
-            questions_path.parent.mkdir(parents=True, exist_ok=True)
-            write_atomic(questions_path, packs[args.pack])
-            print(f"[5/7] wrote starter questions ({args.pack} pack)")
-        else:
-            print(f"[5/7] unknown pack {args.pack!r}; skipped questions")
-    elif questions_path.exists():
-        print("[5/7] questions.yaml already present — kept")
-    else:
-        steps_skipped.append(
-            "questions/scorecard/report (pass --pack "
-            f"{'|'.join(sorted(_question_packs()))} for a starter set)"
-        )
-        print("[5/7] skipped questions — no --pack given")
-
-    if questions_path.exists():
-        bundle = load_bundle(bundle_root)
-        questions = evaluator.load_questions(questions_path)
-        eval_report = evaluator.evaluate(bundle, questions)
-        evaluator.write_scorecard(bundle, eval_report)
-        metrics = eval_report.metrics(bundle)
-        print(
-            f"[6/7] dry-run scorecard: {metrics['questions']} questions, "
-            f"retrieval hit rate {metrics['retrieval_hit_rate']} "
-            "(retrieval-only; run `okf-web evaluate ... --write-scorecard` "
-            "with an LLM for graded coverage)"
-        )
-    else:
-        print("[6/7] skipped scorecard — no question set")
-
-    site = args.site or _bundle_site(bundle_root)
-    pub = publisher.publish(bundle_root, dist, site=site, force=args.force)
-    print(
-        f"[7/7] published {len(pub.published)} file(s) to {dist} "
-        f"({len(pub.withheld)} withheld"
-        + (f"; derived tier: {max(0, len(pub.structured) - 1)} JSON-LD + llms.txt)"
-           if pub.structured else ")")
-    )
-
-    report_path = None
-    if questions_path.exists():
-        report_path = report_mod.write_report(bundle_root)
-        print(f"      report: {report_path}")
-
-    print("\ndone. what you have now:")
-    print(f"  bundle:  {bundle_root}  (facts, provenance, review queue)")
-    print(f"  publish: {dist}  (serve at /.well-known/okf/ — includes jsonld/ + llms.txt)")
-    if report_path:
-        print(f"  report:  {report_path}  (open in a browser, share as-is)")
-    print("\nserve it to Claude Desktop/Code right now — add to the MCP config:")
-    # An absolute path: a desktop client does not share this shell's
-    # working directory (EDGE-CASES, "not counted").
-    print(
-        '  {"mcpServers": {"my-store": {"command": "okf-web", '
-        '"args": ["mcp", "' + str(bundle_root.resolve()) + '"]}}}'
-    )
-    if steps_skipped:
-        print("\nskipped (and how to run them):")
-        for line in steps_skipped:
-            print(f"  - {line}")
-    print(
-        "\nnext: review drafts (`okf-web review list`), run the full "
-        "LLM evaluation, and see docs/USER-GUIDE.md for the loop."
-    )
-    return 0
+    return result.exit_code
 
 
 def cmd_report(args) -> int:
@@ -928,14 +776,7 @@ def cmd_verify(args) -> int:
     return 1 if failed else 0
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="okf-web",
-        description="Survey, verify, evaluate, and publish an OKF companion bundle "
-        "for an ecommerce site.",
-    )
-    sub = parser.add_subparsers(dest="command", required=True)
-
+def _add_lint_parser(sub) -> None:
     p = sub.add_parser("lint", help="check spec conformance + profile rules")
     p.add_argument("bundle")
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
@@ -947,6 +788,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_lint)
 
+
+def _add_review_parser(sub) -> None:
     p = sub.add_parser("review", help="human-in-the-loop verification queue")
     p.add_argument("action", choices=["list", "approve", "reject", "batch-approve"])
     p.add_argument("bundle")
@@ -989,6 +832,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_review)
 
+
+def _add_survey_parser(sub) -> None:
     p = sub.add_parser(
         "survey",
         help="populate draft concepts: LLM extraction from site pages, "
@@ -1009,10 +854,14 @@ def build_parser() -> argparse.ArgumentParser:
     _add_llm_args(p)
     p.set_defaults(func=cmd_survey)
 
+
+def _add_index_parser(sub) -> None:
     p = sub.add_parser("index", help="rebuild index.md from bundle contents")
     p.add_argument("bundle")
     p.set_defaults(func=cmd_index)
 
+
+def _add_questions_parser(sub) -> None:
     p = sub.add_parser(
         "questions",
         help="write an evaluation question set: --pack for a no-LLM vertical "
@@ -1030,6 +879,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_llm_args(p)
     p.set_defaults(func=cmd_questions)
 
+
+def _add_evaluate_parser(sub) -> None:
     p = sub.add_parser("evaluate", help="run the answerability evaluation")
     p.add_argument("bundle")
     p.add_argument("--questions", help="question set YAML (default: bundle/evaluations/questions.yaml)")
@@ -1078,6 +929,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_evaluate)
 
+
+def _add_publish_parser(sub) -> None:
     p = sub.add_parser("publish", help="build the static companion bundle")
     p.add_argument("bundle")
     p.add_argument("dist")
@@ -1143,6 +996,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_publish)
 
+
+def _add_init_parser(sub) -> None:
     p = sub.add_parser(
         "init",
         help="guided first run, no LLM: feed → lint → attest → questions → "
@@ -1170,6 +1025,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_init)
 
+
+def _add_report_parser(sub) -> None:
     p = sub.add_parser(
         "report",
         help="render the scorecard as a shareable HTML answerability report "
@@ -1182,6 +1039,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_report)
 
+
+def _add_view_parser(sub) -> None:
     p = sub.add_parser(
         "view",
         help="render the bundle viewer: what is inside, how AI engines "
@@ -1204,6 +1063,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--base-path", default=WELL_KNOWN_PATH)
     p.set_defaults(func=cmd_view)
 
+
+def _add_sign_parser(sub) -> None:
     p = sub.add_parser("sign", help="sigstore-sign a published bundle's manifest.json")
     p.add_argument("dist", help="published bundle directory (from `okf-web publish`)")
     p.add_argument(
@@ -1218,6 +1079,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--staging", action="store_true")
     p.set_defaults(func=cmd_sign)
 
+
+def _add_drift_parser(sub) -> None:
     p = sub.add_parser(
         "drift",
         help="LLM-free check: re-fetch each surveyed concept's source page "
@@ -1228,6 +1091,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_network_args(p)
     p.set_defaults(func=cmd_drift)
 
+
+def _add_discover_parser(sub) -> None:
     p = sub.add_parser(
         "discover",
         help="consumer-side check of a live store: find its bundle "
@@ -1239,6 +1104,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_network_args(p)
     p.set_defaults(func=cmd_discover)
 
+
+def _add_logscan_parser(sub) -> None:
     p = sub.add_parser(
         "logscan",
         help="scan server/CDN access logs for AI agents fetching the bundle "
@@ -1253,6 +1120,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_logscan)
 
+
+def _add_mcp_parser(sub) -> None:
     p = sub.add_parser(
         "mcp",
         help="serve the bundle to MCP clients (Claude Desktop/Code, other "
@@ -1303,6 +1172,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_retriever_args(p)
     p.set_defaults(func=cmd_mcp)
 
+
+def _add_verify_parser(sub) -> None:
     p = sub.add_parser(
         "verify",
         help="consumer-side check of a published bundle: manifest↔file "
@@ -1321,6 +1192,32 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--staging", action="store_true")
     p.set_defaults(func=cmd_verify)
 
+
+def build_parser() -> argparse.ArgumentParser:
+    """The command line: one `_add_<command>_parser` per verb, in the
+    order the help lists them (review 2026-10-21, A-U4)."""
+    parser = argparse.ArgumentParser(
+        prog="okf-web",
+        description="Survey, verify, evaluate, and publish an OKF companion bundle "
+        "for an ecommerce site.",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+    _add_lint_parser(sub)
+    _add_review_parser(sub)
+    _add_survey_parser(sub)
+    _add_index_parser(sub)
+    _add_questions_parser(sub)
+    _add_evaluate_parser(sub)
+    _add_publish_parser(sub)
+    _add_init_parser(sub)
+    _add_report_parser(sub)
+    _add_view_parser(sub)
+    _add_sign_parser(sub)
+    _add_drift_parser(sub)
+    _add_discover_parser(sub)
+    _add_logscan_parser(sub)
+    _add_mcp_parser(sub)
+    _add_verify_parser(sub)
     return parser
 
 

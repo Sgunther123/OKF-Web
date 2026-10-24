@@ -46,6 +46,8 @@ __all__ = [
     "approval_state",
     "ReviewItem",
     "pending",
+    "QueueSummary",
+    "queue_summary",
     "approve",
     "batch_candidates",
     "batch_approve",
@@ -144,6 +146,38 @@ class ReviewItem:
 
 def _now_iso() -> str:
     return utc_instant()
+
+
+@dataclass
+class QueueSummary:
+    """The review queue as the CLI and the hosted staff page report it:
+    the pending items, the drift proposals under `_review/proposed/`,
+    and the pending count per effective risk tier (review 2026-10-21,
+    A-U3)."""
+
+    items: list[ReviewItem]
+    proposed: list[Path]
+    by_risk: dict[str, int]
+
+    @property
+    def line(self) -> str:
+        """The machine-greppable summary line CI reads."""
+        return (
+            f"pending: {len(self.items)} (a: {self.by_risk['a']}, b: {self.by_risk['b']}, "
+            f"c: {self.by_risk['c']}); drift proposals: {len(self.proposed)}"
+        )
+
+
+def queue_summary(bundle: Bundle) -> QueueSummary:
+    """What waits for a person: the pending concepts by effective risk and
+    the surveyor's drift proposals."""
+    items = pending(bundle)
+    proposed = sorted((bundle.root / "_review" / "proposed").rglob("*.md"))
+    by_risk = {"a": 0, "b": 0, "c": 0}
+    for item in items:
+        tier = item.concept.effective_risk
+        by_risk[tier] = by_risk.get(tier, 0) + 1
+    return QueueSummary(items=items, proposed=proposed, by_risk=by_risk)
 
 
 def pending(bundle: Bundle) -> list[ReviewItem]:

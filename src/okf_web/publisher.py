@@ -203,12 +203,39 @@ def publish(
             "(is the path right?)"
         )
     result = PublishResult(dist=dist)
-
-    concept_include, result.withheld = select_publishable(
-        bundle, include_machine_confirmed, today, freshness
+    concept_include = _select_and_warn(
+        bundle, result, include_machine_confirmed, today, freshness, site
     )
     include = concept_include | set(bundle.indexes) | set(bundle.logs)
 
+    with _staging(dist) as out:
+        write_atomic(
+            out / DIST_MARKER,
+            "published by okf-web: a copy of a bundle, never bundle knowledge\n",
+        )
+        _copy_tree(bundle_root, out, include, result)
+        _write_derived(out, bundle, concept_include, result, base_path=base_path,
+                       bundle_url=bundle_url, site=site, structured=structured)
+        _audit_links(bundle, result)
+    return result
+
+
+def _select_and_warn(
+    bundle: Bundle,
+    result: PublishResult,
+    include_machine_confirmed: bool,
+    today: _dt.date | None,
+    freshness: str,
+    site: str | None,
+) -> set[str]:
+    """The publishable concepts under the freshness rule, with the
+    warnings a publish owes on the way: a concept past its own
+    `stale_after` that ships anyway, and a resource off the declared
+    site's origin (review 2026-10-21, A-U4: the four stages of a publish
+    are four functions)."""
+    concept_include, result.withheld = select_publishable(
+        bundle, include_machine_confirmed, today, freshness
+    )
     # Freshness warnings under the default policy: shipping a concept
     # its own frontmatter says not to trust is exactly the failure an
     # unmaintained bundle decays into, so it never happens silently.
@@ -233,89 +260,108 @@ def publish(
                     f"{rel} resource {resource} is not on the declared site "
                     f"origin {site_origin} — delegation verifiers will flag it"
                 )
+    return concept_include
 
-    with _staging(dist) as out:
-        write_atomic(
-            out / DIST_MARKER,
-            "published by okf-web: a copy of a bundle, never bundle knowledge\n",
-        )
 
-        # Copy selected markdown plus any non-markdown assets (question sets,
-        # spec sheets) that live outside internal dirs. A published copy left
-        # inside the bundle is skipped whole, like the loader skips it.
-        marked = marked_dists(bundle_root)
-        skipped_dists: set[Path] = set()
-        for path in sorted(bundle_root.rglob("*")):
-            rel = path.relative_to(bundle_root).as_posix()
-            if rel.split("/", 1)[0] in INTERNAL_DIRS:
-                continue
-            copy = next((d for d in marked if d in path.parents), None)
-            if copy is not None:
-                if copy not in skipped_dists:
-                    skipped_dists.add(copy)
-                    result.warnings.append(
-                        f"{copy.relative_to(bundle_root).as_posix()}/ is a "
-                        f"published copy ({DIST_MARKER} marker); not published"
-                    )
-                continue
-            # Hidden files are working state (embedding caches, editor
-            # droppings), never published knowledge.
-            if any(part.startswith(".") for part in rel.split("/")):
-                continue
-            if is_linked(bundle_root, path):
-                if path.is_symlink():
-                    result.warnings.append(f"{rel} is a symlink; not published")
-                continue
-            if not path.is_file():
-                continue
-            if path.name in _OPERATOR_FILES or path.suffix.lower() in _OPERATOR_SUFFIXES:
+def _copy_tree(bundle_root: Path, out: Path, include: set[str], result: PublishResult) -> None:
+    """Copy the selected markdown and every non-markdown asset outside
+    the internal directories into the staging directory; a published
+    copy, a hidden file, a symlink or an operator file is skipped, each
+    with its warning."""
+    # Copy selected markdown plus any non-markdown assets (question sets,
+    # spec sheets) that live outside internal dirs. A published copy left
+    # inside the bundle is skipped whole, like the loader skips it.
+    marked = marked_dists(bundle_root)
+    skipped_dists: set[Path] = set()
+    for path in sorted(bundle_root.rglob("*")):
+        rel = path.relative_to(bundle_root).as_posix()
+        if rel.split("/", 1)[0] in INTERNAL_DIRS:
+            continue
+        copy = next((d for d in marked if d in path.parents), None)
+        if copy is not None:
+            if copy not in skipped_dists:
+                skipped_dists.add(copy)
                 result.warnings.append(
-                    f"{rel} is an operator file (viewer page or feed export); "
-                    "not published"
+                    f"{copy.relative_to(bundle_root).as_posix()}/ is a "
+                    f"published copy ({DIST_MARKER} marker); not published"
                 )
-                continue
-            if path.suffix == ".md":
-                if rel not in include:
-                    continue
-            else:
-                result.assets.append(rel)
-            target = out / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, target)
-            result.published.append(rel)
-
-        # Derived tier: what engines read today, generated from the verified
-        # bundle (READINESS R2). Emitted before the manifest so the manifest
-        # hashes — and any signature over it — cover these artifacts too.
-        if structured:
-            base = bundle_url or base_path
-            result.structured = write_structured(
-                out, bundle, concept_include, base, site=site
+            continue
+        # Hidden files are working state (embedding caches, editor
+        # droppings), never published knowledge.
+        if any(part.startswith(".") for part in rel.split("/")):
+            continue
+        if is_linked(bundle_root, path):
+            if path.is_symlink():
+                result.warnings.append(f"{rel} is a symlink; not published")
+            continue
+        if not path.is_file():
+            continue
+        if path.name in _OPERATOR_FILES or path.suffix.lower() in _OPERATOR_SUFFIXES:
+            result.warnings.append(
+                f"{rel} is an operator file (viewer page or feed export); "
+                "not published"
             )
-            result.structured.append(
-                write_llms_txt(out, bundle, concept_include, base)
-            )
-            result.published.extend(result.structured)
-
-        _write_manifest(out, result.published, site=site, bundle_url=bundle_url, bundle=bundle)
-        _write_linkmap(out, bundle, result.published, bundle_url or base_path)
-        _write_llms_snippet(out, base_path, site=site, bundle_url=bundle_url)
-
-        # An index that advertises withheld concepts ships dangling links —
-        # legal per the spec (consumers must tolerate them) but a producer
-        # smell worth a loud warning.
-        published_set = set(result.published)
-        for rel, doc in bundle.indexes.items():
-            if rel not in published_set:
+            continue
+        if path.suffix == ".md":
+            if rel not in include:
                 continue
-            for target in doc.internal_links():
-                resolved = bundle.resolve_link(rel, target)
-                if resolved.endswith(".md") and resolved not in published_set:
-                    result.warnings.append(
-                        f"published {rel} links {target}, which is not in the "
-                        "published set (withheld or missing)"
-                    )
-    return result
+        else:
+            result.assets.append(rel)
+        target = out / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, target)
+        result.published.append(rel)
+
+
+def _write_derived(
+    out: Path,
+    bundle: Bundle,
+    concept_include: set[str],
+    result: PublishResult,
+    *,
+    base_path: str,
+    bundle_url: str | None,
+    site: str | None,
+    structured: bool,
+) -> None:
+    """The derived tier (JSON-LD and llms.txt), then the manifest, the
+    link map and the llms snippet, in that order: the manifest's hashes,
+    and any signature over them, cover the derived files."""
+    # Derived tier: what engines read today, generated from the verified
+    # bundle (READINESS R2). Emitted before the manifest so the manifest
+    # hashes — and any signature over it — cover these artifacts too.
+    if structured:
+        base = bundle_url or base_path
+        result.structured = write_structured(
+            out, bundle, concept_include, base, site=site
+        )
+        result.structured.append(
+            write_llms_txt(out, bundle, concept_include, base)
+        )
+        result.published.extend(result.structured)
+
+    _write_manifest(out, result.published, site=site, bundle_url=bundle_url, bundle=bundle)
+    _write_linkmap(out, bundle, result.published, bundle_url or base_path)
+    _write_llms_snippet(out, base_path, site=site, bundle_url=bundle_url)
+
+
+def _audit_links(bundle: Bundle, result: PublishResult) -> None:
+    """Warn for a published index that links a withheld or missing
+    concept: legal per the spec, a producer smell nonetheless."""
+    # An index that advertises withheld concepts ships dangling links —
+    # legal per the spec (consumers must tolerate them) but a producer
+    # smell worth a loud warning.
+    published_set = set(result.published)
+    for rel, doc in bundle.indexes.items():
+        if rel not in published_set:
+            continue
+        for target in doc.internal_links():
+            resolved = bundle.resolve_link(rel, target)
+            if resolved.endswith(".md") and resolved not in published_set:
+                result.warnings.append(
+                    f"published {rel} links {target}, which is not in the "
+                    "published set (withheld or missing)"
+                )
 
 
 def _write_manifest(

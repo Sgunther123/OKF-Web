@@ -22,6 +22,7 @@ import datetime as _dt
 import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from . import OKF_VERSION
 from .model import (
@@ -38,6 +39,8 @@ from .model import (
 )
 
 __all__ = [
+    "TypeContract",
+    "TYPE_CONTRACTS",
     "ERROR",
     "WARNING",
     "Finding",
@@ -83,6 +86,270 @@ class Finding:
 
     def __str__(self) -> str:
         return f"{self.severity.upper():7s} {self.code} {self.rel_path}: {self.message}"
+
+
+@dataclass(frozen=True)
+class TypeContract:
+    """What a concept type must carry before it goes stable, and the risk
+    tier the profile floors it at (GEO-PROFILE's type table): one row per
+    type in :data:`TYPE_CONTRACTS`, read by :func:`lint_concept` (review
+    2026-10-21, A-U4). ``required`` pairs a label with a predicate; the
+    missing labels feed the messages. ``risk_floor`` is ``a`` (anything
+    below is flagged) or ``b`` (only ``c`` is)."""
+
+    error_code: str
+    required: tuple[tuple[str, Callable[[Concept], bool]], ...]
+    stable_message: Callable[[list[str]], str]
+    draft_message: Callable[[list[str]], str]
+    risk_floor: str
+    risk_message: Callable[[Concept], str]
+
+
+def _missing_stable(type_name: str) -> Callable[[list[str]], str]:
+    return lambda missing: f"stable {type_name} is missing " + ", ".join(missing)
+
+
+def _missing_draft(type_name: str) -> Callable[[list[str]], str]:
+    return lambda missing: (
+        f"{type_name} draft is missing " + ", ".join(missing)
+        + "; a reviewer must complete it before it can go stable"
+    )
+
+
+#: The profile's contract types. A new type that must carry something
+#: before it goes stable is a row here (the EXPANSION playbook), never a
+#: new block in `lint_concept`.
+TYPE_CONTRACTS: dict[str, TypeContract] = {
+    "Compatibility": TypeContract(
+        # The machine-resolvable applicability is the type's whole point:
+        # a fit chart that names no entities cannot be targeted by an
+        # agent asking "will this fit mine?".
+        error_code="E015",
+        required=(("`x_geo.fits` and/or `x_geo.works_with`", lambda c: bool(c.fits or c.works_with)),),
+        stable_message=lambda missing: (
+            "stable Compatibility concept references no entities — "
+            "set `x_geo.fits` and/or `x_geo.works_with`"
+        ),
+        draft_message=lambda missing: (
+            "Compatibility draft references no entities yet; a "
+            "reviewer must add `x_geo.fits`/`works_with` before "
+            "it can go stable"
+        ),
+        risk_floor="b",
+        risk_message=lambda c: (
+            "Compatibility concept classified risk `c`; wrong fit "
+            "claims drive returns — classify `b` (or `a` for "
+            "safety-relevant fitment)"
+        ),
+    ),
+    "Ownership Guide": TypeContract(
+        # Same applicability contract as Compatibility: ownership
+        # guidance an agent cannot attach to an owned product is
+        # unreachable exactly when the owner asks about it.
+        error_code="E016",
+        required=(("`x_geo.covers`", lambda c: bool(c.covers)),),
+        stable_message=lambda missing: (
+            "stable Ownership Guide covers no entities — set "
+            "`x_geo.covers` to the product(s) it is guidance for"
+        ),
+        draft_message=lambda missing: (
+            "Ownership Guide draft covers no entities yet; a "
+            "reviewer must add `x_geo.covers` before it can go "
+            "stable"
+        ),
+        risk_floor="b",
+        risk_message=lambda c: (
+            "Ownership Guide classified risk `c`; wrong care or "
+            "warranty-process claims damage products and void "
+            "warranties — classify `b` (or `a` when care is "
+            "safety-relevant)"
+        ),
+    ),
+    "Product Passport": TypeContract(
+        # The contract: one product bound by passport_for, and passport
+        # data that actually says something — materials and origin at
+        # minimum. A vacuous passport is worse than none: it signals
+        # compliance without carrying it.
+        error_code="E017",
+        required=(
+            ("`x_geo.passport_for`", lambda c: bool(c.passport_for)),
+            ("`x_geo.passport.materials`", lambda c: bool(c.passport.get("materials"))),
+            ("`x_geo.passport.origin`", lambda c: bool(c.passport.get("origin"))),
+        ),
+        stable_message=_missing_stable("Product Passport"),
+        draft_message=_missing_draft("Product Passport"),
+        risk_floor=RISK_HIGH,
+        risk_message=lambda c: (
+            f"Product Passport declares risk `{c.risk}`, but "
+            "passports are compliance claims and are gated as risk "
+            "`a` regardless — declare `a` explicitly"
+        ),
+    ),
+    "Store Location": TypeContract(
+        # The contract: an entity id other concepts and stock
+        # capabilities can reference, and a real-world address — a
+        # location an agent cannot name or place answers nothing.
+        error_code="E018",
+        required=(
+            ("`x_geo.entity` (a stable `loc:` id)", lambda c: bool(c.entity)),
+            ("`x_geo.location.address`", lambda c: bool(c.location.get("address"))),
+        ),
+        stable_message=_missing_stable("Store Location"),
+        draft_message=_missing_draft("Store Location"),
+        risk_floor="b",
+        risk_message=lambda c: (
+            "Store Location classified risk `c`; a wrong address or "
+            "wrong hours sends someone to a closed door — classify `b`"
+        ),
+    ),
+    "Trade Program": TypeContract(
+        # The contract: machine-readable commercial terms. A trade
+        # program that states no terms invites the exact guessing
+        # (payment terms, minimums) that costs B2B deals.
+        error_code="E019",
+        required=(
+            ("`x_geo.trade.payment_terms`", lambda c: bool(c.trade.get("payment_terms"))),
+            ("`x_geo.trade.min_order`", lambda c: bool(c.trade.get("min_order"))),
+        ),
+        stable_message=_missing_stable("Trade Program"),
+        draft_message=_missing_draft("Trade Program"),
+        risk_floor=RISK_HIGH,
+        risk_message=lambda c: (
+            f"Trade Program declares risk `{c.risk}`, but "
+            "commercial terms are money/legal claims and are gated "
+            "as risk `a` regardless — declare `a` explicitly"
+        ),
+    ),
+}
+
+
+def _lint_contract(concept: Concept, contract: TypeContract) -> list[Finding]:
+    """One contract type's findings: the stable-time error, or the
+    draft-time W032, for what is missing; then the W033 risk floor."""
+    rel = concept.rel_path
+    findings: list[Finding] = []
+    missing = [label for label, present in contract.required if not present(concept)]
+    if missing:
+        if concept.status == "stable":
+            findings.append(Finding(ERROR, contract.error_code, rel, contract.stable_message(missing)))
+        else:
+            findings.append(Finding(WARNING, "W032", rel, contract.draft_message(missing)))
+    if contract.risk_floor == RISK_HIGH:
+        below_floor = concept.risk != RISK_HIGH
+    else:
+        below_floor = concept.risk == "c"
+    if below_floor:
+        findings.append(Finding(WARNING, "W033", rel, contract.risk_message(concept)))
+    return findings
+
+
+def _lint_attested_computation(concept: Concept) -> list[Finding]:
+    """An Attested Computation's own rules: a runtime, an attester that
+    is code, an executor whose placeholders stay out of the authority."""
+    rel = concept.rel_path
+    findings: list[Finding] = []
+    if not concept.frontmatter.get("runtime"):
+        findings.append(
+            Finding(ERROR, "E011", rel, "Attested Computation requires `runtime`")
+        )
+    attester = concept.frontmatter.get("attester")
+    if isinstance(attester, dict) and str(
+        attester.get("resource") or ""
+    ).startswith(("http://", "https://")):
+        findings.append(
+            Finding(
+                WARNING,
+                "W036",
+                rel,
+                "`attester.resource` names an endpoint, not deterministic "
+                "verifier code — point it at a bundle artifact "
+                "(e.g. `/attesters/http_refetch.py`), per SPEC §10.2",
+            )
+        )
+    executor = concept.frontmatter.get("executor")
+    if not (isinstance(executor, dict) and executor.get("resource")):
+        findings.append(
+            Finding(
+                WARNING,
+                "W026",
+                rel,
+                "Attested Computation has no executor.resource; agents "
+                "cannot run it",
+            )
+        )
+    elif isinstance(executor.get("resource"), str):
+        authority = urllib.parse.urlsplit(executor["resource"])
+        if "{" in authority.scheme or "{" in authority.netloc:
+            findings.append(
+                Finding(
+                    ERROR,
+                    "E023",
+                    rel,
+                    "executor.resource puts a placeholder in its scheme or "
+                    "host; a caller could then choose the target, so "
+                    "placeholders belong in the path or query only (the "
+                    "bridge refuses such a template)",
+                )
+            )
+    return findings
+
+
+def _lint_promotion(concept: Concept, today: _dt.date | None) -> list[Finding]:
+    """A Promotion's own rules: an end date, a `stale_after` that
+    retires it with the sale, and the sale not already over."""
+    rel = concept.rel_path
+    findings: list[Finding] = []
+    ends = concept.promo_ends
+    if ends is None:
+        if concept.status == "stable":
+            findings.append(
+                Finding(
+                    ERROR,
+                    "E014",
+                    rel,
+                    "stable Promotion has no `x_geo.ends_at`; unbounded "
+                    "promotions are exactly what engines misquote — add "
+                    "the end date before publishing",
+                )
+            )
+        else:
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W027",
+                    rel,
+                    "Promotion draft has no `x_geo.ends_at`; a reviewer "
+                    "must add the end date before it can go stable",
+                )
+            )
+    else:
+        # The sale is valid through `ends_at`, so `stale_after` may
+        # fall anywhere up to the midnight that ends that day (the
+        # surveyor stamps exactly that); later outlives the sale.
+        stale_date = as_date(concept.frontmatter.get("stale_after"))
+        if stale_date is None or stale_date > ends + _dt.timedelta(days=1):
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W027",
+                    rel,
+                    "Promotion `stale_after` should be the midnight after "
+                    "`x_geo.ends_at` (or earlier) so the freshness machinery "
+                    "retires it with the sale",
+                )
+            )
+        if (today or utc_today()) > ends:
+            findings.append(
+                Finding(
+                    WARNING,
+                    "W028",
+                    rel,
+                    f"promotion ended {ends.isoformat()}; the publisher "
+                    "withholds it automatically, but retire or re-survey "
+                    "the concept",
+                )
+            )
+    return findings
 
 
 def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Finding]:
@@ -230,306 +497,12 @@ def lint_concept(concept: Concept, today: _dt.date | None = None) -> list[Findin
 
     # -- profile: type-specific requirements -------------------------------
     if concept.type == "Attested Computation":
-        if not concept.frontmatter.get("runtime"):
-            findings.append(
-                Finding(ERROR, "E011", rel, "Attested Computation requires `runtime`")
-            )
-        attester = concept.frontmatter.get("attester")
-        if isinstance(attester, dict) and str(
-            attester.get("resource") or ""
-        ).startswith(("http://", "https://")):
-            findings.append(
-                Finding(
-                    WARNING,
-                    "W036",
-                    rel,
-                    "`attester.resource` names an endpoint, not deterministic "
-                    "verifier code — point it at a bundle artifact "
-                    "(e.g. `/attesters/http_refetch.py`), per SPEC §10.2",
-                )
-            )
-        executor = concept.frontmatter.get("executor")
-        if not (isinstance(executor, dict) and executor.get("resource")):
-            findings.append(
-                Finding(
-                    WARNING,
-                    "W026",
-                    rel,
-                    "Attested Computation has no executor.resource; agents "
-                    "cannot run it",
-                )
-            )
-        elif isinstance(executor.get("resource"), str):
-            authority = urllib.parse.urlsplit(executor["resource"])
-            if "{" in authority.scheme or "{" in authority.netloc:
-                findings.append(
-                    Finding(
-                        ERROR,
-                        "E023",
-                        rel,
-                        "executor.resource puts a placeholder in its scheme or "
-                        "host; a caller could then choose the target, so "
-                        "placeholders belong in the path or query only (the "
-                        "bridge refuses such a template)",
-                    )
-                )
+        findings.extend(_lint_attested_computation(concept))
     if concept.type == "Promotion":
-        ends = concept.promo_ends
-        if ends is None:
-            if concept.status == "stable":
-                findings.append(
-                    Finding(
-                        ERROR,
-                        "E014",
-                        rel,
-                        "stable Promotion has no `x_geo.ends_at`; unbounded "
-                        "promotions are exactly what engines misquote — add "
-                        "the end date before publishing",
-                    )
-                )
-            else:
-                findings.append(
-                    Finding(
-                        WARNING,
-                        "W027",
-                        rel,
-                        "Promotion draft has no `x_geo.ends_at`; a reviewer "
-                        "must add the end date before it can go stable",
-                    )
-                )
-        else:
-            # The sale is valid through `ends_at`, so `stale_after` may
-            # fall anywhere up to the midnight that ends that day (the
-            # surveyor stamps exactly that); later outlives the sale.
-            stale_date = as_date(concept.frontmatter.get("stale_after"))
-            if stale_date is None or stale_date > ends + _dt.timedelta(days=1):
-                findings.append(
-                    Finding(
-                        WARNING,
-                        "W027",
-                        rel,
-                        "Promotion `stale_after` should be the midnight after "
-                        "`x_geo.ends_at` (or earlier) so the freshness machinery "
-                        "retires it with the sale",
-                    )
-                )
-            if (today or utc_today()) > ends:
-                findings.append(
-                    Finding(
-                        WARNING,
-                        "W028",
-                        rel,
-                        f"promotion ended {ends.isoformat()}; the publisher "
-                        "withholds it automatically, but retire or re-survey "
-                        "the concept",
-                    )
-                )
-
-    if concept.type == "Compatibility":
-        # The machine-resolvable applicability is the type's whole point:
-        # a fit chart that names no entities cannot be targeted by an
-        # agent asking "will this fit mine?".
-        if not concept.fits and not concept.works_with:
-            if concept.status == "stable":
-                findings.append(
-                    Finding(
-                        ERROR,
-                        "E015",
-                        rel,
-                        "stable Compatibility concept references no entities — "
-                        "set `x_geo.fits` and/or `x_geo.works_with`",
-                    )
-                )
-            else:
-                findings.append(
-                    Finding(
-                        WARNING,
-                        "W032",
-                        rel,
-                        "Compatibility draft references no entities yet; a "
-                        "reviewer must add `x_geo.fits`/`works_with` before "
-                        "it can go stable",
-                    )
-                )
-        if concept.risk == "c":
-            findings.append(
-                Finding(
-                    WARNING,
-                    "W033",
-                    rel,
-                    "Compatibility concept classified risk `c`; wrong fit "
-                    "claims drive returns — classify `b` (or `a` for "
-                    "safety-relevant fitment)",
-                )
-            )
-
-    if concept.type == "Ownership Guide":
-        # Same applicability contract as Compatibility: ownership
-        # guidance an agent cannot attach to an owned product is
-        # unreachable exactly when the owner asks about it.
-        if not concept.covers:
-            if concept.status == "stable":
-                findings.append(
-                    Finding(
-                        ERROR,
-                        "E016",
-                        rel,
-                        "stable Ownership Guide covers no entities — set "
-                        "`x_geo.covers` to the product(s) it is guidance for",
-                    )
-                )
-            else:
-                findings.append(
-                    Finding(
-                        WARNING,
-                        "W032",
-                        rel,
-                        "Ownership Guide draft covers no entities yet; a "
-                        "reviewer must add `x_geo.covers` before it can go "
-                        "stable",
-                    )
-                )
-        if concept.risk == "c":
-            findings.append(
-                Finding(
-                    WARNING,
-                    "W033",
-                    rel,
-                    "Ownership Guide classified risk `c`; wrong care or "
-                    "warranty-process claims damage products and void "
-                    "warranties — classify `b` (or `a` when care is "
-                    "safety-relevant)",
-                )
-            )
-
-    if concept.type == "Product Passport":
-        # The contract: one product bound by passport_for, and passport
-        # data that actually says something — materials and origin at
-        # minimum. A vacuous passport is worse than none: it signals
-        # compliance without carrying it.
-        missing = []
-        if not concept.passport_for:
-            missing.append("`x_geo.passport_for`")
-        if not concept.passport.get("materials"):
-            missing.append("`x_geo.passport.materials`")
-        if not concept.passport.get("origin"):
-            missing.append("`x_geo.passport.origin`")
-        if missing:
-            if concept.status == "stable":
-                findings.append(
-                    Finding(
-                        ERROR,
-                        "E017",
-                        rel,
-                        "stable Product Passport is missing "
-                        + ", ".join(missing),
-                    )
-                )
-            else:
-                findings.append(
-                    Finding(
-                        WARNING,
-                        "W032",
-                        rel,
-                        "Product Passport draft is missing "
-                        + ", ".join(missing)
-                        + "; a reviewer must complete it before it can go stable",
-                    )
-                )
-        if concept.risk != RISK_HIGH:
-            findings.append(
-                Finding(
-                    WARNING,
-                    "W033",
-                    rel,
-                    f"Product Passport declares risk `{concept.risk}`, but "
-                    "passports are compliance claims and are gated as risk "
-                    "`a` regardless — declare `a` explicitly",
-                )
-            )
-
-    if concept.type == "Store Location":
-        # The contract: an entity id other concepts and stock
-        # capabilities can reference, and a real-world address — a
-        # location an agent cannot name or place answers nothing.
-        missing = []
-        if not concept.entity:
-            missing.append("`x_geo.entity` (a stable `loc:` id)")
-        if not concept.location.get("address"):
-            missing.append("`x_geo.location.address`")
-        if missing:
-            if concept.status == "stable":
-                findings.append(
-                    Finding(
-                        ERROR,
-                        "E018",
-                        rel,
-                        "stable Store Location is missing " + ", ".join(missing),
-                    )
-                )
-            else:
-                findings.append(
-                    Finding(
-                        WARNING,
-                        "W032",
-                        rel,
-                        "Store Location draft is missing "
-                        + ", ".join(missing)
-                        + "; a reviewer must complete it before it can go stable",
-                    )
-                )
-        if concept.risk == "c":
-            findings.append(
-                Finding(
-                    WARNING,
-                    "W033",
-                    rel,
-                    "Store Location classified risk `c`; a wrong address or "
-                    "wrong hours sends someone to a closed door — classify `b`",
-                )
-            )
-
-    if concept.type == "Trade Program":
-        # The contract: machine-readable commercial terms. A trade
-        # program that states no terms invites the exact guessing
-        # (payment terms, minimums) that costs B2B deals.
-        missing = []
-        if not concept.trade.get("payment_terms"):
-            missing.append("`x_geo.trade.payment_terms`")
-        if not concept.trade.get("min_order"):
-            missing.append("`x_geo.trade.min_order`")
-        if missing:
-            if concept.status == "stable":
-                findings.append(
-                    Finding(
-                        ERROR,
-                        "E019",
-                        rel,
-                        "stable Trade Program is missing " + ", ".join(missing),
-                    )
-                )
-            else:
-                findings.append(
-                    Finding(
-                        WARNING,
-                        "W032",
-                        rel,
-                        "Trade Program draft is missing "
-                        + ", ".join(missing)
-                        + "; a reviewer must complete it before it can go stable",
-                    )
-                )
-        if concept.risk != RISK_HIGH:
-            findings.append(
-                Finding(
-                    WARNING,
-                    "W033",
-                    rel,
-                    f"Trade Program declares risk `{concept.risk}`, but "
-                    "commercial terms are money/legal claims and are gated "
-                    "as risk `a` regardless — declare `a` explicitly",
-                )
-            )
+        findings.extend(_lint_promotion(concept, today))
+    contract = TYPE_CONTRACTS.get(concept.type)
+    if contract is not None:
+        findings.extend(_lint_contract(concept, contract))
 
     if concept.type == "Product" and not concept.resource:
         findings.append(

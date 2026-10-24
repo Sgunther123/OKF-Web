@@ -90,13 +90,13 @@ def test_use_cache_false_bypasses_cache(tmp_path):
 def test_lexical_index_caches_per_bundle_instance(example_bundle):
     bundle = load_bundle(example_bundle)
     first = retrieve(bundle, "what is the return window", 4)
-    assert hasattr(bundle, "_lexical_cache")
+    assert bundle.lexical_index is not None
     second = retrieve(bundle, "what is the return window", 4)
     assert [c.rel_path for c in first] == [c.rel_path for c in second]
     assert first and first[0].rel_path == "policies/returns.md"
     # A fresh instance builds its own snapshot.
     other = load_bundle(example_bundle)
-    assert not hasattr(other, "_lexical_cache")
+    assert other.lexical_index is None
     assert [c.rel_path for c in retrieve(other, "what is the return window", 4)] == [
         c.rel_path for c in first
     ]

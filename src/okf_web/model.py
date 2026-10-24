@@ -9,6 +9,7 @@ filenames (``index.md``, ``log.md``) kept separate from concepts.
 from __future__ import annotations
 
 import contextlib
+import copy
 import datetime as _dt
 import hashlib
 import json
@@ -742,6 +743,9 @@ class Bundle:
     logs: dict[str, str] = field(default_factory=dict)
     broken: dict[str, str] = field(default_factory=dict)  # rel_path -> error
     language_override: str = ""  # a localized view's tag (see `language`)
+    #: The lexical retriever's per-instance snapshot of this bundle
+    #: (`evaluator._lexical_index`); never persisted, never compared.
+    lexical_index: Any = field(default=None, repr=False, compare=False)
 
     @property
     def okf_version(self) -> str | None:
@@ -905,7 +909,7 @@ def localized_view(bundle: Bundle, lang: str) -> Bundle:
             # citability metric), not an l10n/ path this view no longer
             # exposes.
             view.concepts[parsed[1]] = Concept(
-                parsed[1], concept.frontmatter, concept.body,
+                parsed[1], copy.deepcopy(concept.frontmatter), concept.body,
                 abs_path=concept.abs_path,
             )
     view.indexes = {
@@ -914,7 +918,7 @@ def localized_view(bundle: Bundle, lang: str) -> Bundle:
     localized_index = bundle.indexes.get(f"{L10N_DIR}/{tag}/index.md")
     if localized_index is not None:
         view.indexes["index.md"] = Concept(
-            "index.md", localized_index.frontmatter, localized_index.body,
+            "index.md", copy.deepcopy(localized_index.frontmatter), localized_index.body,
             abs_path=localized_index.abs_path,
         )
     view.logs = dict(bundle.logs)

@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from importlib import resources
 from pathlib import Path, PureWindowsPath
+from typing import TYPE_CHECKING
 
 from .linter import ERROR, lint_concept
 from . import OKF_VERSION
@@ -62,6 +63,9 @@ from .model import (
     write_atomic,
 )
 from .net import PAGE_POLICY, FetchPolicy, UnsafeURL, check_url, fetch_text
+
+if TYPE_CHECKING:  # the protocol only; `llm` imports this module's result type
+    from .llm import LLMClient
 
 __all__ = [
     "USER_AGENT",
@@ -310,6 +314,13 @@ class SurveyResult:
     errors: list[str] = field(default_factory=list)
     dropped_live_fields: list[str] = field(default_factory=list)
 
+    def extend(self, other: "SurveyResult") -> None:
+        """Fold another result in — one summary for a run that ingested a
+        feed and surveyed pages (review 2026-10-21, A-U3)."""
+        for name in ("written", "proposed", "skipped_unchanged", "quarantined",
+                     "collisions", "errors", "dropped_live_fields"):
+            getattr(self, name).extend(getattr(other, name))
+
 
 def parse_llm_concepts(response: str) -> list[tuple[str, str]]:
     """Extract ``(rel_path, document_text)`` pairs from an LLM response."""
@@ -512,7 +523,7 @@ def place_draft(
 def survey(
     urls: list[str],
     bundle_root: Path | str,
-    llm,
+    llm: LLMClient,
     fetcher=None,
     allow_private: bool = False,
     policy: FetchPolicy | None = None,

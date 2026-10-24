@@ -63,7 +63,7 @@ code. Review 2026-10-21, phase U4.
 
 | Name | Kind | Meaning |
 | --- | --- | --- |
-| `Bundle` | class | a loaded bundle: `concepts`, `indexes`, `logs`, `language`, `site` |
+| `Bundle` | class | a loaded bundle: `concepts`, `indexes`, `logs`, `language`, `site`; `lexical_index` is the retriever's per-instance slot |
 | `Concept` | class | one document: frontmatter, body, accessors (`is_stale`, `is_high_risk`, `verified_entries`, …) |
 | `load_bundle` | function | read a bundle directory (`BundleNotFound` when missing) |
 | `parse_document` | function | frontmatter + body from text |
@@ -157,7 +157,7 @@ code. Review 2026-10-21, phase U4.
 | `html_to_text` | function | the text a page carries |
 | `stable_page_hash` | function | the hash drift compares |
 | `page_policy` | function | the page policy with a timeout and host opt-in |
-| `SurveyResult` | class | written, proposed, skipped, quarantined, errors |
+| `SurveyResult` | class | written, proposed, skipped, quarantined, errors; `extend` folds another result in |
 | `SitemapError` | class | an unusable sitemap (refusal) |
 | `PRODUCER_DENIED_DIRS` | tuple | where a producer may never write |
 | `USER_AGENT` | str | `config.user_agent("surveyor")` |
@@ -179,6 +179,8 @@ code. Review 2026-10-21, phase U4.
 | `lint_bundle` | function | `(bundle, findings)` for a directory |
 | `lint_concept` | function | the findings for one concept |
 | `has_errors` | function | whether findings carry an error |
+| `TypeContract` | class | what a type must carry to go stable and its risk floor |
+| `TYPE_CONTRACTS` | dict | the contract types, one row each (a new contract type is a row) |
 | `Finding` | class | severity, code, path, message |
 | `ERROR` | str | severity |
 | `WARNING` | str | severity |
@@ -196,6 +198,8 @@ code. Review 2026-10-21, phase U4.
 | `resolve_path` | function | a typed path to a concept, or `ReviewError` with a suggestion |
 | `ReviewItem` | class | a queued concept and its reasons |
 | `ReviewError` | class | a review the tool refuses (refusal) |
+| `queue_summary` | function | the pending items, the drift proposals and the counts by risk |
+| `QueueSummary` | class | that summary, with the `line` CI reads |
 
 ### `okf_web.evaluator`
 
@@ -299,6 +303,7 @@ code. Review 2026-10-21, phase U4.
 | `serve_stdio` | function | the stdio loop |
 | `bundle_signature` | function | the change signature a republish keys on |
 | `BridgeState` | class | the bridge's state |
+| `BundleSource` | protocol | where a bridge's bundle comes from: `signature()` and `load()` |
 | `TOOLS` | list | the tools the bridge advertises |
 
 ### `okf_web.report`
@@ -330,6 +335,13 @@ code. Review 2026-10-21, phase U4.
 | `match_agent` | function | the AI agent a user-agent string declares |
 | `LogScanReport` | class | the counts |
 | `MAX_LINE_LENGTH` | int | lines longer than this are skipped |
+
+### `okf_web.init`
+
+| Name | Kind | What it is |
+| --- | --- | --- |
+| `run_init` | function | the guided first run as a library: feed → lint → attest → questions → scorecard → publish → report |
+| `InitResult` | class | every step's outcome, the lines the command prints, `exit_code` |
 
 ### `okf_web.cli`
 

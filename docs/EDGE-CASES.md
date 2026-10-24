@@ -649,3 +649,55 @@ behaviour changes, both recoveries, are named below; nothing else moves.
   builds, and changing it is the release's decision.
 
 Tests: `tests/test_guards.py` (20). Lint 0/0; dry-run unchanged.
+
+### U5 · Decomposition (L) — landed 2026-10-24
+
+Closes A-U3, A-U4 and A-U12. Behaviour-preserving by construction and
+by measurement: before the first edit the viewer page, the report, the
+example's lint findings, the publish result and every subcommand's
+help text were snapshotted, and each decomposition was checked against
+its snapshot byte for byte before the next began (the only difference
+anywhere is the manifest's `published_at` clock). The suite ran under
+U6's hardened guards; no measured number moves.
+
+- **A-U3 (medium).** `cmd_init` carried the whole first run inside the
+  command (161 lines: it authored the index and chained ingest, lint,
+  attestation, questions, the dry-run scorecard, publish and the
+  report) and the hosted edition re-implemented the pipeline.
+  `init.run_init` is now the one pipeline: it returns an `InitResult`
+  (every step's outcome, the exact lines the command prints, an
+  `exit_code`) and takes optional `emit`/`warn` sinks, so the command
+  prints as it goes and a service reads the result; `cmd_init` checks
+  its arguments and wires the sinks. `SurveyResult.extend` folds one
+  result into another (the survey command merged the same seven lists
+  twice by hand); `review.queue_summary` is the one queue summary, with
+  the `line` CI reads.
+- **A-U4 (medium).** `lint_concept` was 488 lines, five of its type
+  blocks the same shape. `TYPE_CONTRACTS` is one table (a type's
+  stable-time error code, its required fields with their labels, its
+  risk floor and the four messages); `lint_concept` reads the table and
+  calls two bespoke functions for Attested Computation and Promotion.
+  A new contract type is a row (CLAUDE.md's playbook says so). The
+  viewer computes a `_ViewModel` once and renders eight sections from
+  it, one function each; `publish` is four stages (select and warn,
+  copy the tree, write the derived tier and the manifest, audit the
+  index links); `build_parser` is sixteen `_add_<command>_parser`
+  builders, one per verb, in the order the help lists them.
+- **A-U12 (low).** The LLM parameters carry the `LLMClient` protocol
+  they always followed; the bridge's `source` is a `BundleSource`
+  protocol (`signature()`, `load()`) the mirror satisfies, not `Any`;
+  the lexical retriever's per-instance snapshot is a declared
+  `Bundle.lexical_index` slot (never persisted, never compared) instead
+  of an attribute injected from outside; and a localized view deep
+  copies the frontmatter it overlays, so an edit through the view never
+  reaches the source concept.
+
+Where the shipped code differs from the plan, on purpose: the init
+tests stay where they were (the command's path through `main` is the
+contract) and gain library-level tests beside them; `report.build_report`
+and `lint_bundle`, named in the finding, are left whole — neither
+repeats a shape a table or a view model would remove, and both are
+under the double-render and lint guards already. `cli._llm` stays as
+the CLI's test seam: the tests inject a client through it.
+
+Tests: `tests/test_decomposition.py` (16). Lint 0/0; dry-run unchanged.

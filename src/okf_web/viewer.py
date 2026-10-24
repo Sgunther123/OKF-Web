@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import html
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import __version__
@@ -299,16 +300,45 @@ def _read_activity(report: LogScanReport | None, sources: list[str] | None,
     )
 
 
-def build_viewer(
-    bundle: Bundle,
-    today: _dt.date | None = None,
-    access_logs: LogScanReport | None = None,
-    log_sources: list[str] | None = None,
-    base_path: str = WELL_KNOWN_PATH,
-) -> str:
-    """Render the bundle viewer as a self-contained HTML page."""
-    today = today or utc_today()
-    e = _e
+@dataclass
+class _ViewModel:
+    """Everything the viewer's sections read, computed once from the
+    bundle by :func:`_view_model`; each section renders from it and
+    nothing else (review 2026-10-21, A-U4)."""
+
+    bundle: Bundle
+    today: _dt.date
+    base_path: str
+    concepts: dict[str, Concept]
+    store: str
+    root_index: Concept | None
+    site: str
+    scorecard: Concept | None
+    metrics: dict
+    baseline: dict
+    by_archetype: dict
+    full_run: bool
+    include: set[str]
+    published: dict[str, Concept]
+    held: list[tuple[Concept, str]]
+    languages: list[str]
+    entities: dict[str, str]
+    capabilities: list[Concept]
+    jsonld_types: list[tuple[Concept, str]]
+    mix: dict[str, int]
+    human_vouched: int
+    stale: list[Concept]
+    soon: list[Concept]
+    total_tokens: int
+    intent_index: dict[str, list[Concept]]
+    well_known: str
+    verdicts: dict[str, bool]
+    blocks: list[str]
+
+
+def _view_model(bundle: Bundle, today: _dt.date, base_path: str) -> _ViewModel:
+    """The measured facts the page shows, read from the bundle and its
+    recorded scorecard; nothing here is rendered."""
 
     concepts = {
         rel: c for rel, c in bundle.concepts.items() if split_l10n(rel) is None
@@ -378,8 +408,16 @@ def build_viewer(
     for rel in sorted(published):
         for intent in published[rel].intents:
             intent_index.setdefault(intent, []).append(published[rel])
+    well_known = f"{site}{base_path}/" if site else f"{base_path}/"
+    verdicts = judged_verdicts(scorecard) if scorecard else {}
+    blocks = question_blocks(bundle, by_archetype if full_run else None,
+                              verdicts or None, None)
+    return _ViewModel(bundle=bundle, today=today, base_path=base_path, concepts=concepts, store=store, root_index=root_index, site=site, scorecard=scorecard, metrics=metrics, baseline=baseline, by_archetype=by_archetype, full_run=full_run, include=include, published=published, held=held, languages=languages, entities=entities, capabilities=capabilities, jsonld_types=jsonld_types, mix=mix, human_vouched=human_vouched, stale=stale, soon=soon, total_tokens=total_tokens, intent_index=intent_index, well_known=well_known, verdicts=verdicts, blocks=blocks)
 
-    # --- at a glance -------------------------------------------------------
+
+def _render_tiles(v: _ViewModel) -> list[str]:
+    """The at-a-glance tiles."""
+    concepts, metrics, baseline, full_run, published, held, capabilities, mix, human_vouched, total_tokens = v.concepts, v.metrics, v.baseline, v.full_run, v.published, v.held, v.capabilities, v.mix, v.human_vouched, v.total_tokens
     tiles = [
         _tile(str(len(published)), "knowledge files ready to publish",
               f"{len(held)} held back · {_plural(len(concepts), 'concept')} in the working copy"),
@@ -406,9 +444,13 @@ def build_viewer(
             "questions that find matching knowledge",
             "retrieval-only dry run; run the full evaluation for answer coverage",
         ))
+    return tiles
 
-    # --- discover / interpret / surface -----------------------------------
-    well_known = f"{site}{base_path}/" if site else f"{base_path}/"
+
+def _render_pipeline(v: _ViewModel) -> str:
+    """Discover, interpret, surface: how an engine uses the bundle."""
+    root_index, published, languages, entities, capabilities, jsonld_types, well_known = v.root_index, v.published, v.languages, v.entities, v.capabilities, v.jsonld_types, v.well_known
+    e = _e
     index_sections = sum(
         1 for line in (root_index.body.splitlines() if root_index else [])
         if line.startswith("## ")
@@ -447,12 +489,14 @@ def build_viewer(
       <li>Assistants connected through <code>okf-web mcp</code> use {len(TOOLS)} read-only tools: {e(', '.join(t['name'] for t in TOOLS))}.</li>
     </ul></div>
 </div>"""
+    return pipeline
 
-    # --- where the revenue is ----------------------------------------------
-    verdicts = judged_verdicts(scorecard) if scorecard else {}
+
+def _render_revenue(v: _ViewModel) -> list[str]:
+    """One row per shopper moment, measured from the bundle."""
+    by_archetype, full_run, intent_index = v.by_archetype, v.full_run, v.intent_index
+    e = _e
     revenue_rows = []
-    blocks = question_blocks(bundle, by_archetype if full_run else None,
-                              verdicts or None, None)
     for archetype in ARCHETYPES:
         moment, why = REVENUE_MOMENTS[archetype]
         holds = intent_index.get(archetype, [])
@@ -484,8 +528,13 @@ def build_viewer(
             f'<div class="sub">“{e(moment)}”</div></td>'
             f"<td>{holds_cell}</td><td>{measured}</td><td>{e(why)}</td></tr>"
         )
+    return revenue_rows
 
-    # --- inventory ---------------------------------------------------------
+
+def _render_inventory(v: _ViewModel) -> tuple[list[str], str]:
+    """Every concept by type, and what is held back."""
+    bundle, today, concepts, include, held, entities, soon = v.bundle, v.today, v.concepts, v.include, v.held, v.entities, v.soon
+    e = _e
     inventory = []
     by_type: dict[str, list[Concept]] = {}
     for rel in sorted(concepts):
@@ -546,8 +595,13 @@ def build_viewer(
             )
             + "</ul>"
         )
+    return inventory, held_html
 
-    # --- live values -------------------------------------------------------
+
+def _render_live_values(v: _ViewModel) -> str:
+    """The declared lookups that replace stale numbers."""
+    published, capabilities = v.published, v.capabilities
+    e = _e
     cap_rows = []
     pointing: dict[str, list[str]] = {}
     for c in published.values():
@@ -581,8 +635,13 @@ def build_viewer(
         "copy of static text, which is exactly what this format exists to "
         "avoid.</p>"
     )
+    return capabilities_html
 
-    # --- derived tier ------------------------------------------------------
+
+def _render_derived(v: _ViewModel) -> tuple[str, str]:
+    """What the derived tier would emit, and what it withholds."""
+    base_path, site, published, jsonld_types = v.base_path, v.site, v.published, v.jsonld_types
+    e = _e
     jsonld_rows = "".join(
         f"<tr><td>{e(c.title)}</td><td><code>{e(t)}</code></td>"
         f"<td><code>jsonld/{e(c.rel_path[:-3] if c.rel_path.endswith('.md') else c.rel_path)}.json</code></td></tr>"
@@ -599,8 +658,13 @@ def build_viewer(
         "no named person has vouched for them yet: the markup restates only "
         "human-verified facts." if excluded else ""
     )
+    return jsonld_rows, derived_note
 
-    # --- questions → knowledge -----------------------------------------------
+
+def _render_questions(v: _ViewModel) -> str:
+    """The question pack's rows and the recorded gaps."""
+    bundle, scorecard, by_archetype, full_run, verdicts, blocks = v.bundle, v.scorecard, v.by_archetype, v.full_run, v.verdicts, v.blocks
+    e = _e
     gaps = scorecard_gaps(scorecard) if scorecard else []
     gap_items = []
     for gap in gaps:
@@ -637,8 +701,12 @@ def build_viewer(
             "&lt;industry&gt;</code> adds a starter set without an AI "
             "account; the full evaluation then measures answers.</p>"
         )
+    return questions_html
 
-    # --- trust and freshness ------------------------------------------------
+
+def _render_posture(v: _ViewModel) -> str:
+    """The trust and freshness posture, in one paragraph."""
+    concepts, published, mix, stale, soon = v.concepts, v.published, v.mix, v.stale, v.soon
     high_risk = [c for c in published.values() if c.is_high_risk]
     high_reviewed = sum(1 for c in high_risk if c.trust_tier == TRUST_HUMAN)
     drafts = [c for c in concepts.values() if c.status != "stable"]
@@ -656,7 +724,29 @@ def build_viewer(
         f"and {len(soon)} due within {SOON_DAYS} days. Engines read all of "
         "this: the tiers, the dates and the risk class travel with every file."
     )
+    return posture
 
+
+def build_viewer(
+    bundle: Bundle,
+    today: _dt.date | None = None,
+    access_logs: LogScanReport | None = None,
+    log_sources: list[str] | None = None,
+    base_path: str = WELL_KNOWN_PATH,
+) -> str:
+    """Render the bundle viewer as a self-contained HTML page."""
+    today = today or utc_today()
+    e = _e
+    v = _view_model(bundle, today, base_path)
+    tiles = _render_tiles(v)
+    pipeline = _render_pipeline(v)
+    revenue_rows = _render_revenue(v)
+    inventory, held_html = _render_inventory(v)
+    capabilities_html = _render_live_values(v)
+    jsonld_rows, derived_note = _render_derived(v)
+    questions_html = _render_questions(v)
+    posture = _render_posture(v)
+    bundle, today, base_path, store, site, jsonld_types, well_known = v.bundle, v.today, v.base_path, v.store, v.site, v.jsonld_types, v.well_known
     generated = (
         f"okf-web viewer/{__version__} · rendered {today.isoformat()} from "
         f"{e(bundle.root.name)}"

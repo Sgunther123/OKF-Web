@@ -48,7 +48,7 @@ import sys
 import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Protocol, runtime_checkable
 
 from . import evaluator
 from .model import INTERNAL_DIRS, Bundle, Concept, load_bundle, localized_view, marked_dists
@@ -63,6 +63,7 @@ __all__ = [
     "bundle_signature",
     "LocalSource",
     "BridgeState",
+    "BundleSource",
     "refresh",
     "build_state",
     "TOOLS",
@@ -156,6 +157,17 @@ class LocalSource:
         return {"path": str(self.root), "view": "working copy" if self.working else "published"}
 
 
+@runtime_checkable
+class BundleSource(Protocol):
+    """Where a bridge's bundle comes from: a signature that changes when
+    the source did, and a load. The remote mirror is one; a working-copy
+    source is the other (review 2026-10-21, A-U12)."""
+
+    def signature(self) -> Any: ...
+
+    def load(self) -> Bundle: ...
+
+
 @dataclass
 class BridgeState:
     bundle: Bundle
@@ -167,7 +179,7 @@ class BridgeState:
     # retriever offers no scores.
     scored: Callable[[Bundle, str, int], list[tuple[Concept, float]]] | None = None
     # Where the bundle comes from and what it looked like when loaded.
-    source: Any = None
+    source: BundleSource | None = None
     signature: Any = None
 
 

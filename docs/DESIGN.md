@@ -88,9 +88,9 @@ is a pull-request review, publication is CI, and `log.md` plus git
 history is the audit trail.
 
 The code is one package, `okf_web`, whose modules each own one job
-(`surveyor`, `linter`, `review`, `evaluator`, `publisher`, `signing`,
-`drift`, `discover`, `mcp_bridge`, `remote`, `report`, `viewer`,
-`logscan`), with the shared ground under them in `model` (documents,
+(`init`, `surveyor`, `linter`, `review`, `evaluator`, `publisher`,
+`signing`, `drift`, `discover`, `mcp_bridge`, `remote`, `report`,
+`viewer`, `logscan`), with the shared ground under them in `model` (documents,
 clocks, atomic writes, hashes, the lock), `net` (the one fetch door),
 `views` (what a publish ships), `errors` (one family, one exit table),
 `config` (the tunables) and `agents` (the crawler roster). The names

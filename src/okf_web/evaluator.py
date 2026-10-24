@@ -34,7 +34,7 @@ from pathlib import Path
 import yaml
 
 from .errors import Refusal
-from .llm import estimate_tokens
+from .llm import LLMClient, estimate_tokens
 from .model import (
     Bundle,
     Concept,
@@ -372,7 +372,7 @@ def load_questions(path: Path | str) -> list[Question]:
     return [q for q in out if q.question]
 
 
-def generate_questions(bundle: Bundle, llm, per_archetype: int = 3) -> list[Question]:
+def generate_questions(bundle: Bundle, llm: LLMClient, per_archetype: int = 3) -> list[Question]:
     """Ask the LLM to derive a question set from the bundle's own index."""
     system = _prompt("evaluator_questions.md")
     outline = []
@@ -445,9 +445,8 @@ def _lexical_index(bundle: Bundle) -> tuple[dict, dict, dict, int]:
     candidate (including token-less ones), preserving the exact idf of
     the pre-index implementation.
     """
-    cached = getattr(bundle, "_lexical_cache", None)
-    if cached is not None:
-        return cached
+    if bundle.lexical_index is not None:
+        return bundle.lexical_index
     lang = bundle.language  # the view's language picks the stop words
     postings: dict[str, dict[str, int]] = {}
     intent_tokens: dict[str, set[str]] = {}
@@ -468,7 +467,7 @@ def _lexical_index(bundle: Bundle) -> tuple[dict, dict, dict, int]:
         for tok, count in counts.items():
             postings.setdefault(tok, {})[rel] = count
     index = (postings, intent_tokens, by_rel, max(1, n_docs))
-    bundle._lexical_cache = index
+    bundle.lexical_index = index
     return index
 
 
@@ -621,10 +620,10 @@ def _retriever_name(retriever) -> str:
 def evaluate(
     bundle: Bundle,
     questions: list[Question],
-    llm=None,
+    llm: LLMClient | None = None,
     top_k: int = 4,
     retriever=None,
-    judge=None,
+    judge: LLMClient | None = None,
 ) -> Report:
     """Run the harness. ``retriever`` is any callable with the
     signature ``(bundle, question, top_k) -> [Concept]`` — the lexical
