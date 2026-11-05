@@ -261,6 +261,7 @@ code. Review 2026-10-21, phase U4.
 
 | Name | Kind | Meaning |
 | --- | --- | --- |
+| `sign_file` | function | sigstore-sign one file; the login reaches a terminal, or fails at once without one |
 | `sign_manifest` | function | sign a dist's manifest (or countersign under a label) |
 | `verify_signature` | function | verify against an identity and issuer |
 | `verify_integrity` | function | every manifest hash against the files |

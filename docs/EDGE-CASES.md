@@ -701,3 +701,38 @@ under the double-render and lint guards already. `cli._llm` stays as
 the CLI's test seam: the tests inject a client through it.
 
 Tests: `tests/test_decomposition.py` (16). Lint 0/0; dry-run unchanged.
+
+## 8. Found in deployment
+
+### Signing without a browser (medium) — fixed 2026-11-05
+
+Found while planning the hosted edition's first rehearsed audit, whose
+conclusion countersigns through `sign_manifest` on a machine reached
+over SSH, with no display. `_run` started `sigstore sign` with its
+output captured. Without a browser, sigstore falls back to its
+out-of-band login: it prints a link on standard error and waits for the
+code that page shows. Captured, the link never reached the operator and
+the prompt never appeared; the signer waited out its ten-minute timeout
+and failed. A desktop hid the bug, since a browser opens there and its
+redirect needs no terminal, and so did CI, whose ambient identity needs
+no login at all.
+
+`signing.sign_file` is now the one place that runs sigstore to sign,
+and `sign_manifest` is built on it. With standard input at a terminal
+the child shares it: its messages, and its standard output, go to
+standard error, so a caller's own output stays clean, and the code is
+read from the keyboard. Where no X or Wayland display exists (macOS and
+Windows always open a browser), `SIGSTORE_OAUTH_FORCE_OOB=1` is set for
+the child, so sigstore prints the link even where a text browser would
+otherwise start inside the terminal; an operator's own value is kept.
+With nobody at a terminal the output is still captured, standard input
+is closed, and a login that needs a person fails at once, naming what
+would let it succeed. Verification is unchanged.
+
+Tests (`tests/test_signing.py`, 6): the operator's side over a real
+pseudo-terminal (`okf-web sign` without a display: the link and the
+prompt arrive and the typed code signs; the old code fails it within 20
+seconds); the unattended failure is immediate and says why; the flow
+variable is set only without a display and never overridden; the
+default signature path; the display matrix; and a static guard that no
+other module spells the sign command.

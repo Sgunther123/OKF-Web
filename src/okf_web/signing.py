@@ -32,13 +32,20 @@ signature says who published; each countersignature says who vouched.
 The heavy lifting shells out to the ``sigstore`` CLI (installed by
 ``pip install okf-web[sign]``), which keeps this module stable across
 sigstore-python API churn and lets tests (and cosign users) substitute
-the executable.
+the executable. :func:`sign_file` is the one place that runs it to
+sign, so the login works wherever the signer is: at a terminal the
+child shares it (on a machine with no display, sigstore prints a link
+to open on any device and reads the code typed back), and without one
+its output is captured and its input closed, so a login that needs a
+person fails at once instead of waiting out the timeout.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 from .errors import Failure, Refusal
@@ -49,6 +56,7 @@ __all__ = [
     "SigningError",
     "LabelError",
     "signature_path",
+    "sign_file",
     "sign_manifest",
     "verify_signature",
     "verify_integrity",
@@ -57,6 +65,11 @@ __all__ = [
 SIGNATURE_NAME = "manifest.json.sigstore.json"
 
 _LABEL_RE = __import__("re").compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
+
+# Read by sigstore (3.0 and later) as the default of `--oauth-force-oob`:
+# print the login link and read the code back instead of trying to open
+# a browser. Set for the child when there is no display to open one in.
+_FORCE_OOB = "SIGSTORE_OAUTH_FORCE_OOB"
 
 # Publisher-generated artifacts expected in a dist without appearing in
 # the manifest (the manifest cannot list itself or its own signature).
@@ -84,9 +97,9 @@ def signature_path(dist: Path | str, label: str | None = None) -> Path:
     return Path(dist) / f"manifest.json.{label}.sigstore.json"
 
 
-def _run(command: list[str], timeout: float) -> subprocess.CompletedProcess:
+def _run(command: list[str], timeout: float, **kwargs) -> subprocess.CompletedProcess:
     try:
-        return subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+        return subprocess.run(command, timeout=timeout, **kwargs)
     except FileNotFoundError as exc:
         raise SigningError(
             f"{command[0]!r} not found on PATH; install the signing extra "
@@ -94,6 +107,80 @@ def _run(command: list[str], timeout: float) -> subprocess.CompletedProcess:
         ) from exc
     except subprocess.TimeoutExpired as exc:
         raise SigningError(f"{command[0]} timed out after {timeout:.0f}s") from exc
+
+
+def _attended() -> bool:
+    """A person can answer: standard input is a terminal, so a code
+    sigstore asks for can be typed back."""
+    try:
+        return os.isatty(0)
+    except OSError:  # no standard input at all
+        return False
+
+
+def _headless(environ=None, platform: str | None = None) -> bool:
+    """No graphical session a browser could open in: no X or Wayland
+    display. macOS and Windows open the default browser without one."""
+    env = os.environ if environ is None else environ
+    platform = sys.platform if platform is None else platform
+    if platform == "darwin" or platform.startswith("win"):
+        return False
+    return not (env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"))
+
+
+def sign_file(
+    path: Path | str,
+    out: Path | str | None = None,
+    sigstore_bin: str = "sigstore",
+    staging: bool = False,
+    timeout: float = 600.0,
+) -> Path:
+    """Sigstore-sign one file, keyless; returns the signature bundle,
+    written to ``out`` (default: ``<path>.sigstore.json`` beside it).
+
+    The login reaches whoever signs. With a person at a terminal the
+    child shares it: its messages go to standard error (its standard
+    output too, so the caller's own output stays clean) and it reads the
+    code from the keyboard. Where no display exists, the out-of-band
+    flow is forced, so sigstore prints a link to open on any device and
+    asks for the code that page shows, rather than starting a browser
+    nobody can see (an operator's own ``SIGSTORE_OAUTH_FORCE_OOB`` is
+    kept). With nobody at a terminal (CI with ``id-token: write``, which
+    signs with the workflow's ambient identity, the recommended mode for
+    automated publishes), the output is captured for the error message
+    and standard input is closed, so a login that needs a person fails
+    at once.
+    """
+    path = Path(path)
+    out = Path(out) if out is not None else path.with_name(path.name + ".sigstore.json")
+    command = [sigstore_bin]
+    if staging:
+        command.append("--staging")
+    command += ["sign", "--bundle", str(out), "--overwrite", str(path)]
+    env = dict(os.environ)
+    if _headless(env) and not env.get(_FORCE_OOB):
+        env[_FORCE_OOB] = "1"
+    if _attended():
+        for stream in (sys.stdout, sys.stderr):  # ours first, then the child's
+            try:
+                stream.flush()
+            except (AttributeError, OSError, ValueError):
+                pass
+        proc = _run(command, timeout, stdout=2, env=env)
+        detail = "its messages are above"
+    else:
+        proc = _run(command, timeout, env=env, stdin=subprocess.DEVNULL,
+                    capture_output=True, text=True)
+        said = (proc.stderr or proc.stdout or "").strip()
+        detail = said[-800:]  # the end of a traceback names the error
+        if "link in a browser" in said:  # sigstore asked for a person
+            detail += (" (signing needs a person at a terminal to log in, "
+                       "or an ambient identity such as a CI workflow's)")
+    if proc.returncode != 0:
+        raise SigningError(f"{sigstore_bin} sign exited {proc.returncode}: {detail}")
+    if not out.exists():
+        raise SigningError(f"{sigstore_bin} reported success but wrote no {out.name}")
+    return out
 
 
 def sign_manifest(
@@ -105,27 +192,22 @@ def sign_manifest(
 ) -> Path:
     """Sign ``dist/manifest.json``; returns the signature bundle path.
 
-    Interactive runs open a browser for the OIDC login; CI runs (e.g.
-    GitHub Actions with ``id-token: write``) sign with the workflow's
-    ambient identity, which is the recommended mode for automated
-    publishes: the signing identity then *is* the pipeline.
+    The login is :func:`sign_file`'s: a browser where one can open, a
+    link and a typed-back code on a machine without a display, and the
+    workflow's ambient identity in CI (``id-token: write``), where the
+    signing identity then *is* the pipeline.
     """
     dist = Path(dist)
     manifest = dist / "manifest.json"
     if not manifest.exists():
         raise SigningError(f"no manifest.json in {dist}; run `okf-web publish` first")
-    out = signature_path(dist, label)
-    command = [sigstore_bin]
-    if staging:
-        command.append("--staging")
-    command += ["sign", "--bundle", str(out), "--overwrite", str(manifest)]
-    proc = _run(command, timeout)
-    if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()[:800]
-        raise SigningError(f"{sigstore_bin} sign exited {proc.returncode}: {detail}")
-    if not out.exists():
-        raise SigningError(f"{sigstore_bin} reported success but wrote no {out.name}")
-    return out
+    return sign_file(
+        manifest,
+        signature_path(dist, label),
+        sigstore_bin=sigstore_bin,
+        staging=staging,
+        timeout=timeout,
+    )
 
 
 def verify_signature(
@@ -162,7 +244,7 @@ def verify_signature(
         "--cert-oidc-issuer", cert_oidc_issuer,
         str(manifest),
     ]
-    proc = _run(command, timeout)
+    proc = _run(command, timeout, capture_output=True, text=True)
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()[:800]
         raise SigningError(f"signature verification FAILED: {detail}")

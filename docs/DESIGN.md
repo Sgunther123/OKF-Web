@@ -379,8 +379,10 @@ The bundle is static files — publishable to the same CDN as the site:
   bundle's merkle root — one sigstore signature over it authenticates
   the whole bundle. `okf-web publish --sign` (or `okf-web sign dist/`)
   produces `manifest.json.sigstore.json` via sigstore's keyless flow:
-  OIDC identity (a browser login for a human; the workflow's ambient
-  identity in CI, which is the recommended automated mode), Fulcio
+  OIDC identity (a browser login for a human, or on a machine without
+  a display a link to open on any device and the code it shows typed
+  back; the workflow's ambient identity in CI, which is the
+  recommended automated mode), Fulcio
   short-lived certificate, Rekor transparency log — no key management
   for the merchant. Consumers probe the conventional signature name
   next to the manifest, check the identity, then re-hash files;
