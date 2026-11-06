@@ -28,6 +28,9 @@ written to the conventional name
 <label>``). Consumers verify a countersignature exactly like the
 primary signature, expecting the *auditor's* identity — the merchant
 signature says who published; each countersignature says who vouched.
+What a consumer should expect is read off the signature itself:
+:func:`signer` returns the identity and issuer its certificate names,
+so a signer can hand consumers the complete verify command.
 
 The heavy lifting shells out to the ``sigstore`` CLI (installed by
 ``pip install okf-web[sign]``), which keeps this module stable across
@@ -42,6 +45,7 @@ person fails at once instead of waiting out the timeout.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import subprocess
@@ -56,6 +60,7 @@ __all__ = [
     "SigningError",
     "LabelError",
     "signature_path",
+    "signer",
     "sign_file",
     "sign_manifest",
     "verify_signature",
@@ -95,6 +100,130 @@ def signature_path(dist: Path | str, label: str | None = None) -> Path:
             "digits, and hyphens only"
         )
     return Path(dist) / f"manifest.json.{label}.sigstore.json"
+
+
+# What a Fulcio certificate binds: the signer's identity in the subject
+# alternative name (an email, or a CI workflow's URI) and the OIDC
+# issuer that vouched for it in Fulcio's own extension, the DER string
+# form (``.1.8``) ahead of the raw-bytes form it replaced (``.1.1``).
+_SAN_OID = "2.5.29.17"
+_ISSUER_OIDS = ("1.3.6.1.4.1.57264.1.8", "1.3.6.1.4.1.57264.1.1")
+_SEQUENCE, _EXTENSIONS, _OID, _OCTETS, _UTF8 = 0x30, 0xA3, 0x06, 0x04, 0x0C
+_SAN_EMAIL, _SAN_URI = 0x81, 0x86  # GeneralName's rfc822Name [1] and URI [6]
+
+
+def signer(bundle: Path | str) -> tuple[str, str] | None:
+    """The identity and OIDC issuer a sigstore bundle's signing
+    certificate names: what a consumer passes to :func:`verify_signature`
+    (``--cert-identity`` and ``--cert-oidc-issuer``) to check who signed.
+
+    Read, not verified: this is the claim the verification then tests,
+    and what a signer tells its consumers to expect. Reads the leaf a
+    v0.3 bundle carries, or the first of an older bundle's chain. None
+    when the file holds no certificate this can read (a key-based
+    bundle, a corrupt file, a stand-in): never an exception."""
+    try:
+        data = json.loads(Path(bundle).read_text(encoding="utf-8"))
+        material = data.get("verificationMaterial") if isinstance(data, dict) else None
+        if not isinstance(material, dict):
+            return None
+        leaf = material.get("certificate")
+        if not isinstance(leaf, dict):
+            chain = material.get("x509CertificateChain")
+            certificates = chain.get("certificates") if isinstance(chain, dict) else None
+            leaf = certificates[0] if isinstance(certificates, list) and certificates else None
+        raw = leaf.get("rawBytes") if isinstance(leaf, dict) else None
+        if not isinstance(raw, str):
+            return None
+        return _certificate_signer(base64.b64decode(raw, validate=True))
+    except (OSError, ValueError):  # unreadable, not JSON, not base64, not DER
+        return None
+
+
+def _der(data: bytes, pos: int) -> tuple[int, int, int]:
+    """The DER element at ``pos``: its tag and the start and end of its
+    value. Raises ValueError for anything a certificate never holds."""
+    if pos + 2 > len(data):
+        raise ValueError("truncated DER")
+    tag, length = data[pos], data[pos + 1]
+    pos += 2
+    if tag & 0x1F == 0x1F:
+        raise ValueError("multi-byte DER tag")
+    if length & 0x80:
+        size = length & 0x7F
+        if not 1 <= size <= 4 or pos + size > len(data):
+            raise ValueError("bad DER length")
+        length = int.from_bytes(data[pos:pos + size], "big")
+        pos += size
+    if pos + length > len(data):
+        raise ValueError("truncated DER")
+    return tag, pos, pos + length
+
+
+def _der_items(data: bytes, start: int, end: int):
+    """The DER elements between ``start`` and ``end``, in order."""
+    while start < end:
+        tag, value, stop = _der(data, start)
+        if stop > end:
+            raise ValueError("DER element overruns its container")
+        yield tag, value, stop
+        start = stop
+
+
+def _oid(raw: bytes) -> str:
+    """An OBJECT IDENTIFIER's value, dotted."""
+    arcs, value = [], 0
+    for byte in raw:
+        value = (value << 7) | (byte & 0x7F)
+        if not byte & 0x80:
+            arcs.append(value)
+            value = 0
+    if not arcs or value:
+        raise ValueError("malformed OID")
+    first = arcs[0]
+    head = [0, first] if first < 40 else [1, first - 40] if first < 80 else [2, first - 80]
+    return ".".join(str(arc) for arc in head + arcs[1:])
+
+
+def _certificate_signer(der: bytes) -> tuple[str, str] | None:
+    """The (identity, issuer) an X.509 certificate's extensions name,
+    walked from the DER with nothing but the standard library."""
+    tag, start, end = _der(der, 0)  # Certificate
+    if tag != _SEQUENCE:
+        raise ValueError("not a certificate")
+    tag, tbs, tbs_end = _der(der, start)  # TBSCertificate
+    if tag != _SEQUENCE:
+        raise ValueError("not a certificate")
+    extensions: dict[str, bytes] = {}
+    for tag, value, _ in _der_items(der, tbs, tbs_end):
+        if tag != _EXTENSIONS:
+            continue
+        seq_tag, seq, seq_end = _der(der, value)
+        if seq_tag != _SEQUENCE:
+            raise ValueError("malformed extensions")
+        for ext_tag, ext, ext_end in _der_items(der, seq, seq_end):
+            parts = list(_der_items(der, ext, ext_end)) if ext_tag == _SEQUENCE else []
+            if len(parts) < 2 or parts[0][0] != _OID or parts[-1][0] != _OCTETS:
+                continue
+            extensions[_oid(der[parts[0][1]:parts[0][2]])] = der[parts[-1][1]:parts[-1][2]]
+    identity = ""
+    names = extensions.get(_SAN_OID)
+    if names:
+        tag, start, end = _der(names, 0)
+        if tag == _SEQUENCE:
+            for name_tag, value, stop in _der_items(names, start, end):
+                if name_tag in (_SAN_EMAIL, _SAN_URI):
+                    identity = names[value:stop].decode("ascii")
+                    break
+    issuer = ""
+    if _ISSUER_OIDS[0] in extensions:
+        raw = extensions[_ISSUER_OIDS[0]]
+        tag, start, end = _der(raw, 0)
+        if tag == _UTF8:
+            issuer = raw[start:end].decode("utf-8")
+    elif _ISSUER_OIDS[1] in extensions:
+        issuer = extensions[_ISSUER_OIDS[1]].decode("utf-8")
+    return (identity, issuer) if identity and issuer else None
 
 
 def _run(command: list[str], timeout: float, **kwargs) -> subprocess.CompletedProcess:

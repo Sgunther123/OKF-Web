@@ -28,6 +28,7 @@ from __future__ import annotations
 import datetime as _dt
 import html
 import re
+import urllib.parse
 from pathlib import Path
 
 from .evaluator import SCORECARD_PATH, evaluate as _dry_evaluate, load_questions
@@ -284,6 +285,17 @@ def _question_detail(bundle: Bundle, by_archetype: dict | None,
     )
 
 
+def _site_name(site: str | None) -> str:
+    """The host a bundle's declared site names (``www.store.example``):
+    what the report calls a store no Store Identity concept names, ahead
+    of the directory the bundle sits in, whose name is often just
+    ``bundle``. Empty for no site, or one without a host."""
+    try:
+        return urllib.parse.urlsplit(site or "").hostname or ""
+    except ValueError:
+        return ""
+
+
 def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
     """Render the bundle's scorecard as a self-contained HTML page."""
     scorecard = _scorecard(bundle)
@@ -292,7 +304,7 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
     identity = next(
         (c for c in bundle.concepts.values() if c.type == "Store Identity"), None
     )
-    store = identity.title if identity else bundle.root.name
+    store = identity.title if identity else _site_name(bundle.site) or bundle.root.name
     full_run = "coverage" in metrics
 
     concepts = [

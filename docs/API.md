@@ -266,6 +266,7 @@ code. Review 2026-10-21, phase U4.
 | `verify_signature` | function | verify against an identity and issuer |
 | `verify_integrity` | function | every manifest hash against the files |
 | `signature_path` | function | the signature's path for a label |
+| `signer` | function | the identity and issuer a signature's certificate names (read, not verified) |
 | `SigningError` | class | signing or verification did not succeed (failure) |
 | `LabelError` | class | a label the tool will not accept (refusal) |
 | `SIGNATURE_NAME` | str | `manifest.json.sigstore.json` |

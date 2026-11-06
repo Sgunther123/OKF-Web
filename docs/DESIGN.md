@@ -389,7 +389,11 @@ The bundle is static files — publishable to the same CDN as the site:
   `okf-web verify dist/ --cert-identity <id> --cert-oidc-issuer <url>`
   implements both layers (the hash sweep runs stdlib-only even without
   sigstore installed). Re-publishing regenerates the manifest, so
-  re-sign on every publish. This signature is also the substrate for
+  re-sign on every publish; `okf-web sign` then prints the complete
+  verify command, the identity and issuer read off the new
+  certificate (`signing.signer`, a standard-library walk of the
+  certificate the bundle carries: read, not verified). This
+  signature is also the substrate for
   third-party attestation later: an auditor countersigns the same
   manifest.
 - **Serving config:** `text/markdown; charset=utf-8`, permissive CORS

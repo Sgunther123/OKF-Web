@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import re
@@ -313,3 +314,144 @@ def test_only_the_signing_module_runs_sigstore_to_sign():
         source = path.read_text(encoding="utf-8")
         found = len(spawn.findall(source))
         assert found == (1 if path.name == "signing.py" else 0), path.name
+
+
+# --- the signer a certificate names ------------------------------------------
+
+#: A real Fulcio leaf certificate (public: Rekor entry 3705121167), the
+#: countersignature of the hosted edition's audit rehearsal on 2026-11-06,
+#: signed as info@okf-web.com through Google.
+_FULCIO_LEAF = (
+    "MIIDBzCCAoygAwIBAgIUT7gPnNnWwavf2Moe+MzV5ZBd7GIwCgYIKoZIzj0EAwMwNzEVMBMG"
+    "A1UEChMMc2lnc3RvcmUuZGV2MR4wHAYDVQQDExVzaWdzdG9yZS1pbnRlcm1lZGlhdGUwHhcN"
+    "MjYxMTA2MDAyMjE0WhcNMjYxMTA2MDAzMjE0WjAAMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcD"
+    "QgAE88M5n1MYP74mqWJjI7xGN7ivI/4Nk8cZd83qJBAnHO+SwWf4KSeczMUb6R0DJw/cGK8t"
+    "BqPh7yxidPF7jY9I0qOCAaswggGnMA4GA1UdDwEB/wQEAwIHgDATBgNVHSUEDDAKBggrBgEF"
+    "BQcDAzAfBgNVHSMEGDAWgBTf0+nPViQRlvmo2OkoVaLGLhhkPzAeBgNVHREBAf8EFDASgRBp"
+    "bmZvQG9rZi13ZWIuY29tMCkGCisGAQQBg78wAQEEG2h0dHBzOi8vYWNjb3VudHMuZ29vZ2xl"
+    "LmNvbTArBgorBgEEAYO/MAEIBB0MG2h0dHBzOi8vYWNjb3VudHMuZ29vZ2xlLmNvbTBbBgor"
+    "BgEEAYO/MAEYBE0MS0NoVXhNRGcyTlRrM01UQTBPREk0TmpVNE56YzRPVFlTSDJoMGRIQnpP"
+    "aVV5UmlVeVJtRmpZMjkxYm5SekxtZHZiMmRzWlM1amIyMDCBiQYKKwYBBAHWeQIEAgR7BHkA"
+    "dwB1AN09MGrGxxEyYxkeHJlnNwKiSl643jyt/4eKcoAvKe6OAAABoa48EO0AAAQDAEYwRAIg"
+    "cIOd2uKZfiZ6C0P5ROfVU4oabQ5tspMafFpVnOgydMMCIFEwjwk/UmbfADT0EkIwI8h5IWS8"
+    "c2GgTU9/jdhb3ax5MAoGCCqGSM49BAMDA2kAMGYCMQD8Hl+ziNN/Xm4P0c7S0Blx/N8s/hf9"
+    "Ktvsp0zSeMTRTcTvna12HzLl322R3eEApH4CMQCPNKh8s/0LSShbg850fWYwEL7miso+hHt+"
+    "2MlRGIPdkntoJww8XJ4n0nx/QJmG/c0="
+)
+
+_REAL = ("info@okf-web.com", "https://accounts.google.com")
+
+
+def _bundle_file(tmp_path, material, name="bundle.sigstore.json"):
+    path = tmp_path / name
+    path.write_text(json.dumps({
+        "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
+        "verificationMaterial": material,
+    }))
+    return path
+
+
+def _der(tag: int, content: bytes) -> bytes:
+    """A DER element, for building certificates the reader must handle."""
+    size = len(content)
+    if size < 0x80:
+        return bytes([tag, size]) + content
+    width = (size.bit_length() + 7) // 8
+    return bytes([tag, 0x80 | width]) + size.to_bytes(width, "big") + content
+
+
+def _der_oid(dotted: str) -> bytes:
+    arcs = [int(arc) for arc in dotted.split(".")]
+    body = bytearray([arcs[0] * 40 + arcs[1]])
+    for arc in arcs[2:]:
+        chunk = [arc & 0x7F]
+        arc >>= 7
+        while arc:
+            chunk.append(0x80 | (arc & 0x7F))
+            arc >>= 7
+        body += bytes(reversed(chunk))
+    return _der(0x06, bytes(body))
+
+
+def test_signer_reads_the_leaf_a_bundle_carries(tmp_path):
+    """The identity and issuer a consumer verifies against, read off the
+    signature itself: a v0.3 bundle's leaf, and the first certificate of
+    an older bundle's chain."""
+    v03 = _bundle_file(tmp_path, {"certificate": {"rawBytes": _FULCIO_LEAF}})
+    assert signing.signer(v03) == _REAL
+    older = _bundle_file(tmp_path, {"x509CertificateChain": {"certificates": [
+        {"rawBytes": _FULCIO_LEAF}, {"rawBytes": "AAAA"},
+    ]}}, "older.sigstore.json")
+    assert signing.signer(older) == _REAL
+
+
+def test_signer_reads_a_workflow_identity_and_the_older_issuer_form(tmp_path):
+    """A CI signature names a workflow URI, and certificates before 2022
+    carry the issuer as raw bytes (``.1.1``) rather than a DER string."""
+    uri = b"https://github.com/acme/shop/.github/workflows/publish.yml@refs/heads/main"
+    issuer = b"https://token.actions.githubusercontent.com"
+    names = _der(0x30, _der(0x86, uri))
+    extensions = _der(0x30, (
+        _der(0x30, _der_oid("2.5.29.17") + _der(0x04, names))
+        + _der(0x30, _der_oid("1.3.6.1.4.1.57264.1.1") + _der(0x04, issuer))
+    ))
+    certificate = _der(0x30, _der(0x30, _der(0xA0, _der(0x02, b"\x02")) + _der(0xA3, extensions)))
+    path = _bundle_file(tmp_path, {"certificate": {"rawBytes": base64.b64encode(certificate).decode()}})
+    assert signing.signer(path) == (uri.decode(), issuer.decode())
+
+
+def test_signer_answers_none_for_whatever_it_cannot_read(tmp_path):
+    """A stand-in, a key-based bundle, a corrupt file: None, never an
+    exception, so a caller can say "no identity" instead of crashing."""
+    leaf = base64.b64decode(_FULCIO_LEAF)
+    cases = {
+        "not-json": "not json",
+        "a-list": "[1, 2]",
+        "a-stand-in": '{"fake":"sigstore-bundle"}',
+        "key-based": json.dumps({"verificationMaterial": {"publicKey": {"hint": "k"}}}),
+        "not-base64": json.dumps({"verificationMaterial": {"certificate": {"rawBytes": "%%%"}}}),
+        "truncated": json.dumps({"verificationMaterial": {"certificate": {
+            "rawBytes": base64.b64encode(leaf[:300]).decode()}}}),
+        "not-a-certificate": json.dumps({"verificationMaterial": {"certificate": {
+            "rawBytes": base64.b64encode(b"\x02\x01\x05").decode()}}}),
+    }
+    for name, text in cases.items():
+        path = tmp_path / f"{name}.json"
+        path.write_text(text)
+        assert signing.signer(path) is None, name
+    (tmp_path / "binary.json").write_bytes(b"\xff\xfe\x00")
+    assert signing.signer(tmp_path / "binary.json") is None
+    assert signing.signer(tmp_path / "missing.json") is None
+    for cut in range(0, len(leaf), 7):  # every truncation of a real leaf
+        encoded = base64.b64encode(leaf[:cut]).decode()
+        path = _bundle_file(tmp_path, {"certificate": {"rawBytes": encoded}}, "cut.json")
+        assert signing.signer(path) in (None, _REAL), cut
+
+
+def test_sign_hands_consumers_the_complete_verify_command(dist, tmp_path, capsys):
+    """After signing, the command printed for consumers names the
+    identity and issuer the new certificate carries; a placeholder only
+    when the bundle names nobody."""
+    from okf_web import cli as cli_mod
+
+    signed = _bundle_file(tmp_path, {"certificate": {"rawBytes": _FULCIO_LEAF}}, "real.json")
+    copying = tmp_path / "copying-sigstore"
+    copying.write_text(
+        "#!/bin/sh\n"
+        'prev=""\n'
+        'for a in "$@"; do\n'
+        f'  if [ "$prev" = "--bundle" ]; then cp "{signed}" "$a"; fi\n'
+        '  prev="$a"\n'
+        "done\n"
+    )
+    copying.chmod(0o755)
+    assert cli_mod.main(["sign", str(dist), "--sigstore-bin", str(copying), "--as", "auditor-acme"]) == 0
+    out = capsys.readouterr().out
+    assert (
+        f"okf-web verify {dist} --countersignature auditor-acme "
+        "--cert-identity info@okf-web.com --cert-oidc-issuer https://accounts.google.com"
+    ) in out
+    stub_dir = tmp_path / "stub"
+    stub_dir.mkdir()
+    assert cli_mod.main(["sign", str(dist), "--sigstore-bin", _fake_sigstore(stub_dir)]) == 0
+    assert "--cert-identity <your-oidc-identity> --cert-oidc-issuer <issuer-url>" in capsys.readouterr().out

@@ -239,3 +239,25 @@ def test_the_scorecard_records_what_was_evaluated(bundle_copy):
     evaluated = fm["x_geo"]["evaluated"]
     assert evaluated["view"] == "working" and evaluated["top_k"] == 6
     assert evaluated["retriever"].startswith("embedding/hashing-")
+
+
+# --- the store's name: what names it, else its site, never its folder --------
+
+def test_the_report_names_the_store_by_its_identity_else_by_its_site(bundle_copy):
+    """A bundle's folder is often just ``bundle`` (every hosted store's
+    is), so a report titled after it names nobody: the Store Identity's
+    title first, then the host of the site the index declares, and the
+    folder only when neither exists."""
+    assert bundle_copy.name == "bundle"
+    page = build_report(load_bundle(bundle_copy), today=TODAY)
+    assert "<title>AI answerability — Alpine Peak Outfitters</title>" in page
+    (bundle_copy / "store.md").unlink()
+    page = build_report(load_bundle(bundle_copy), today=TODAY)
+    assert "<title>AI answerability — www.alpinepeakoutfitters.example</title>" in page
+    assert '<p class="sub">www.alpinepeakoutfitters.example &middot;' in page
+    index = bundle_copy / "index.md"
+    frontmatter, body = parse_document(index.read_text(encoding="utf-8"))
+    del frontmatter["x_geo"]["site"]
+    index.write_text(render_document(frontmatter, body), encoding="utf-8")
+    page = build_report(load_bundle(bundle_copy), today=TODAY)
+    assert "<title>AI answerability — bundle</title>" in page

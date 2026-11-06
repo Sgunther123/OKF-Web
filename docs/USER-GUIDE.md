@@ -219,7 +219,8 @@ This writes a single web page (`evaluations/geo-report.html`) with
 the numbers in plain English — what an AI can answer about your
 store, what it can't yet, and why the answers can be trusted. Open it
 in a browser, or email the file as-is; it needs nothing else to
-display.
+display. The page names your store by its Store Identity concept,
+or, without one, by the site your index declares.
 
 A companion page shows the folder itself rather than the score:
 

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import shlex
 import sys
 from pathlib import Path
 
@@ -714,17 +715,26 @@ def cmd_sign(args) -> int:
         label=args.label,
     )
     print(f"signed: {out}")
+    # The identity and issuer the new certificate names, so the command
+    # consumers are given is complete; a placeholder only when the
+    # bundle holds no certificate this can read.
+    named = signing.signer(out)
+    if named:
+        identity, issuer = (shlex.quote(part) for part in named)
+    else:
+        identity = "<attester-identity>" if args.label else "<your-oidc-identity>"
+        issuer = "<issuer-url>"
     if args.label:
         print(
             f"countersignature as {args.label!r} — consumers verify with: "
             f"okf-web verify {args.dist} --countersignature {args.label} "
-            "--cert-identity <attester-identity> --cert-oidc-issuer <issuer-url>"
+            f"--cert-identity {identity} --cert-oidc-issuer {issuer}"
         )
     else:
         print(
             "consumers verify with: okf-web verify "
-            f"{args.dist} --cert-identity <your-oidc-identity> "
-            "--cert-oidc-issuer <issuer-url>"
+            f"{args.dist} --cert-identity {identity} "
+            f"--cert-oidc-issuer {issuer}"
         )
     return 0
 
