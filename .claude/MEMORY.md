@@ -4,8 +4,30 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-06 — **the history rewritten for publication**
-(on the user's "Implement Phase 3 of the publication plan with option
+Last updated: 2026-11-06 — **the repository founded twice, and its
+first CI run** (this commit, MEMORY-only). The rewritten history was
+pushed into a new `Sgunther123/OKF-Web` twice: the first instance,
+created public at 18:14 UTC and set private within the hour,
+produced no workflow run for any push from the session (the
+founding push, a MEMORY-only commit, a temporary branch), so the
+user deleted it and created the repository again, private, at 19:03
+UTC; the founding push was repeated there at `3188302`, both
+branches. The session's push produced no run there either; a branch
+the user created from the GitHub UI at the same commit (`ci-start`)
+did: run 1, green at 19:18 UTC, so the check the ruleset requires
+exists on `3188302`, and the user re-creates the ruleset "Branch
+Protection" (CONTRIBUTING.md). Why pushes from the session start no
+workflow run in this repository, while the same pushes do in the
+archive and in the hosted edition's repository, is not yet known;
+this commit's push is the next test, and until it is answered a
+check on a new branch head needs a branch created from the UI at
+that commit. Suite, lint and dry-run unchanged. Positions: `main` ==
+`3188302`; the branch one ahead with this commit, which moves to
+`main` on the user's word once the ruleset exists and the head's
+check is green.
+
+On 2026-11-06, **the history rewritten for publication** (`3188302`;
+on the user's "Implement Phase 3 of the publication plan with option
 C", a plan kept in the hosted edition's repository). This repository
 is a new one under the old name. The previous `Sgunther123/OKF-Web`
 was renamed to a private archive, and its history was copied here
@@ -25,11 +47,9 @@ aware: the example bundle, DESIGN's example price and the guard test's
 own list allowed) and over every commit message prints nothing; the
 plan's `git log -p` sweep agrees once the guard test's own pattern
 lines are filtered. Suite **520** locally, 521 where `build` is
-installed; lint 0/0; dry-run unchanged. Positions: `main` == the
-branch == this commit, the first push into this repository; the
-ruleset "Branch Protection" is the user's to re-create here once the
-branch's first CI run is green. The flip to public remains the user's
-own act, after Phase 4.
+installed; lint 0/0; dry-run unchanged. Positions then: `main` ==
+the branch == `3188302`, the first push into this repository. The
+flip to public remains the user's own act, after Phase 4.
 
 On 2026-11-06, **the repository made fit for publication** (`82e3cc6`;
 on the user's "Implement Phase 1 of the publication plan", a plan
@@ -901,12 +921,15 @@ review.
   ahead of `main`. There is no record commit (dropped 2026-09-17), so
   the sha named here is refreshed only by the next content commit and
   can lag: always `git fetch` and read `origin/main` before a main
-  push. As of this commit: `main` == the branch == this commit, the
-  first push into this repository (2026-11-06, the history rewritten
-  for publication on the user's "Implement Phase 3 of the publication
-  plan with option C"; the ruleset "Branch Protection" is the user's
-  to re-create here once the branch's first CI run is green, and from
-  then on `main` moves only as the rule says). In the archive, the
+  push. As of this commit: `main` == `3188302`, the founding push of
+  this repository (2026-11-06, the history rewritten for publication
+  on the user's "Implement Phase 3 of the publication plan with option
+  C"; both branches were pushed at it, twice: the repository's first
+  instance was deleted the same day, see the entry above), and the
+  branch is one ahead with this commit, which moves to `main` on the
+  user's word once the ruleset "Branch Protection" exists here (the
+  user re-creates it on run 1's green check at `3188302`; from then
+  on `main` moves only as the rule says). In the archive, the
   pre-rewrite history, `main` had moved to `ad81950` the same day on
   the user's "Push the commit directly to main": a fast-forward from
   `2982dad` over `23d1813`, `2173bb4` and `ad81950` (in this history
@@ -952,7 +975,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Re-add the two continuity files on the history rewritten for publication, with every sha translated
+(this commit)  Record the repository founded twice and its first CI run (MEMORY-only)
+3188302  Re-add the two continuity files on the history rewritten for publication, with every sha translated
 82e3cc6  Make the repository fit for publication: the hosted edition's material leaves, a guard test keeps it out
 d0f6a5e  Name the signer a signature's certificate carries, and a store without a Store Identity by its site
 aefcf78  Let keyless signing log in without a browser: one door runs sigstore, and its link and code prompt reach the terminal
