@@ -4,8 +4,30 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-06 — **the repository founded twice, and its
-first CI run** (this commit, MEMORY-only). The rewritten history was
+Last updated: 2026-11-06 — **public** (this commit, MEMORY-only; on
+the user's "Implement Phase 5 of the publication plan"). The user
+made the repository public (verified at 21:27 UTC), the last act of the
+publication plan kept in the hosted edition's repository; Phases 1
+to 4 (the trimmed documents and the guard test, the hosted edition's
+record, the history rewritten into this repository, the settings)
+were done the same day. Before the flip every sweep printed nothing:
+the tree, every blob of the history, every commit message, the secret
+patterns. After it: the repository answers without credentials, the
+site's link to it resolves, secret scanning and push protection are on (read back from the API after the user enabled them; GitHub had not turned them on by itself), and fork pull request workflows from all external contributors need approval (the user's screenshot). The open question of the
+previous entry is answered: a new repository's workflows must be
+enabled from its Actions tab, not only allowed in its settings; once
+the user did that, their branch created from the UI ran (run 1) and
+the session's push ran (run 2), both green, so no workaround is
+needed. The ruleset "Branch Protection" was re-created by the user
+after run 1 and verified (the four rules, an empty bypass list,
+`main` only); `main` moved to `2814339` on the user's "Push the
+commit directly to main" under it; the temporary `ci-start` branch
+and its diagnostic run are deleted. Suite, lint and dry-run
+unchanged. Positions: `main` == `2814339`; the branch one ahead with
+this commit, which moves to `main` on the user's word.
+
+On 2026-11-06, **the repository founded twice, and its first CI run**
+(`2814339`, MEMORY-only). The rewritten history was
 pushed into a new `Sgunther123/OKF-Web` twice: the first instance,
 created public at 18:14 UTC and set private within the hour,
 produced no workflow run for any push from the session (the
@@ -21,10 +43,9 @@ workflow run in this repository, while the same pushes do in the
 archive and in the hosted edition's repository, is not yet known;
 this commit's push is the next test, and until it is answered a
 check on a new branch head needs a branch created from the UI at
-that commit. Suite, lint and dry-run unchanged. Positions: `main` ==
-`3188302`; the branch one ahead with this commit, which moves to
-`main` on the user's word once the ruleset exists and the head's
-check is green.
+that commit. Suite, lint and dry-run unchanged. Positions then:
+`main` == `3188302`; the branch one ahead with `2814339`, moved to
+`main` on the user's word the same day under the re-created ruleset.
 
 On 2026-11-06, **the history rewritten for publication** (`3188302`;
 on the user's "Implement Phase 3 of the publication plan with option
@@ -921,15 +942,14 @@ review.
   ahead of `main`. There is no record commit (dropped 2026-09-17), so
   the sha named here is refreshed only by the next content commit and
   can lag: always `git fetch` and read `origin/main` before a main
-  push. As of this commit: `main` == `3188302`, the founding push of
-  this repository (2026-11-06, the history rewritten for publication
-  on the user's "Implement Phase 3 of the publication plan with option
-  C"; both branches were pushed at it, twice: the repository's first
-  instance was deleted the same day, see the entry above), and the
-  branch is one ahead with this commit, which moves to `main` on the
-  user's word once the ruleset "Branch Protection" exists here (the
-  user re-creates it on run 1's green check at `3188302`; from then
-  on `main` moves only as the rule says). In the archive, the
+  push. As of this commit: `main` == `2814339` (the user's "Push the
+  commit directly to main" of 2026-11-06, the first under the
+  re-created ruleset "Branch Protection", run 2 green first: a
+  fast-forward from `3188302`, the founding push of this repository,
+  over `2814339`, the record of the founding), and the branch is one
+  ahead with this commit (the flip recorded), which moves to `main`
+  on the user's word. The repository is public since 2026-11-06,
+  verified at 21:27 UTC. In the archive, the
   pre-rewrite history, `main` had moved to `ad81950` the same day on
   the user's "Push the commit directly to main": a fast-forward from
   `2982dad` over `23d1813`, `2173bb4` and `ad81950` (in this history
@@ -975,7 +995,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Record the repository founded twice and its first CI run (MEMORY-only)
+(this commit)  Record the repository made public, and the answer to the Actions question (MEMORY-only)
+2814339  Record the repository founded twice and its first CI run (MEMORY-only)
 3188302  Re-add the two continuity files on the history rewritten for publication, with every sha translated
 82e3cc6  Make the repository fit for publication: the hosted edition's material leaves, a guard test keeps it out
 d0f6a5e  Name the signer a signature's certificate carries, and a store without a Store Identity by its site
