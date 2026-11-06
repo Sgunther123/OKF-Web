@@ -38,6 +38,48 @@ bundle's terms and inflate retrieval hit rate. Sets live in
 `evaluations/questions.yaml` and are versioned with the bundle so
 scores are comparable across runs.
 
+### Fit: a set measures the store it was written from
+
+A thin outline tempts a generator to invent a catalog, and a bundle
+measured against invented questions scores the prompt, not itself.
+Four mechanisms (profile 1.13) keep a set about the store:
+
+- **Grounding.** Generation is told which archetypes the outline's
+  concept types give evidence for (`evaluator.ARCHETYPE_EVIDENCE`:
+  `procurement` needs a Trade Program, `local_availability` a Store
+  Location, `compliance` a Product Passport, and so on) and writes
+  its questions for those; for an applicable archetype the outline
+  does not support it writes at most one deliberate probe, marked
+  `probe: negative`, and it never reuses the prompt's own wording
+  (the prompt carries no vertical examples a model could echo). An
+  outline that describes no store at all makes it answer
+  `reason: not-a-store`, which `okf-web questions` turns into a
+  refusal. Behind the model sits a deterministic check,
+  `check_grounding`: a question is grounded when one of its
+  informative words occurs in the outline (titles, descriptions,
+  entities, tags); negative probes are exempt, one per archetype; a
+  generated set is refused, nothing written, when its ungrounded
+  questions outnumber its grounded ones (`--allow-ungrounded` writes
+  it anyway, for a set you intend to curate by hand).
+- **Negative probes.** `probe: negative` marks a question the bundle
+  is expected to answer with a sourced "no": an out-of-catalog need
+  the range makes plausible, a refused capability. Curation adds
+  them; the generator may add one per archetype.
+- **Provenance.** Every set the toolchain writes carries a `meta`
+  block: `source` (`generated` or `pack:<name>`), `generated` (by,
+  at, `from_concepts`), the grounding counts, and `curated_by` once a
+  person has read it through. The report states it beside the
+  headline, so a reader can tell a curated set from a vertical's
+  starter pack from a set generated out of one concept.
+- **Declared applicability.** `x_geo.not_applicable` on the root
+  index lists the archetypes the store's business has no answer for
+  (no premises, no wholesale). Generation writes none for them, the
+  evaluation sets their questions aside and records them under
+  `metrics.not_applicable`, the report shows them as not applicable
+  instead of as gaps, and lint W044 flags a name that is not an
+  archetype or one the bundle's own concepts contradict. Undeclared
+  archetypes stay applicable: a missing answer there is the finding.
+
 ## 2. Harness
 
 Per question:

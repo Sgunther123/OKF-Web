@@ -780,6 +780,22 @@ class Bundle:
         return None if value is None else str(value)
 
     @property
+    def not_applicable(self) -> list[str] | None:
+        """``x_geo.not_applicable`` on the root index (profile 1.13): the
+        question archetypes the store declares do not apply to its
+        business (no physical stores, no wholesale, ...), verbatim; None
+        when the bundle declares none. Generation writes no questions for
+        them, the evaluation sets theirs aside, and the report says so."""
+        root_index = self.indexes.get("index.md")
+        if root_index is None:
+            return None
+        x_geo = root_index.frontmatter.get("x_geo")
+        value = x_geo.get("not_applicable") if isinstance(x_geo, dict) else None
+        if not isinstance(value, list):
+            return None
+        return [str(v) for v in value]
+
+    @property
     def site(self) -> str | None:
         """The store origin the root ``index.md`` declares (``x_geo.site``),
         verbatim; None when absent or not a string — the one place the

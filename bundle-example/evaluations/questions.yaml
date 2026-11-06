@@ -6,6 +6,13 @@
 # shopper's own words — synonyms, no product names or catalog
 # vocabulary — so the paraphrase hit rate measures what customers will
 # actually experience, not what curated phrasing flatters.
+meta:
+  source: generated
+  generated:
+    by: okf-web-evaluator/claude-sonnet-5
+    at: 2026-08-04
+    from_concepts: 19
+  curated_by: human:merch-lead@alpinepeakoutfitters.example
 questions:
   - id: disc-1
     archetype: discovery
@@ -19,6 +26,7 @@ questions:
     archetype: discovery
     question: Do they sell a four-season tent I could use for winter camping in Norway?
     paraphrase: Can I get something here to camp in deep snow and storms in the far north?
+    probe: negative
   - id: fact-1
     archetype: product_fact
     question: How much does the Alpine 2 tent weigh in my pack?

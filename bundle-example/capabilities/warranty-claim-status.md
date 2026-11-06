@@ -18,7 +18,7 @@ sources:
     title: Public storefront API documentation
     last_modified: 2026-08-01T00:00:00Z
 x_geo:
-  profile: ecommerce-geo/1.12
+  profile: ecommerce-geo/1.13
   risk: a
   intents: [capability, ownership]
   rate_limit: 30 requests/minute per client

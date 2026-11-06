@@ -36,6 +36,9 @@ from .model import (
     RISK_MEDIUM,
     bundle_lock,
     load_bundle,
+    split_l10n,
+    utc_instant,
+    utc_now,
     write_atomic,
 )
 
@@ -287,7 +290,7 @@ def cmd_questions(args) -> int:
             )
             return 2
         out.parent.mkdir(parents=True, exist_ok=True)
-        write_atomic(out, packs[args.pack])
+        write_atomic(out, evaluator.stamp_pack(packs[args.pack], args.pack))
         count = len(evaluator.load_questions(out))
         print(
             f"wrote {count} starter questions ({args.pack}) to {out} — "
@@ -302,8 +305,9 @@ def cmd_questions(args) -> int:
         )
         return 2
     bundle = load_bundle(args.bundle)
+    llm_client = _llm(args)
     questions = evaluator.generate_questions(
-        bundle, _llm(args), per_archetype=args.per_archetype
+        bundle, llm_client, per_archetype=args.per_archetype
     )
     if not questions:
         print(
@@ -312,22 +316,44 @@ def cmd_questions(args) -> int:
             file=sys.stderr,
         )
         return 1
-    out.parent.mkdir(parents=True, exist_ok=True)
-    write_atomic(
-        out,
-        yaml.safe_dump(
-            {
-                "questions": [
-                    {"id": q.id, "archetype": q.archetype, "question": q.question,
-                     **({"paraphrase": q.paraphrase} if q.paraphrase else {})}
-                    for q in questions
-                ]
-            },
-            sort_keys=False,
-            allow_unicode=True,
-        ),
+    grounding = evaluator.check_grounding(bundle, questions)
+    if not grounding.fit and not args.allow_ungrounded:
+        raise evaluator.UngroundedSet(
+            f"{len(grounding.ungrounded)} of {len(questions)} generated questions "
+            "share no vocabulary with the bundle's outline "
+            f"({', '.join(grounding.ungrounded[:8])}"
+            f"{', ...' if len(grounding.ungrounded) > 8 else ''}): the outline is "
+            "too thin to measure against, so nothing was written; add the "
+            "knowledge the questions assume, curate a set by hand, or pass "
+            "--allow-ungrounded to write it anyway"
+        )
+    concepts = sum(
+        1 for rel, c in bundle.concepts.items()
+        if split_l10n(rel) is None and c.type not in evaluator.META_TYPES
     )
-    print(f"wrote {len(questions)} questions to {out}")
+    meta = {
+        "source": "generated",
+        "generated": {
+            "by": f"okf-web-evaluator/{getattr(llm_client, 'model', 'llm')}",
+            "at": utc_instant(utc_now().replace(microsecond=0)),
+            "from_concepts": concepts,
+        },
+        "grounding": {
+            "grounded": len(grounding.grounded),
+            "ungrounded": len(grounding.ungrounded),
+            "probes": len(grounding.probes),
+        },
+    }
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_atomic(out, evaluator.dump_questions(questions, meta))
+    note = (
+        f"; {len(grounding.ungrounded)} ungrounded, written on --allow-ungrounded"
+        if grounding.ungrounded and args.allow_ungrounded else ""
+    )
+    print(
+        f"wrote {len(questions)} questions to {out} ({grounding.summary()}{note}); "
+        "curate them before you measure"
+    )
     return 0
 
 
@@ -886,6 +912,12 @@ def _add_questions_parser(sub) -> None:
     )
     p.add_argument("--list-packs", action="store_true", help="print available starter packs")
     p.add_argument("--force", action="store_true", help="replace an existing questions.yaml")
+    p.add_argument(
+        "--allow-ungrounded",
+        action="store_true",
+        help="write a generated set even when most of its questions share "
+        "no vocabulary with the bundle (refused otherwise)",
+    )
     _add_llm_args(p)
     p.set_defaults(func=cmd_questions)
 

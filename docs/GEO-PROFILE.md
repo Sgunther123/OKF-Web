@@ -139,8 +139,9 @@ the OKF core surface stays pristine.
 
 | Key | Type | Meaning |
 | --- | --- | --- |
-| `profile` | string | `ecommerce-geo/1.12` (opt-in marker) |
+| `profile` | string | `ecommerce-geo/1.13` (opt-in marker) |
 | `reviewers` | list | Root index only (1.11): the reviewer ids allowed to approve — `okf-web review` refuses any other `--by`, and lint W042 flags a `human:`/`human-batch:` stamp from outside the list |
+| `not_applicable` | list | Root index only (1.13): the question archetypes the store declares do not apply to its business (`procurement` for a store with no wholesale, `local_availability` for one with no premises, ...). Question generation writes none for them, the evaluation sets their questions aside and records them under `metrics.not_applicable`, and the report shows them as not applicable instead of as gaps; lint W044 flags a name that is not an archetype, or one the bundle's own concepts contradict |
 | `language` | string | Root index only (1.12): the bundle's default language as a BCP-47 tag (`en`, `de`, `pt-BR`). Retrieval chooses its stop-word list by it, question generation writes in it, and the derived tier tags with it; a localized view's language is its `l10n/<lang>/` tag. Lint W043 flags a malformed tag; an undeclared bundle keeps the English defaults |
 | `risk` | `a` \| `b` \| `c` | Verification gate class, §3 (default `c`) |
 | `intents` | list | Question archetypes this concept answers: `discovery`, `product_fact`, `comparison`, `policy`, `fulfillment`, `trust`, `capability`, `promotion`, `fit_compatibility`, `ownership`, `compliance`, `local_availability`, `procurement` — retrieval hint for engines |
@@ -424,6 +425,7 @@ path position is the binding.
 | W041 | warn | A stable concept of a type with a freshness SLA (§1) that carries no `stale_after` — immortal knowledge nothing will ask to re-check |
 | W042 | warn | A `human:`/`human-batch:` verification by an id outside the root index's `x_geo.reviewers` list, when the list exists |
 | W043 | warn | The root index's `x_geo.language` is not a BCP-47 language tag (like `en` or `pt-BR`); the bundle then behaves as undeclared |
+| W044 | warn | The root index's `x_geo.not_applicable` names something that is not a question archetype, or sets aside an archetype a concept in the bundle answers (`procurement` beside a Trade Program) |
 | W040 | warn | (`--strict-okf` only) declared base-spec deviation: index frontmatter beyond SPEC §8's allowance (§7) |
 
 Errors block publishing; `--strict` promotes warnings for CI.
@@ -438,7 +440,22 @@ end day without changing a key: a sale is valid through `ends_at`, so
 the surveyor stamps `stale_after` at the following midnight UTC and
 W027 accepts anything up to that instant (F5 states the rule).
 
-**1.12** (current) declares the bundle's language (2026-10-04):
+**1.13** (current) declares what does not apply (2026-11-06):
+`x_geo.not_applicable` on the root index (§2, §7), the question
+archetypes the store says its business has no answer for, so that a
+measurement can tell a gap from an absence. Question generation
+writes nothing for a declared archetype, the evaluation sets its
+questions aside and records them under `metrics.not_applicable`,
+and the report shows the archetype as not applicable rather than as
+a gap; lint W044 flags a name that is not an archetype or one the
+bundle's own concepts contradict. With it, generation grounds every
+question in the outline, marks deliberate negative probes, refuses
+an outline that describes no store, and a set is refused when its
+ungrounded questions outnumber its grounded ones; every set the
+toolchain writes records its provenance in `meta` (EVALUATION §1).
+Additive; concepts declaring earlier minors remain fully valid.
+
+**1.12** declares the bundle's language (2026-10-04):
 `x_geo.language` on the root index (§2, §7), a BCP-47 tag that the
 lexical retriever reads for its stop-word list (lists ship for
 English, Spanish, German, French, Portuguese, Italian and Dutch; a

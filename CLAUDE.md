@@ -205,6 +205,20 @@ commit histories, environment quirks, and the user's operating rhythm).
   lives at `evaluations/geo-scorecard.<lang>.md`. Judge verdicts are
   JSON booleans or yes/true (`evaluator._verdict_flag`); nothing else
   counts as answered.
+- **A question set measures the store it was written from** (EVALUATION
+  §1, profile 1.13): generation grounds every question in the outline,
+  is told which archetypes the bundle's types support
+  (`evaluator.ARCHETYPE_EVIDENCE`) and which the root index declares
+  not applicable (`x_geo.not_applicable`), marks deliberate negative
+  probes, and refuses an outline that describes no store; `okf-web
+  questions` refuses a generated set whose ungrounded questions
+  outnumber its grounded ones (`check_grounding`; `--allow-ungrounded`
+  is the only opt-out); every set the toolchain writes carries its
+  provenance (`meta`, written by `dump_questions`/`stamp_pack`) and the
+  report states it; a declared archetype is set aside, recorded under
+  `metrics.not_applicable`, never counted as a gap (lint W044 checks
+  the declaration). The generation prompt carries no vertical examples
+  a model could echo (a static test refuses them).
 - Deterministic hashing only (`zlib.crc32`, `hashlib`), never builtin
   `hash()` — PYTHONHASHSEED salts it per process. Any change that alters
   rankings or cached vectors must bump the embedder model id so caches

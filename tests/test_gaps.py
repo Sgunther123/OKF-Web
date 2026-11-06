@@ -485,8 +485,8 @@ def test_approve_can_date_a_fresh_concept(tmp_path):
 def test_profile_is_the_same_everywhere():
     from okf_web import PROFILE
 
-    assert PROFILE == "ecommerce-geo/1.12"
-    assert "ecommerce-geo/1.12" in (REPO / "bundle-example" / "index.md").read_text(encoding="utf-8")
+    assert PROFILE == "ecommerce-geo/1.13"
+    assert "ecommerce-geo/1.13" in (REPO / "bundle-example" / "index.md").read_text(encoding="utf-8")
 
 
 # --- item 8: least-privilege tokens and pinned actions ---------------------------------------

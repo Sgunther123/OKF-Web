@@ -658,6 +658,43 @@ def lint_bundle(
             )
         )
 
+    # Declared applicability (profile 1.13): an archetype the store says
+    # does not apply is set aside by the evaluation, so a name that is
+    # not an archetype declares nothing, and one the bundle's own
+    # concepts contradict (wholesale declared away beside a Trade
+    # Program) sets aside questions the store could answer.
+    declared_na = bundle.not_applicable
+    if declared_na:
+        from .evaluator import ARCHETYPES, ARCHETYPE_EVIDENCE
+        present: dict[str, str] = {}
+        for rel, concept in sorted(bundle.concepts.items()):
+            if split_l10n(rel) is None:
+                present.setdefault(concept.type, rel)
+        for name in declared_na:
+            if name not in ARCHETYPES:
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W044",
+                        "index.md",
+                        f"x_geo.not_applicable names `{name}`, which is not a "
+                        "question archetype (known: " + ", ".join(ARCHETYPES) + ")",
+                    )
+                )
+                continue
+            evidence = [t for t in ARCHETYPE_EVIDENCE.get(name, ()) if t in present]
+            if evidence and name not in ("discovery", "trust", "policy", "fulfillment"):
+                findings.append(
+                    Finding(
+                        WARNING,
+                        "W044",
+                        "index.md",
+                        f"x_geo.not_applicable sets `{name}` aside, yet the bundle "
+                        f"carries a {evidence[0]} (`{present[evidence[0]]}`) that "
+                        "answers it",
+                    )
+                )
+
     # Translation parity: l10n/<lang>/<rel> mirrors <rel>. A translation
     # is knowledge too — but one whose source moved on is worse than
     # none, because it contradicts the default language with equal

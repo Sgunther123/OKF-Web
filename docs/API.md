@@ -208,17 +208,27 @@ code. Review 2026-10-21, phase U4.
 | `evaluate` | function | questions against a bundle: dry run or judged |
 | `load_questions` | function | a question set from YAML |
 | `validate_questions` | function | what makes a set unfit to gate on |
-| `generate_questions` | function | a set derived from the bundle by an LLM |
+| `generate_questions` | function | a set derived from the bundle by an LLM, grounded in its outline |
+| `check_grounding` | function | which of a set's questions share vocabulary with the outline; the fit verdict |
+| `GroundingReport` | class | grounded, ungrounded, probes, excess probes; `fit` |
+| `supported_archetypes` | function | the archetypes the bundle's types give evidence for |
+| `outline_vocabulary` | function | the informative words of the outline the generator sees |
+| `load_provenance` | function | a set's `meta` block, empty when it records none |
+| `dump_questions` | function | the YAML of a set, its provenance first |
+| `stamp_pack` | function | a starter pack's YAML with `meta.source: pack:<name>` |
 | `write_scorecard` | function | the GEO Scorecard into the bundle |
 | `render_context` | function | the retrieved concepts as the context block |
 | `retrieve` | function | the lexical retriever |
-| `Question` | class | id, archetype, question, paraphrase |
+| `Question` | class | id, archetype, question, paraphrase, probe |
 | `QuestionResult` | class | one question's retrieval and verdict |
 | `Report` | class | the evaluation's results and metrics |
 | `ARCHETYPES` | tuple | the question archetypes |
+| `ARCHETYPE_EVIDENCE` | dict | archetype → the concept types that make it answerable |
 | `META_TYPES` | frozenset | types retrieval never returns |
 | `SCORECARD_PATH` | str | `evaluations/geo-scorecard.md` |
 | `QuestionSetError` | class | an unfit question set (refusal) |
+| `NotAStore` | class | the outline describes no store, so nothing was generated (refusal) |
+| `UngroundedSet` | class | a generated set that does not measure the bundle (refusal) |
 | `ScorecardGuard` | class | a dry run would replace a judged scorecard (refusal) |
 
 ### `okf_web.views`
@@ -313,6 +323,7 @@ code. Review 2026-10-21, phase U4.
 | Name | Kind | Meaning |
 | --- | --- | --- |
 | `build_report` | function | the merchant report from the recorded scorecard |
+| `provenance_sentence` | function | where the committed question set came from, as the report states it |
 | `write_report` | function | the report into the bundle |
 | `scorecard_gaps` | function | the gap ids a scorecard records |
 | `judged_verdicts` | function | the per-question verdicts a scorecard records |

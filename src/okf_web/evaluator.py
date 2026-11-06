@@ -58,9 +58,19 @@ __all__ = [
     "QuestionResult",
     "Report",
     "QuestionSetError",
+    "NotAStore",
+    "UngroundedSet",
     "ScorecardGuard",
+    "ARCHETYPE_EVIDENCE",
+    "supported_archetypes",
+    "GroundingReport",
+    "outline_vocabulary",
+    "check_grounding",
     "validate_questions",
     "load_questions",
+    "load_provenance",
+    "dump_questions",
+    "stamp_pack",
     "generate_questions",
     "RELEVANCE_FLOOR",
     "META_TYPES",
@@ -87,6 +97,29 @@ ARCHETYPES = [
     "local_availability",  # stores near me, hours, pickup today, on the shelf now
     "procurement",    # B2B: wholesale eligibility, MOQs, payment terms, lead times, RFQ
 ]
+
+# Which concept types make an archetype answerable from the bundle: the
+# evidence that a question of that kind can be grounded in what the
+# bundle says. An archetype with no evidence type present is still
+# *applicable* (the gap is the finding) unless the root index declares
+# it not to be (`x_geo.not_applicable`, profile 1.13); it is just not
+# *supported* by the outline, so generation writes at most one
+# deliberate probe for it instead of inventing a catalog.
+ARCHETYPE_EVIDENCE: dict[str, tuple[str, ...]] = {
+    "discovery": ("Product", "Product Collection", "Buying Guide", "FAQ", "Store Identity"),
+    "product_fact": ("Product", "Product Passport", "Compatibility"),
+    "comparison": ("Product", "Product Collection", "Buying Guide"),
+    "policy": ("Policy", "FAQ"),
+    "fulfillment": ("Policy", "FAQ", "Store Identity"),
+    "trust": ("Store Identity", "Policy", "FAQ"),
+    "capability": ("Attested Computation",),
+    "promotion": ("Promotion",),
+    "fit_compatibility": ("Compatibility", "Product", "Buying Guide"),
+    "ownership": ("Ownership Guide", "Policy", "FAQ"),
+    "compliance": ("Product Passport",),
+    "local_availability": ("Store Location",),
+    "procurement": ("Trade Program",),
+}
 
 # Stop words per language, in the tokenizer's folded spelling (accents
 # stripped, lowercase): function words a shopper's question and a
@@ -199,6 +232,10 @@ class Question:
     # the bundle, so its hit rate flatters lexical retrieval; the
     # paraphrase measures what a merchant's customers will experience.
     paraphrase: str = ""
+    # "negative" marks a deliberate probe the bundle is expected to
+    # answer with a sourced "no" (an out-of-catalog need, a refused
+    # capability): exempt from the grounding check, one per archetype.
+    probe: str = ""
 
 
 @dataclass
@@ -224,6 +261,10 @@ class Report:
     top_k: int = 4
     retriever: str = "lexical"
     view: str = "working"
+    # Questions set aside because the root index declares their
+    # archetype does not apply to this business (profile 1.13):
+    # archetype -> how many. Recorded, never counted as gaps.
+    not_applicable: dict[str, int] = field(default_factory=dict)
 
     def _fraction(self, predicate) -> float:
         if not self.results:
@@ -318,6 +359,8 @@ class Report:
             if not self.dry_run and r.answered:
                 slot["answered"] += 1
         metrics["by_archetype"] = by_archetype
+        if self.not_applicable:
+            metrics["not_applicable"] = dict(self.not_applicable)
         return metrics
 
     def gaps(self) -> list[QuestionResult]:
@@ -334,8 +377,121 @@ class QuestionSetError(ValueError, Refusal):
     """The question set cannot be evaluated as it stands (EDGE-CASES A3)."""
 
 
+class NotAStore(QuestionSetError):
+    """The generator read an outline that describes no store, so it
+    wrote no questions: measuring one would measure the prompt."""
+
+
+class UngroundedSet(QuestionSetError):
+    """A generated set in which the questions that share no vocabulary
+    with the outline outnumber the ones that do: not a measurement of
+    this bundle, so it is not written."""
+
+
 class ScorecardGuard(ValueError, Refusal):
     """A dry-run scorecard would replace a judged one (EDGE-CASES A3)."""
+
+
+def supported_archetypes(bundle: Bundle) -> list[str]:
+    """The archetypes the bundle's own concept types give evidence for
+    (``ARCHETYPE_EVIDENCE``), in ``ARCHETYPES`` order; l10n views and
+    meta types do not count."""
+    types = {
+        c.type for rel, c in bundle.concepts.items()
+        if split_l10n(rel) is None and c.type not in META_TYPES
+    }
+    return [a for a in ARCHETYPES if types & set(ARCHETYPE_EVIDENCE.get(a, ()))]
+
+
+# Words a question may share with any outline without being about it:
+# the grounding check ignores them on top of the stop words.
+_GENERIC = frozenset({
+    "have", "has", "had", "could", "would", "should", "there", "any",
+    "get", "got", "buy", "bought", "sell", "sells", "sold", "store",
+    "shop", "need", "needs", "want", "offer", "offers", "right", "now",
+    "today", "something", "anything", "actually", "really", "like",
+    "still", "also", "from", "into", "about", "when", "where", "which",
+    "who", "why", "one", "ones", "some", "than", "then", "them", "they",
+    "their", "own", "just", "before", "after", "over", "under", "out",
+    "off", "use", "used", "using", "know", "tell", "find", "come",
+    "comes", "make", "makes", "take", "takes", "work", "works", "going",
+    "long", "much", "many", "more", "most", "other", "same", "first",
+    "last", "next", "back", "here", "please", "thanks", "online",
+    "website", "site", "company", "business", "order", "orders",
+    "item", "items", "product", "products", "thing", "things",
+})
+
+
+def _informative(text: str, lang: str) -> set[str]:
+    stop = stopwords_for(lang)
+    return {t for t in words(text) if len(t) >= 4 and t not in stop and t not in _GENERIC}
+
+
+@dataclass
+class GroundingReport:
+    """What the grounding check found: the ids of the questions whose
+    informative words appear in the bundle's outline (titles,
+    descriptions, entities and tags of the non-meta concepts), of those
+    whose words do not, of the deliberate negative probes (exempt, one
+    per archetype), and of probes beyond that allowance (counted as
+    ungrounded)."""
+
+    grounded: list[str]
+    ungrounded: list[str]
+    probes: list[str]
+    excess_probes: list[str]
+
+    @property
+    def fit(self) -> bool:
+        """A set measures the bundle when it has grounded questions and
+        the ungrounded ones do not outnumber them."""
+        return bool(self.grounded) and len(self.ungrounded) <= len(self.grounded)
+
+    def summary(self) -> str:
+        return (
+            f"{len(self.grounded)} grounded, {len(self.ungrounded)} ungrounded, "
+            f"{len(self.probes)} negative probe(s)"
+        )
+
+
+def outline_vocabulary(bundle: Bundle) -> set[str]:
+    """The informative words of the outline the generator sees: every
+    non-meta concept's title, description, entity and tags."""
+    vocab: set[str] = set()
+    for rel, concept in bundle.concepts.items():
+        if split_l10n(rel) is not None or concept.type in META_TYPES:
+            continue
+        fm = concept.frontmatter
+        parts = [concept.title, str(fm.get("description") or ""), str(fm.get("entity") or "")]
+        tags = fm.get("tags")
+        if isinstance(tags, list):
+            parts.extend(str(t) for t in tags)
+        vocab |= _informative(" ".join(parts), bundle.language)
+    return vocab
+
+
+def check_grounding(bundle: Bundle, questions: list[Question]) -> GroundingReport:
+    """Does this set measure this bundle? A question is grounded when at
+    least one of its informative words occurs in the outline; a question
+    marked ``probe: negative`` is exempt (one per archetype, the rest
+    count as ungrounded). Deterministic, no model: the outline is what
+    the generator was given, so a set that shares no words with it was
+    not written from it."""
+    vocab = outline_vocabulary(bundle)
+    grounded, ungrounded, probes, excess = [], [], [], []
+    probed: set[str] = set()
+    for q in questions:
+        if q.probe == "negative":
+            if q.archetype in probed:
+                excess.append(q.id); ungrounded.append(q.id)
+            else:
+                probed.add(q.archetype); probes.append(q.id)
+            continue
+        if _informative(q.question, bundle.language) & vocab:
+            grounded.append(q.id)
+        else:
+            ungrounded.append(q.id)
+    return GroundingReport(grounded, ungrounded, probes, excess)
 
 
 def validate_questions(questions: list[Question]) -> list[str]:
@@ -354,6 +510,10 @@ def validate_questions(questions: list[Question]) -> list[str]:
                 f"question {q.id!r}: unknown archetype {q.archetype!r} "
                 f"(known: {', '.join(ARCHETYPES)})"
             )
+        if q.probe not in ("", "negative"):
+            problems.append(
+                f"question {q.id!r}: probe {q.probe!r} is not 'negative'"
+            )
     return problems
 
 
@@ -367,26 +527,86 @@ def load_questions(path: Path | str) -> list[Question]:
                 archetype=str(item.get("archetype") or "discovery"),
                 question=str(item.get("question") or "").strip(),
                 paraphrase=str(item.get("paraphrase") or "").strip(),
+                probe=str(item.get("probe") or "").strip().lower(),
             )
         )
     return [q for q in out if q.question]
 
 
+def load_provenance(path: Path | str) -> dict:
+    """The set's ``meta`` mapping: where it came from (``source``:
+    ``generated`` or ``pack:<name>``), ``generated`` (by, at,
+    from_concepts), ``grounding`` counts and ``curated_by``. Empty when
+    the file records none, as sets written before profile 1.13 do."""
+    try:
+        data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return {}
+    meta = data.get("meta") if isinstance(data, dict) else None
+    return meta if isinstance(meta, dict) else {}
+
+
+def dump_questions(questions: list[Question], meta: dict | None = None) -> str:
+    """The YAML of a question set, its provenance first: ``meta`` (when
+    given), then ``questions`` with ``paraphrase`` and ``probe`` only
+    where set. The one writer, so every set the toolchain writes says
+    where it came from."""
+    payload: dict = {}
+    if meta:
+        payload["meta"] = meta
+    payload["questions"] = [
+        {
+            "id": q.id, "archetype": q.archetype, "question": q.question,
+            **({"paraphrase": q.paraphrase} if q.paraphrase else {}),
+            **({"probe": q.probe} if q.probe else {}),
+        }
+        for q in questions
+    ]
+    return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+
+
+def stamp_pack(text: str, name: str) -> str:
+    """A starter pack's YAML with its provenance on top: ``meta.source``
+    is ``pack:<name>``, so a report can say the questions are a
+    vertical's starter set, not this store's."""
+    return f"meta:\n  source: pack:{name}\n" + text
+
+
 def generate_questions(bundle: Bundle, llm: LLMClient, per_archetype: int = 3) -> list[Question]:
-    """Ask the LLM to derive a question set from the bundle's own index."""
+    """Ask the LLM to derive a question set from the bundle's own index.
+
+    The prompt is told which archetypes the outline supports
+    (``supported_archetypes``) and which the root index declares not
+    applicable (``x_geo.not_applicable``): it writes ``per_archetype``
+    questions for the supported ones, at most one deliberate negative
+    probe for an applicable but unsupported one, and none for a declared
+    one. An outline that describes no store at all makes it answer
+    ``reason: not-a-store`` with no questions, raised here as
+    :class:`NotAStore` (a refusal): a set written from nothing would
+    measure the prompt, not the bundle."""
     system = _prompt("evaluator_questions.md")
     outline = []
     for concept in bundle.concepts.values():
         desc = str(concept.frontmatter.get("description") or "")
         outline.append(f"- {concept.rel_path} [{concept.type}] {concept.title}: {desc}")
+    declared = [a for a in (bundle.not_applicable or []) if a in ARCHETYPES]
+    supported = [a for a in supported_archetypes(bundle) if a not in declared]
     user = (
         f"PER_ARCHETYPE: {per_archetype}\n"
         f"ARCHETYPES: {', '.join(ARCHETYPES)}\n"
+        f"SUPPORTED: {', '.join(supported) or 'none'}\n"
+        f"NOT_APPLICABLE: {', '.join(declared) or 'none'}\n"
         f"LANGUAGE: {bundle.language or 'undeclared'}\n\n"
         "BUNDLE OUTLINE:\n" + "\n".join(sorted(outline))
     )
     response = llm.complete(system, user, max_tokens=4096)
     payload = _extract_yaml(response)
+    if not payload.get("questions") and str(payload.get("reason") or "").strip().lower() == "not-a-store":
+        raise NotAStore(
+            "the outline describes no store (nothing sold, no policies, no "
+            "shipping, no capabilities), so no question set was written: a "
+            "set invented for it would measure the prompt, not the bundle"
+        )
     questions = []
     for i, item in enumerate(payload.get("questions", []), start=1):
         questions.append(
@@ -397,9 +617,10 @@ def generate_questions(bundle: Bundle, llm: LLMClient, per_archetype: int = 3) -
                 # The prompt asks for it; dropping it left generated packs
                 # without paraphrase metrics (review 2026-10-21, L-U6).
                 paraphrase=str(item.get("paraphrase") or "").strip(),
+                probe=str(item.get("probe") or "").strip().lower(),
             )
         )
-    return [q for q in questions if q.question]
+    return [q for q in questions if q.question and q.archetype not in declared]
 
 
 # ---------------------------------------------------------------------------
@@ -639,7 +860,14 @@ def evaluate(
     dry_run = llm is None
     judge_llm = judge or llm
     results: list[QuestionResult] = []
+    # Declared not applicable (profile 1.13): set aside and recorded,
+    # never asked, never a gap.
+    declared = set(a for a in (bundle.not_applicable or []) if a in ARCHETYPES)
+    set_aside: dict[str, int] = {}
     for question in questions:
+        if question.archetype in declared:
+            set_aside[question.archetype] = set_aside.get(question.archetype, 0) + 1
+            continue
         retrieved = retrieve_fn(bundle, question.question, top_k)
         context = render_context(retrieved)
         result = QuestionResult(
@@ -689,6 +917,7 @@ def evaluate(
         dry_run=dry_run,
         top_k=top_k,
         retriever=_retriever_name(retriever),
+        not_applicable=set_aside,
     )
 
 

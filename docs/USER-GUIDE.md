@@ -205,6 +205,31 @@ and saves a scorecard. The two numbers to look at:
   This is your to-do list: each gap is usually a page worth surveying
   or a fact sheet worth adding.
 
+The first command only writes a set it can stand behind. It grounds
+every question in your fact folder's outline and refuses two things:
+a folder that describes no store at all ("the outline describes no
+store"), and a set in which most questions share no words with your
+facts ("N of M generated questions share no vocabulary"), which
+happens while the folder is still thin. Survey more pages or start
+from a starter pack, or pass `--allow-ungrounded` to write the set
+and curate it by hand. Every set it writes starts with a `meta` block
+saying where it came from, and the report repeats that beside its
+headline; add `curated_by: human:you@store.com` to that block once
+you have read the questions through. If your business has no answer
+for a whole topic, say so in `index.md`, and that topic's questions
+are set aside instead of counted against you:
+
+```yaml
+x_geo:
+  profile: ecommerce-geo/1.13
+  site: https://www.yourstore.example
+  not_applicable: [local_availability, procurement]
+```
+
+(`local_availability` for a store with no premises, `procurement`
+for one that sells no wholesale; the thirteen topic names are in
+EVALUATION.md §1.)
+
 Tip: add `--published` to the evaluate command to grade only what's
 actually published — unapproved drafts are excluded, which is exactly
 what AI assistants really see. Use that mode for the score you trust.
@@ -464,6 +489,17 @@ do.
 The AI answered in prose instead of the expected list. Your existing
 question file is untouched; try again, or start from a starter pack
 (`--pack`).
+
+**"N of M generated questions share no vocabulary with the bundle's outline"**
+The AI wrote questions about things your fact folder never mentions,
+which happens when the folder is thin (a page or two). Nothing was
+written. Survey more pages first, start from a starter pack, or pass
+`--allow-ungrounded` and curate the set by hand.
+
+**"the outline describes no store"**
+The folder has no products, policies, shipping facts or capabilities
+to ask about, so no question set was written. If this is a store,
+survey its pages first; if it is not, there is nothing to measure.
 
 **"already approved by … (no change)"**
 That person already approved this fact sheet and it is still fresh, so

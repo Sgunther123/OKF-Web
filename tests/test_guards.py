@@ -167,7 +167,7 @@ def test_index_rebuilds_the_root_index_from_what_is_stable(bundle_copy, capsys):
     assert "index.md rebuilt" in capsys.readouterr().out
     text = (bundle_copy / "index.md").read_text(encoding="utf-8")
     assert text == surveyor.rebuild_index(bundle_copy)  # idempotent, from the bundle alone
-    assert "ecommerce-geo/1.12" in text and "gone.md" not in text  # the profile kept, the stale line gone
+    assert "ecommerce-geo/1.13" in text and "gone.md" not in text  # the profile kept, the stale line gone
 
 
 def test_publish_signs_and_a_failing_signer_exits_one(bundle_copy, tmp_path, capsys):

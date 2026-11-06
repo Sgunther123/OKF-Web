@@ -161,7 +161,7 @@ def run_init(
         available = packs.available()
         if pack in available:
             questions_path.parent.mkdir(parents=True, exist_ok=True)
-            write_atomic(questions_path, available[pack])
+            write_atomic(questions_path, evaluator.stamp_pack(available[pack], pack))
             result.questions = "written"
             say(f"[5/7] wrote starter questions ({pack} pack)")
         else:

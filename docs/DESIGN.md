@@ -296,6 +296,11 @@ Full rubric in [EVALUATION.md](EVALUATION.md). The short version:
    reference set deliberately includes an out-of-catalog probe:
    *"do they sell four-season tents?"* — a good bundle answers **no**
    with a citation, which is what stops engines from guessing).
+   Generation is grounded in the outline and refuses a folder that
+   describes no store; a generated set that does not measure the
+   bundle is refused; every set records its provenance, which the
+   report states; and `x_geo.not_applicable` sets a declared
+   archetype aside instead of counting it as a gap (EVALUATION §1).
 2. **Answer only from the bundle.** The harness retrieves concepts the
    way a frugal agent would (index → top-k concepts), then answers
    with a context-only prompt that must cite concept paths or output
