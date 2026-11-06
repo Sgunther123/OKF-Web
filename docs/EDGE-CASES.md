@@ -1,6 +1,6 @@
 # Edge-case review: UI, automation, security
 
-A review of the open toolchain (`okf_web`, this repository at `482dcf5`,
+A review of the open toolchain (`okf_web`, this repository at `129a373`,
 2026-09-14/15) for the edge cases that hurt three things: the operator's
 experience (clean, simple logic in the CLI and the rendered pages),
 unattended automation (cron and CI), and security. Every finding below
