@@ -70,6 +70,7 @@ your `llms.txt`, and your own bots.
 | [`docs/EDGE-CASES.md`](docs/EDGE-CASES.md) | Edge-case review: UI, automation and security findings with the E1–E5 remediation plan |
 | [`docs/API.md`](docs/API.md) | The library surface that stays put: one error family and exit table, one home per primitive, the names the hosted edition imports |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Branch policy: protected `main`, the fast-forward flow, and the exact rule to apply on GitHub |
+| [`SECURITY.md`](SECURITY.md) | How to report a vulnerability, privately |
 | [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md) | Distribution plan: audiences, PyPI strategy, the MCP assistant channel, release gates |
 | [`bundle-example/`](bundle-example/index.md) | Complete conformant companion bundle for a fictional store |
 | [`src/okf_web/`](src/okf_web/) | Reference implementation (`okf-web` CLI) |
@@ -148,9 +149,8 @@ The LLM-backed commands (`survey`, `questions`, `evaluate` without
   (unchanged pages cost nothing) — and automation belongs on API
   credentials.
 
-Prefer not to run the pipeline yourself? A fully hosted, commercial
-edition is developed as
-[www.okf-web.com](https://www.okf-web.com).
+Prefer not to run the pipeline yourself? A hosted edition, run as a
+service, is at [www.okf-web.com](https://www.okf-web.com).
 
 ## Hosting the companion
 

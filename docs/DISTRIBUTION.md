@@ -14,8 +14,8 @@ and [USER-GUIDE.md](USER-GUIDE.md).
   sitemaps.
 - **The tool (this repo)** distributes through package channels —
   this document.
-- **Operation at scale** is the hosted edition's concern (publicly
-  linked from `[project.urls]`); its channels are documented there.
+- **Operation at scale** is the hosted edition's concern (its website
+  is linked from `[project.urls]`); its channels are its own.
   What this repo owes those channels is an open core that stays
   embeddable: stdlib-first, no forced dependencies, a stable CLI.
 

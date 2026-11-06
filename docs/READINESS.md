@@ -130,9 +130,8 @@ bundle is, today, **zero engine fetches**. The MCP bridge is the only
 working consumption path — and the realistic MCP audience is the
 merchant's own team and agent developers, not shoppers, because a
 shopper does not mount a store's MCP server. Anything downstream that
-depends on engines consuming bundles (including efficacy-contingent
-billing in the hosted edition) is waiting on an event outside this
-project's control that has not begun.
+depends on engines consuming bundles is waiting on an event outside
+this project's control that has not begun.
 
 ### A4 — `okf_execute` will fetch anything the bundle declares
 
@@ -495,7 +494,3 @@ directory listings, and the first outreach all spend a
 first-impression, and the version of this project that arrives after
 R2 is a categorically stronger pitch than the one that arrives before
 it. R4 on demand.
-
-The hosted edition's commercial readiness is reviewed separately, in
-that repository; its central finding depends on **A3** and is
-sequenced behind R2 for the same reason.

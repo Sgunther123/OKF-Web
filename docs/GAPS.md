@@ -1,8 +1,8 @@
 # Gap analysis: search, state, access, freshness
 
-**Status:** ten findings, landing in phases (§3). Read-only sweeps of
-both editions on 2026-09-20, every load-bearing claim re-checked in
-the code; the user asked for the ten to be implemented as suggested.
+**Status:** ten findings, landing in phases (§3). Read-only sweeps on
+2026-09-20, every load-bearing claim re-checked in the code; the user
+asked for the ten to be implemented as suggested.
 The constraint throughout: nothing here adds a daemon, a database, a
 search server or a login system. Each fix is a few lines in an
 existing module, one more file in the dist, or a lint code.
@@ -15,13 +15,11 @@ existing module, one more file in the dist, or a lint code.
 - The human gate is a linter invariant (E010), backed by the producer
   write gate, quarantine, tool-disabled LLM runs, GET-only capabilities
   and the private-host guard.
-- EDGE-CASES E5 made every upstream pipeline write atomic and every
-  clock UTC. The hosted edition had those helpers via the pick and had
-  not adopted them (its X2 phase was waiting for exactly that).
+- EDGE-CASES E5 made every pipeline write atomic and every clock UTC.
 - Delta sync exists in principle: the manifest carries a sha256 per
   file, publish is lint-gated, drift costs zero tokens.
 - There is no assistant memory anywhere: the bridge keeps no query
-  history, hosted telemetry aggregates server logs without addresses.
+  history.
 
 ## 1. Findings
 
@@ -34,15 +32,14 @@ existing module, one more file in the dist, or a lint code.
 | 5 | Access | The actor helper passed a caller-supplied prefix through, so a batch approval could stamp the per-item tier | Strip any prefix before applying the caller's own; an optional reviewer allow-list on the root index with a lint warning and a refusal in `review` |
 | 6 | State | The bridge held a boot-time snapshot, returned unbounded bodies, and its not-found error listed every path | Re-read the bundle when its signature moves (per tool call); `top_k` ≤ 10; bodies clipped with a flag; nearest paths on a miss |
 | 7 | Freshness | Staleness was invisible to consumers without fetching every file | `stale_after` and `verified_at` per file in `manifest.json`; `dateModified`/`expires` on the JSON-LD `subjectOf` CreativeWork |
-| 8 | Access | Workflows carried no `permissions:` block and pinned by floating tag; the hosted deploy exposed its Cloudflare token to the build step | `permissions: contents: read`, SHA-pinned actions, step-scoped secret, pinned `wrangler` |
-| 9 | State (hosted) | The service layer used none of E5's helpers; the transaction log's hash chain broke under concurrent appends; demotion never reached the served dist | Adopt `write_atomic`, `utc_today`, `bundle_lock`; lock the ledgers; a publish job in the tick |
-| 10 | Search (hosted) | Per-tenant remote retrieval was advertised and did not exist | `okf-web mcp --url` — the planned remote-bundle mode, client-side over the published dist, so each tenant's served bundle is queryable without any server component |
+| 8 | Access | Workflows carried no `permissions:` block and pinned by floating tag | `permissions: contents: read`, SHA-pinned actions |
+| 9 | State | Findings specific to the hosted edition | Recorded and addressed in that edition's own review |
+| 10 | Search | Retrieval over a *published* bundle needed a clone of it | `okf-web mcp --url` — the planned remote-bundle mode, client-side over the published dist, so any served bundle is queryable without a server component |
 
 Two things deliberately not done, because they would cost the
 principle more than they return: no search service or vector database
 (the hashing embedder plus the static files cover the need), and no
-logins or API keys for merchants (the hosted edition's "artifacts, not
-logins" stance does real work).
+logins or API keys for merchants.
 
 ## 2. Measurements behind the decisions
 
@@ -95,10 +92,8 @@ the origin is down (`last_error`, shown by `okf_info`). The bridge
 takes any `source` with `signature()` and `load()`; `okf-web mcp --url
 <base>` wires it (`--cache-dir`, `--refresh-seconds`;
 `--allow-private-hosts` opens loopback and private origins for local
-testing). This is the hosted edition's per-tenant retrieval without a
-server component: every tenant's served dist is a `--url`. The
-authenticated multi-tenant transport the analysis called a decision
-was not built; nothing in the principle wants it.
+testing). Any served dist is a `--url`; no authenticated transport
+was built, and nothing in the principle wants it.
 
 ### Phase C — items 4 and 7 (2026-09-20)
 
@@ -120,9 +115,9 @@ additive keys lands with phase D's bump.
 ### Phase D — items 3 and 5, profile 1.11 (2026-09-20)
 
 `model.FRESHNESS_SLA_DAYS` and `default_stale_after`: the write gate
-(`surveyor.place_draft`, which the LLM surveyor, the feed importer and
-the hosted connectors all pass through) stamps the type's SLA from now
-when a producer left `stale_after` empty; Promotions keep their
+(`surveyor.place_draft`, which every producer passes through) stamps
+the type's SLA from now when a producer left `stale_after` empty;
+Promotions keep their
 end-date rule; lint W041 flags a stable concept of an SLA type without
 a date, and `review approve --stale-after` now dates a fresh concept
 too. `review._actor_for` strips any prefix typed into `--by` before
@@ -143,6 +138,4 @@ a trailing comment (`checkout` v4.4.0, `setup-python` v5.6.0,
 `upload-artifact` v4.6.2, `download-artifact` v4.3.0, the PyPI publish
 action at its `release/v1` head of the day), and a test refuses any
 `uses:` line that is not a 40-hex pin and any workflow without the
-permissions block. The hosted edition's half — the same two changes
-plus its deploy workflow's step-scoped Cloudflare secret and a pinned
-`wrangler` — lands natively there with item 9.
+permissions block.

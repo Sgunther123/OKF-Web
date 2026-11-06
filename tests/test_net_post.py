@@ -1,6 +1,6 @@
 """``safe_fetch`` with a body: a POST goes through the one door — the
 same host checks, pinned connection, caps and deadline as a GET — so
-the hosted edition's platform-app token exchanges never need a raw
+a platform app's token exchanges never need a raw
 ``urlopen``. A loopback server echoes what it received; the refusals
 are exact."""
 

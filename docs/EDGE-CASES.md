@@ -11,9 +11,8 @@ pins it. The implementation plan at the end groups the fixes into five
 phases, E1 to E5, in the order they should land. Nothing in this
 document is implemented yet.
 
-The hosted edition has its own review, `docs/HOSTED-EDGE-CASES.md` in
-that repository, covering the service layer; the phases here are picked
-into it as they land, in the standing way.
+The hosted edition has its own review in its own repository; the
+phases here reach it by cherry-pick as they land.
 
 ## 0. Method and scope
 
@@ -22,9 +21,8 @@ reproductions: the CLI and its pages for operator logic; the same code
 for cron and CI behavior; the security surface (the MCP bridge and its
 capability execution, signing, the subscription LLM path, frontmatter
 parsing, the surveyor's write gate, feed ingestion, the fetchers, the
-rendered pages); and, in the hosted repository, the service layer. The
-existing test suite (241 tests) was read first so that nothing already
-covered is reported. Findings the suite already prevents, and defenses
+rendered pages). The existing test suite (241 tests) was read first so
+that nothing already covered is reported. Findings the suite already prevents, and defenses
 found working, are listed at the end of each section rather than
 counted.
 
@@ -265,7 +263,7 @@ precondition or has a small blast radius.
 
 ## 5. Implementation plan
 
-Five phases, in this order. Each is one commit on the designated branch behind the full verification loop, with the tests named above landing with the code, then picked into the hosted edition on the user's word. Sizes are relative: S is a morning, M a day, L two.
+Five phases, in this order. Each is one commit on the designated branch behind the full verification loop, with the tests named above landing with the code. Sizes are relative: S is a morning, M a day, L two.
 
 ### E1 · Guardrails against data loss and mis-scoping (S)
 
@@ -314,9 +312,9 @@ Closes S1, S5, S6 and S7 as planned; `tests/test_edge_e2.py` adds 42 tests, `tes
 - S7's regex note: `logscan` skips lines over 16 KiB before matching; `model.py` and `structured.py` operate on bundle content the operator controls and were left alone.
 - S6: the probe reads `claude --help` once per client; a CLI without `--tools` or `--system-prompt` is refused with the reason (CLI exit 2), a missing binary is not (the first completion reports it), and `--strict-mcp-config` is added when the CLI offers it so user-configured MCP servers stay out too. The rules travel on `--system-prompt`; only the page text goes to stdin; every run happens in an empty temporary directory.
 
-**Corrected 2026-09-23 (found on the hosted edition's deployed machine).** From E2 until this correction no live `https://` fetch through `net` could succeed: the pinned TLS connection class listed `HTTPSConnection` before the pinned base, so `HTTPSConnection.__init__`'s own `super()` call landed on the pinned base without its `policy` argument and construction raised `TypeError`. Plain `http://` was unaffected, and every caller that treats a failed page as unreachable — the surveyor, drift, discover, the robots check — reported the failure as such rather than raising, which is how a fetch boundary that had never opened a TLS socket passed 42 tests. The bases are now the right way round (`_PinnedHTTPConnection` first, forwarding to `HTTPSConnection` through `super()`), and `tests/test_net_tls.py` builds the class, drives an `https://` fetch to its pinned `connect`, and completes a loopback TLS round trip against a certificate `openssl` makes for the test. The lesson is recorded in CLAUDE.md: a boundary that speaks TLS is verified over TLS, not only over plain HTTP.
+**Corrected 2026-09-23 (found in a deployment).** From E2 until this correction no live `https://` fetch through `net` could succeed: the pinned TLS connection class listed `HTTPSConnection` before the pinned base, so `HTTPSConnection.__init__`'s own `super()` call landed on the pinned base without its `policy` argument and construction raised `TypeError`. Plain `http://` was unaffected, and every caller that treats a failed page as unreachable — the surveyor, drift, discover, the robots check — reported the failure as such rather than raising, which is how a fetch boundary that had never opened a TLS socket passed 42 tests. The bases are now the right way round (`_PinnedHTTPConnection` first, forwarding to `HTTPSConnection` through `super()`), and `tests/test_net_tls.py` builds the class, drives an `https://` fetch to its pinned `connect`, and completes a loopback TLS round trip against a certificate `openssl` makes for the test. The lesson is recorded in CLAUDE.md: a boundary that speaks TLS is verified over TLS, not only over plain HTTP.
 
-**Extended 2026-09-24.** `safe_fetch` takes `method` (`GET` or `POST`) and `data`: the hosted edition's platform-app token exchanges (Shopify's and BigCommerce's OAuth code-for-token calls) are POSTs, and they now go through the one door — the host checks, the pinned connection, the caps and the deadline — instead of a raw `urlopen`. The caller sets the body's `Content-Type`; a redirected POST follows the stdlib rule (re-issued as a GET without its body, the target re-checked like any redirect); any other method is refused, and a body without `POST` is refused. `tests/test_net_post.py` echoes a POST through a loopback server and pins the refusals. Nothing else about the boundary changes.
+**Extended 2026-09-24.** `safe_fetch` takes `method` (`GET` or `POST`) and `data`: a platform app's OAuth code-for-token exchanges are POSTs, and they now go through the one door — the host checks, the pinned connection, the caps and the deadline — instead of a raw `urlopen`. The caller sets the body's `Content-Type`; a redirected POST follows the stdlib rule (re-issued as a GET without its body, the target re-checked like any redirect); any other method is refused, and a body without `POST` is refused. `tests/test_net_post.py` echoes a POST through a loopback server and pins the refusals. Nothing else about the boundary changes.
 
 **Extended 2026-09-30 (found while re-confirming the hosting recipes, HOSTING §8).** `safe_fetch` asks for `Accept-Encoding: identity` and, when a server compresses anyway (objects stored pre-gzipped at rest, a proxy that compresses unconditionally), decodes gzip and deflate under the same byte cap: an inflating body past the cap is `FetchTooLarge`, any other encoding is a `FetchError`, and the returned headers no longer claim an encoding the body does not carry. Three neighbours moved with it. `publisher.check_robots` reads a 4xx `robots.txt` as no restrictions (RFC 9309) and only a 5xx or a transport failure as inconclusive, so a store without the file no longer gets a warning on every publish; `discover` names what the well-known location answered (`HTTP 403` with a bot-gate hint, `HTTP 402`, a 200 that is not JSON) instead of one line for every absence; and `publisher._origin` drops a default port and user information, so `https://store.example:443` binds like `https://store.example` while `www` and the apex stay distinct, as they are to a browser. `tests/test_net_encoding.py` pins the encodings; `tests/test_hosting.py` the robots statuses, the named status and the origins.
 
@@ -361,10 +359,9 @@ first: security, logic and correctness, architecture and test adequacy,
 each as a separate read of every module, every finding confirmed by a
 reproduction on a scratch copy or an unambiguous read of the code. The
 plan groups the fixes into seven upstream phases, U1 to U7, ordered by
-what reaches an operator or a merchant first; the hosted edition has its
-own phases in its own register. The findings each phase closes are
-named in its entry below, with one line per finding, so the register
-stays self-contained.
+what reaches an operator or a merchant first. The findings each phase
+closes are named in its entry below, with one line per finding, so the
+register stays self-contained.
 
 ### U1 · Rendered truth (M) — landed 2026-10-23
 
@@ -706,10 +703,9 @@ Tests: `tests/test_decomposition.py` (16). Lint 0/0; dry-run unchanged.
 
 ### Signing without a browser (medium) — fixed 2026-11-05
 
-Found while planning the hosted edition's first rehearsed audit, whose
-conclusion countersigns through `sign_manifest` on a machine reached
-over SSH, with no display. `_run` started `sigstore sign` with its
-output captured. Without a browser, sigstore falls back to its
+Found while planning a countersigning run through `sign_manifest` on
+a machine reached over SSH, with no display. `_run` started `sigstore
+sign` with its output captured. Without a browser, sigstore falls back to its
 out-of-band login: it prints a link on standard error and waits for the
 code that page shows. Captured, the link never reached the operator and
 the prompt never appeared; the signer waited out its ten-minute timeout

@@ -103,10 +103,8 @@ human cost:
 
 ## Elsewhere
 
-Capabilities that need a service rather than a CLI — a web review
-queue, scorecard history and drift dashboards, catalog connectors
-(Shopify/BigCommerce) — live in the
-[hosted edition](https://www.okf-web.com). The
-split rule stays what it has always been: anything a single merchant
-needs to publish a truthful bundle is here, open source; anything
-that only makes sense operated for many merchants at once is there.
+Capabilities that need a service rather than a CLI are not this
+repository's. The split rule stays what it has always been: anything
+a single merchant needs to publish a truthful bundle is here, open
+source; anything that only makes sense operated for many merchants at
+once belongs to a hosted service.

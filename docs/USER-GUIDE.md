@@ -664,10 +664,9 @@ day, so two machines in different zones agree on what is fresh.
 
 **Q: What if I don't want to run any of this myself?**
 A: That's a fair choice — the open tool will always be able to do
-everything, but running it is a job. A fully hosted, commercial
-edition (managed drafting, scheduled scorecards, drift alerts, and
-hosting) is developed as
-[www.okf-web.com](https://www.okf-web.com).
+everything, but running it is a job. A hosted edition (managed
+drafting, scheduled scorecards, drift alerts, and hosting) is run as
+a service at [www.okf-web.com](https://www.okf-web.com).
 
 **Q: Where do I get help?**
 A: Open an issue on this project's GitHub page — include the command

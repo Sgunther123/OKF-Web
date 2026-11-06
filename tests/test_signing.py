@@ -318,8 +318,7 @@ def test_only_the_signing_module_runs_sigstore_to_sign():
 
 # --- the signer a certificate names ------------------------------------------
 
-#: A real Fulcio leaf certificate (public: Rekor entry 3705121167), the
-#: countersignature of the hosted edition's audit rehearsal on 2026-11-06,
+#: A real Fulcio leaf certificate (public: Rekor entry 3705121167),
 #: signed as info@okf-web.com through Google.
 _FULCIO_LEAF = (
     "MIIDBzCCAoygAwIBAgIUT7gPnNnWwavf2Moe+MzV5ZBd7GIwCgYIKoZIzj0EAwMwNzEVMBMG"
