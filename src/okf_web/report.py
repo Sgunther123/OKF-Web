@@ -1,8 +1,9 @@
 """The answerability report: the scorecard as a shareable artifact.
 
 The evaluation already answers the question every merchant actually
-asks — *can an AI answer my shoppers' questions?* — and already
-carries the raw-HTML baseline quantifying the lift. This module
+asks — *can an AI answer my shoppers' questions?* — and, when the run
+measured it (``evaluate --baseline``), the same questions put to the
+store's own pages: the before beside the after. This module
 renders that measurement as a single self-contained HTML page a
 non-technical owner can read and forward (READINESS R2): headline
 numbers, per-topic coverage, the measured gaps, and the trust posture,
@@ -57,6 +58,7 @@ __all__ = [
     "judged_verdicts",
     "question_blocks",
     "provenance_sentence",
+    "reading_tile",
     "build_report",
     "write_report",
 ]
@@ -330,6 +332,23 @@ def _site_name(site: str | None) -> str:
         return ""
 
 
+def reading_tile(metrics: dict, baseline: dict) -> tuple[str, str, str] | None:
+    """The reading-cost comparison as ``(value, label, detail)``, or
+    None when the scorecard carries no measured baseline. The ratio is
+    stated as it came out: one decimal, and "more" when the bundle's
+    context is the larger one. A comparison is a measurement, not a
+    slogan, and it may go either way."""
+    ours, theirs = metrics.get("context_tokens_mean"), baseline.get("context_tokens_mean")
+    if not (isinstance(ours, (int, float)) and isinstance(theirs, (int, float))):
+        return None
+    if isinstance(ours, bool) or isinstance(theirs, bool) or ours <= 0 or theirs <= 0:
+        return None
+    detail = f"{ours:,} vs {theirs:,} tokens per question"
+    if theirs >= ours:
+        return (f"{theirs / ours:.1f}× less", "reading than the store's own pages", detail)
+    return (f"{ours / theirs:.1f}× more", "reading than the store's own pages", detail)
+
+
 def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
     """Render the bundle's scorecard as a self-contained HTML page."""
     scorecard = _scorecard(bundle)
@@ -372,8 +391,8 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
             tiles.append(
                 tile(
                     _pct(baseline["coverage"]),
-                    "answered from the site alone",
-                    str(baseline.get("condition") or "raw site pages"),
+                    "answered from the store's own pages",
+                    str(baseline.get("condition") or "the store's pages, same questions"),
                 )
             )
         if metrics.get("citability") is not None:
@@ -401,16 +420,9 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
                 f"{metrics.get('paraphrase_questions', 0)} paraphrased questions",
             )
         )
-    if metrics.get("context_tokens_mean") and baseline.get("context_tokens_mean"):
-        ratio = baseline["context_tokens_mean"] / max(1, metrics["context_tokens_mean"])
-        tiles.append(
-            tile(
-                f"{ratio:.0f}× less",
-                "reading for the same answers",
-                f"{metrics['context_tokens_mean']:,} vs "
-                f"{baseline['context_tokens_mean']:,} tokens per question",
-            )
-        )
+    reading = reading_tile(metrics, baseline)
+    if reading:
+        tiles.append(tile(*reading))
 
     rows = []
     measure_key = "answered" if full_run else "found"
@@ -477,8 +489,9 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
             f"{_pct(metrics['coverage'])} of a fixed set of realistic shopper "
             "questions"
             + (
-                f", against {_pct(baseline['coverage'])} when reading the "
-                "website the way engines otherwise do"
+                f", against {_pct(baseline['coverage'])} from the store's "
+                "own pages read as text, with the same questions and the "
+                "same judge"
                 if baseline.get("coverage") is not None
                 else ""
             )

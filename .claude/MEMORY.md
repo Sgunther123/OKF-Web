@@ -4,8 +4,60 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-06 — **a question set measures the store it was
-written from** (on the user's "Implement as recommended", after the
+Last updated: 2026-11-10 — **a comparison is measured or absent** (on
+the user's request to make the proof real, after an audit of the
+reference numbers the same day). The audit: across the seven versions
+of the example scorecard (`57c59af` to `6c43803`) its raw-page
+comparison read 41,780 tokens every time while its page count rose
+from 12 to 18, its judged coverage was always all but two questions
+(19 of 21 to 37 of 39), and its `generated.at` stamps postdate the
+commits that carry them. No command ever computed the comparison and
+the store is fictional: the judged figures and the comparison were
+written with the example and extended by hand, and only the dry
+run's figures were ever measured. Both were being quoted as
+measurements (DESIGN, EVALUATION, the example's report). Put right
+here: `okf_web.baseline` and `evaluate --baseline` (`--baseline-urls
+FILE`, `--baseline-limit N`, `--allow-private-hosts`) put the same
+questions to the store's own pages: the pages the bundle's concepts
+cite as `resource`, those behind the bundle's own retrieved concepts
+first, 50 by default, fetched through the page policy and read as
+text (`html_to_text`, cut at 40,000 characters a page), with
+`evaluator.evaluate` run unchanged over a view whose concepts are the
+pages (`pages_view`: the same retriever arithmetic, `top_k`, answer
+prompt and judge; the bundle's indexes carried, so its language and
+`not_applicable` hold on both sides). `Baseline.attach` puts the
+record on the report and `write_scorecard` stores it under
+`x_geo.baseline`, the pages read listed in the body as inert code
+spans; a dry run records the retrieval half only; no readable page is
+`BaselineError` (a refusal, exit 2), never a zero; the command
+measures the pages before the bundle's own run, so a refusal costs no
+call. The report shows a before and after only when one was measured
+and states the reading comparison as it came out
+(`report.reading_tile`: one decimal, "more" when the bundle reads
+more). The example scorecard loses its comparison and opens by
+saying its judged figures were written with the example and are not
+the record of a run (its description says the same); DESIGN and
+EVALUATION §3 describe the measurement instead of quoting the
+figures; EXPANSION and READINESS carry dated corrections. Tests:
+`test_baseline.py` (15: the pages and their order, the limit, named
+pages, the dry check equal to the evaluator's own over the view, a
+raised relevance floor holding for the pages too,
+unreadable pages and both refusals, the cut, a judged run graded by
+the evaluator's prompts with both identities recorded, language and
+declarations carried, a scorecard with a comparison only when
+measured and its inert lines, the example without one, the report's
+before and after, the reading comparison either way, the command
+over a real loopback HTTP server, the attached copy); the error
+table gains `BaselineError`. Suite **553** without `build`, 554 with it
+(this container's 3.11 has it now, its 3.10 venv does not) and in CI. Lint 0/0; dry-run unchanged (39 questions, 1.0, 2,406
+tokens, 0.897). Open, the maintainer's choice: a real judged run of
+the example (it needs a model), or its scorecard stays labeled as it
+now is. Positions: `main` == `25b33c5`; the branch two ahead
+(`bfbb0b7`, the question-set guards, and this commit), which move to
+`main` on the user's word.
+
+On 2026-11-06, **a question set measures the store it was
+written from** (`bfbb0b7`; on the user's "Implement as recommended", after the
 review of the audit rehearsal's report: a two-page site that is not
 a store had been measured against 39 generated questions that were
 the generation prompt's own examples, tents and jackets copied almost
@@ -47,8 +99,6 @@ numbers do not move). Docs: EVALUATION §1 ("Fit"), GEO-PROFILE (§2
 key, §9 W044, §10 1.13), USER-GUIDE Step 5 and two troubleshooting
 entries, API.md, DESIGN, CLAUDE.md invariant. The hosted edition's
 intake classification and holds build on this after the pick.
-Positions: `main` == `25b33c5`; the branch one ahead with this
-commit, which moves to `main` on the user's word.
 
 On 2026-11-06, **public** (`25b33c5`, MEMORY-only; on
 the user's "Implement Phase 5 of the publication plan"). The user
@@ -917,7 +967,8 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **537 passing** locally, 538 in CI where `build` is installed and
+- Test suite: **553 passing** without `build`, 554 where it is installed (CI,
+  and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
   the rolling freshness canary (lints the example at `today + 60d`) — when
@@ -949,11 +1000,13 @@ review.
 - `evaluate bundle-example --dry-run` (lexical retriever) reference numbers:
   **39 questions, hit rate 1.0, mean context 2,406 tokens** (2,407
   before GAPS phase A's relevance floor dropped one weak paraphrase
-  hit; 2,380 pre-F5 — re-measured each time). The scorecard
+  hit; 2,380 pre-F5 — re-measured each time). The example scorecard
   (`bundle-example/evaluations/geo-scorecard.md`) records coverage/groundedness
-  **0.949** and citability **0.923**, against a raw-page baseline of **0.615 at
-  41,780 tokens over 18 pages** (≈17× context reduction). Recorded knowledge
-  gaps: `pol-3`, `cap-3`.
+  0.949 and citability 0.923 **as figures written with the example, never
+  measured** (its body says so; the audit of 2026-11-10), and carries no
+  baseline: its store is fictional, so there are no pages to read. Its
+  recorded gaps, `pol-3` and `cap-3`, were designed into the example. The
+  measured numbers of this repository are the dry run's, above.
 - Profile surface: **14 concept types** in the GEO-PROFILE type table
   (13 merchant-facing + the meta `GEO Scorecard`); **13 question archetypes**
   (`evaluator.ARCHETYPES`): discovery, product_fact, comparison, policy,
@@ -991,8 +1044,9 @@ review.
   push. As of this commit: `main` == `25b33c5` (the user's "Push the
   commit directly to main" of 2026-11-06, run 3 green first: a
   fast-forward from `2814339` over `25b33c5`, the flip recorded), and
-  the branch is one ahead with this commit (the question-set guards,
-  profile 1.13), which moves to `main` on the user's word. Before
+  the branch is two ahead (`bfbb0b7`, the question-set guards,
+  profile 1.13, and this commit, the measured baseline), which move
+  to `main` on the user's word. Before
   that, `main` == `2814339` (the user's "Push the commit directly to
   main" of 2026-11-06, the first under the re-created ruleset "Branch
   Protection", run 2 green first: a fast-forward from `3188302`, the
@@ -1044,7 +1098,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Measure a store against questions written from it: grounded generation, negative probes, provenance, declared applicability (profile 1.13)
+(this commit)  Measure the before: the same questions put to the store's own pages, and the example's typed comparison removed
+bfbb0b7  Measure a store against questions written from it: grounded generation, negative probes, provenance, declared applicability (profile 1.13)
 25b33c5  Record the repository made public, and the answer to the Actions question (MEMORY-only)
 2814339  Record the repository founded twice and its first CI run (MEMORY-only)
 3188302  Re-add the two continuity files on the history rewritten for publication, with every sha translated
@@ -1253,6 +1308,9 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
   rehearsal, then PyPI registration and `git tag v0.2.0` + push
   (DISTRIBUTION §6; release.yml publishes via Trusted Publishing).
 - Nothing is code-pending here: all four plans are complete.
+- The example scorecard's judged figures are labeled as written with
+  the example (2026-11-10). A real judged run would replace them and
+  needs a model: the maintainer's choice of where it runs.
 - `okf-web mcp --url` (remote-bundle mode, DISTRIBUTION §4) shipped as
   GAPS item 10 (`40a176e`); nothing planned remains unscheduled here.
 
@@ -1262,8 +1320,10 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
   countersignature conventions §7, discovery delegation §8, lint table §9,
   version history §10).
 - Architecture and shipped-feature list: `docs/DESIGN.md`.
-- Evaluation method and CI gating: `docs/EVALUATION.md`; measurement
-  methodology: `docs/MEASUREMENT.md`.
+- Evaluation method and CI gating: `docs/EVALUATION.md` (§3 also holds
+  the measured before and after: `evaluate --baseline`,
+  `src/okf_web/baseline.py`); measurement methodology:
+  `docs/MEASUREMENT.md`.
 - Plans: `docs/ROADMAP.md` and `docs/EXPANSION.md` (both complete, kept for
   rationale); `docs/FIDELITY.md` (OKF-spec audit; F1–F5 complete);
   `docs/DISTRIBUTION.md` (channel plan; §4 makes MCP the fast consumption

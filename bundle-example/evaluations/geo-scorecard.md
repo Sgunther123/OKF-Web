@@ -1,7 +1,7 @@
 ---
 type: GEO Scorecard
 title: Answerability evaluation — 2026-08-17
-description: Machine-generated answerability scorecard for this bundle; see x_geo.metrics for the numbers.
+description: Example answerability scorecard for the fictional store; its judged figures were written with the example, not measured (see the note in the body).
 tags: [evaluation, geo]
 status: stable
 stale_after: 2027-09-16T00:00:00Z
@@ -33,11 +33,15 @@ x_geo:
       compliance: { questions: 3, answered: 3 }
       local_availability: { questions: 3, answered: 3 }
       procurement: { questions: 3, answered: 3 }
-  baseline:
-    condition: raw site HTML (18 pages, same questions)
-    context_tokens_mean: 41780
-    coverage: 0.615
 ---
+
+This scorecard belongs to the fictional example store and shows what a
+judged scorecard contains. Its retrieval figures are reproduced by
+`okf-web evaluate bundle-example --dry-run`. Its judged figures
+(coverage, groundedness, citability and the verdicts below) were
+written with the example and are not the record of a run. It carries
+no comparison with the store's own pages: a fictional store has none
+to read. On a real store, `okf-web evaluate --baseline` measures one.
 
 # Results
 
@@ -96,20 +100,3 @@ Note on disc-3: the bundle answers correctly that the store does
   judge marked the answer incomplete: the concept does not say where in
   the confirmation email the access token lives. Suggested fix queued
   for the next survey pass.
-
-# Baseline comparison
-
-Answering the same 39 questions from raw site HTML consumed a mean of
-41,780 context tokens per question versus 2,407 from this bundle
-(17× reduction) and covered 24/39 questions versus 37/39. The largest
-raw-HTML failures were capability questions (no API surface is
-described in page HTML), policy edge cases buried in accordion UI,
-fit questions needing facts joined across a PDF spec sheet and the
-size guide, and compliance proof: materials appear on the product
-page (pass-1), but certification evidence and origin live in linked
-PDFs no page states directly (pass-2/pass-3 — bundle-only). The
-store page answers address/hours and pickup (loc-1/loc-2) in both
-conditions; shelf-level availability (loc-3) is capability-only.
-The trade page answers eligibility and payment terms (rfq-1/rfq-2)
-in both conditions; the per-SKU minimum-plus-lead-time join (rfq-3)
-is bundle-only.

@@ -265,6 +265,13 @@ class Report:
     # archetype does not apply to this business (profile 1.13):
     # archetype -> how many. Recorded, never counted as gaps.
     not_applicable: dict[str, int] = field(default_factory=dict)
+    # The same questions put to the store's own pages, when the caller
+    # measured that (`baseline.measure`, attached by `Baseline.attach`):
+    # the record the scorecard stores, the pages read and the ones that
+    # could not be. Empty when no baseline was measured; never typed.
+    baseline: dict = field(default_factory=dict)
+    baseline_pages: list[str] = field(default_factory=list)
+    baseline_unreadable: list[str] = field(default_factory=list)
 
     def _fraction(self, predicate) -> float:
         if not self.results:
@@ -931,6 +938,14 @@ def evaluate(
 SCORECARD_PATH = "evaluations/geo-scorecard.md"
 
 
+def _inert_line(text: str) -> str:
+    """One line of untrusted text for a code span in the scorecard's
+    body: no line break, no backtick, so it cannot end the span or start
+    markup of its own (a page address comes from a concept's
+    ``resource``, a failure reason from the network)."""
+    return " ".join(str(text).split()).replace("`", "'")
+
+
 def _is_judged_scorecard(path: Path) -> bool:
     if not path.is_file():
         return False
@@ -994,6 +1009,10 @@ def write_scorecard(
         "generated": {"by": report.generated_by, "at": utc_instant(now)},
         "x_geo": {"risk": "c", "metrics": metrics, "evaluated": evaluated},
     }
+    if report.baseline:
+        # Only what `baseline.measure` returned in this run: a scorecard
+        # never carries a comparison its own run did not make.
+        fm["x_geo"]["baseline"] = report.baseline
     lines = ["# Results", ""]
     lines.append("| id | archetype | retrieved | paraphrase | answered | cited |")
     lines.append("| --- | --- | --- | --- | --- | --- |")
@@ -1019,6 +1038,22 @@ def write_scorecard(
             lines.append(f"* `{r.question.id}` ({r.question.archetype}): {r.question.question}")
     else:
         lines.append("None found in this run.")
+    if report.baseline:
+        lines += ["", "# Store pages read for the comparison", ""]
+        lines.append(
+            "The same questions were put to these pages of the store, read "
+            "as text, with the same retriever"
+            + (
+                "; a dry run records no verdict for either side."
+                if report.dry_run
+                else ", the same answer prompt and the same judge."
+            )
+        )
+        lines.append("")
+        lines += [f"* `{_inert_line(url)}`" for url in report.baseline_pages]
+        if report.baseline_unreadable:
+            lines += ["", "Could not be read:", ""]
+            lines += [f"* `{_inert_line(item)}`" for item in report.baseline_unreadable]
     body = "\n" + "\n".join(lines) + "\n"
 
     out.parent.mkdir(parents=True, exist_ok=True)

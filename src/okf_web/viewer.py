@@ -434,7 +434,7 @@ def _render_tiles(v: _ViewModel) -> list[str]:
         tiles.append(_tile(
             f"{round(100 * float(metrics['coverage']))}%",
             "shopper questions answered from the bundle",
-            (f"{round(100 * float(baseline['coverage']))}% from the website alone"
+            (f"{round(100 * float(baseline['coverage']))}% from the store's own pages"
              if baseline.get("coverage") is not None else
              f"of {metrics.get('questions', 0)} measured questions"),
         ))

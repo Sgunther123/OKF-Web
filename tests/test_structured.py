@@ -154,8 +154,9 @@ def test_report_renders_scorecard_and_trust_posture(example_bundle, tmp_path):
     text = out.read_text()
     assert "Alpine Peak Outfitters" in text
     assert "95%" in text          # coverage 0.949
-    assert "62%" in text          # baseline 0.615
-    assert "17× less" in text     # 41,780 / 2,407
+    # No before-and-after: the example's scorecard records no measured
+    # baseline (its store is fictional), so the report shows none.
+    assert "own pages" not in text and "× less" not in text
     assert "Returns, warranty and policies" in text
     assert "read and approved individually by a named person" in text
     assert "warranty" in text     # the measured gap surfaces

@@ -137,8 +137,9 @@ implementation.
    unchanged pages cost zero LLM tokens; consuming agents use
    progressive disclosure (`index.md` → section → concept) and
    `manifest.json` sha256s for delta sync; the scorecard reports
-   context-tokens-per-answer against a raw-HTML baseline (17× cheaper
-   in the reference bundle).
+   context tokens per question and, when the run measured it
+   (`evaluate --baseline`), the same figure for the store's own pages
+   read as text.
 
 ## 4. The companion bundle
 
@@ -523,8 +524,11 @@ A 500-product store, ~50 KB of extractable text per page:
 | Weekly upkeep, ~3% pages changed | full re-crawl per engine, per question | ~15 re-extractions total |
 | Freshness check | re-crawl | 1 GET of `manifest.json` |
 
-The reference scorecard measures 41,780 → 2,407 mean context tokens
-per answered question (17×) with coverage rising from 0.615 to 0.949.
+The table is a design estimate, not a measurement. The measured
+comparison is per store: `okf-web evaluate --baseline` puts the same
+questions to the store's own pages, read as text, and the scorecard
+records both sides (EVALUATION §3). The reference bundle's store is
+fictional, so it carries none.
 The asymmetry is the point: the merchant pays extraction **once**;
 every engine, every question, every day inherits the savings — and
 the citations.

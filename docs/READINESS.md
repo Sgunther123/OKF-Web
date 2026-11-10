@@ -19,6 +19,15 @@ that will break the build on a calendar tick. The remediation plan in
 valuable to a merchant on day one *without* assuming any engine ever
 shows up.
 
+> **Correction, 2026-11-10.** Two statements below took the example
+> scorecard's figures for measurements: A7's "self-graded 0.949
+> coverage" and R2's "already carries the raw-HTML baseline". Neither
+> was the record of a run. The example's judged figures and its
+> raw-page comparison were written with the example and extended by
+> hand; the comparison is removed, the scorecard says what its judged
+> figures are, and `okf-web evaluate --baseline` measures the before
+> and after on a real store (EVALUATION §3).
+
 This document is a snapshot of a review, not a standing contract. Its
 peer for spec conformance is [FIDELITY.md](FIDELITY.md); where the two
 overlap, FIDELITY governs conformance and this file governs readiness.

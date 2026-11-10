@@ -25,6 +25,7 @@ from pathlib import Path
 
 import yaml
 
+from . import baseline as baseline_mod
 from . import drift as drift_mod
 from . import report as report_mod
 from . import evaluator, init, linter, packs, publisher, review, signing, surveyor
@@ -394,6 +395,17 @@ def cmd_evaluate(args) -> int:
     judge = None
     if llm is not None and args.judge_model and args.judge_model != args.model:
         judge = _llm(args, model=args.judge_model)
+    measured = None
+    if args.baseline or args.baseline_urls:
+        # The pages first: a store none of whose pages can be read is
+        # refused before the bundle's own run spends a single call.
+        measured = baseline_mod.measure(
+            bundle, questions, llm=llm, judge=judge, top_k=args.top_k,
+            urls=baseline_mod.read_urls(args.baseline_urls) if args.baseline_urls else None,
+            limit=args.baseline_limit, retriever=retriever,
+            min_relevance=args.min_relevance,
+            allow_private=args.allow_private_hosts,
+        )
     report = evaluator.evaluate(
         bundle, questions, llm=llm, top_k=args.top_k, retriever=retriever,
         judge=judge,
@@ -407,6 +419,9 @@ def cmd_evaluate(args) -> int:
         print(f"\nknowledge gaps ({len(gaps)}):")
         for r in gaps:
             print(f"  {r.question.id} [{r.question.archetype}] {r.question.question}")
+    if measured is not None:
+        measured.attach(report)
+        _print_baseline(measured)
     if args.write_scorecard:
         report.view = "published" if args.published else "working"
         out = evaluator.write_scorecard(bundle, report, force=args.force)
@@ -426,6 +441,27 @@ def cmd_evaluate(args) -> int:
         )
         failed = True
     return 1 if failed else 0
+
+
+def _print_baseline(measured) -> None:
+    """What the store's own pages gave for the same questions."""
+    record = measured.record
+    print(f"\nbaseline: {record['condition']}")
+    for key in ("retrieval_hit_rate", "context_tokens_mean", "coverage", "groundedness"):
+        if key in record:
+            print(f"  {key}: {record[key]}")
+    if "pages_available" in record:
+        print(
+            f"  {record['pages_available']} page(s) are cited; "
+            f"{len(measured.pages) + len(measured.unreadable)} were tried "
+            "(--baseline-limit)"
+        )
+    if measured.unreadable:
+        print(f"  {len(measured.unreadable)} page(s) could not be read:")
+        for url, why in measured.unreadable[:5]:
+            print(f"    {url}: {why}")
+        if len(measured.unreadable) > 5:
+            print(f"    and {len(measured.unreadable) - 5} more")
 
 
 def cmd_publish(args) -> int:
@@ -952,6 +988,29 @@ def _add_evaluate_parser(sub) -> None:
     )
     _add_retriever_args(p)
     _add_llm_args(p)
+    p.add_argument(
+        "--baseline",
+        action="store_true",
+        help="also put the same questions to the store's own pages (the "
+        "pages the bundle's concepts cite, read as text) with the same "
+        "retriever and judge, and record the comparison in the scorecard: "
+        "the measured before and after",
+    )
+    p.add_argument(
+        "--baseline-urls",
+        metavar="FILE",
+        help="measure the baseline over these page addresses (one per line) "
+        "instead of the pages the bundle cites; implies --baseline",
+    )
+    p.add_argument(
+        "--baseline-limit",
+        type=int,
+        default=baseline_mod.PAGE_LIMIT,
+        help="read at most this many pages for the baseline (default "
+        f"{baseline_mod.PAGE_LIMIT}); the pages behind the bundle's own "
+        "answers are taken first",
+    )
+    _add_network_args(p)
     p.add_argument("--write-scorecard", action="store_true")
     p.add_argument(
         "--force",

@@ -281,6 +281,20 @@ code. Review 2026-10-21, phase U4.
 | `LabelError` | class | a label the tool will not accept (refusal) |
 | `SIGNATURE_NAME` | str | `manifest.json.sigstore.json` |
 
+### `okf_web.baseline`
+
+| Name | Kind | Meaning |
+| --- | --- | --- |
+| `measure` | function | the same questions put to the store's own pages, by the evaluator's own harness |
+| `Baseline` | class | one measurement: the record the scorecard stores, the pages read, the unreadable ones; `attach(report)` |
+| `source_pages` | function | the http(s) pages a bundle's concepts cite, the preferred concepts' first |
+| `pages_view` | function | pages as a bundle the evaluator runs over unchanged |
+| `read_urls` | function | page addresses from a file, one per line |
+| `BaselineError` | class | no page cited, or none readable (refusal) |
+| `PAGE_LIMIT` | int | pages one baseline reads by default (50) |
+| `PAGE_CHARS_MAX` | int | characters of a page's text kept (40,000) |
+| `PAGE_TYPE` | str | the type the page stand-ins carry (`Web Page`) |
+
 ### `okf_web.drift`
 
 | Name | Kind | Meaning |
@@ -324,6 +338,7 @@ code. Review 2026-10-21, phase U4.
 | --- | --- | --- |
 | `build_report` | function | the merchant report from the recorded scorecard |
 | `provenance_sentence` | function | where the committed question set came from, as the report states it |
+| `reading_tile` | function | the reading-cost comparison with a measured baseline, stated as it came out (None without one) |
 | `write_report` | function | the report into the bundle |
 | `scorecard_gaps` | function | the gap ids a scorecard records |
 | `judged_verdicts` | function | the per-question verdicts a scorecard records |

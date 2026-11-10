@@ -234,6 +234,19 @@ Tip: add `--published` to the evaluate command to grade only what's
 actually published — unapproved drafts are excluded, which is exactly
 what AI assistants really see. Use that mode for the score you trust.
 
+Want to know what the fact folder adds over your website as it is?
+Add `--baseline` to the same command:
+
+```
+okf-web evaluate my-store --baseline --write-scorecard --llm claude-code
+```
+
+The tool then asks the same questions of your own web pages (the
+pages your fact sheets came from, read the way a visitor sees them)
+and records both results side by side: the before and the after,
+measured on your store, never estimated. If your pages already answer
+a question, the report will say that too.
+
 Then turn the scorecard into something you can actually show someone:
 
 ```
@@ -725,6 +738,7 @@ technical docs live alongside this guide:
 | Draft fact sheets from your site | `okf-web survey my-store --sitemap https://yourstore.com --limit 25 --llm claude-code` |
 | Do the whole first run at once (free) | `okf-web init my-store --feed products.csv --by you@store.com --pack outdoor` |
 | Get the report card | `okf-web evaluate my-store --write-scorecard --llm claude-code` |
+| Get the report card with the before and after (your own pages, same questions) | `okf-web evaluate my-store --baseline --write-scorecard --llm claude-code` |
 | Turn it into a shareable page (free) | `okf-web report my-store` |
 | See what's in the folder, how AI uses it, and who read it (free) | `okf-web view my-store --access-log access.log` |
 | Build the publishable folder | `okf-web publish my-store dist` |

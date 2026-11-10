@@ -71,7 +71,10 @@ commit histories, environment quirks, and the user's operating rhythm).
 5. Never hand-edit measured numbers. If behavior changes them, re-measure and
    update `bundle-example/evaluations/geo-scorecard.md` plus every doc echoing
    them (DESIGN, EVALUATION, EXPANSION, MEASUREMENT) from actual output —
-   the scorecard proves the lift before the docs claim it.
+   the scorecard proves the lift before the docs claim it. The numbers
+   this loop measures are the dry run's; the example scorecard's judged
+   figures were written with the example (its body says so) and are
+   never quoted as measurements.
 
 ## Invariants (do not break)
 
@@ -205,6 +208,18 @@ commit histories, environment quirks, and the user's operating rhythm).
   lives at `evaluations/geo-scorecard.<lang>.md`. Judge verdicts are
   JSON booleans or yes/true (`evaluator._verdict_flag`); nothing else
   counts as answered.
+- **A comparison is measured or absent** (EVALUATION §3; the audit of
+  2026-11-10): `x_geo.baseline` reaches a scorecard only through
+  `write_scorecard`, from a `baseline.measure` of the same run
+  (`evaluate --baseline`): the store's own pages, read as text
+  through the one fetch door, searched and graded by
+  `evaluator.evaluate` unchanged. No readable page is
+  `BaselineError` (exit 2), never a zero; a dry run records the
+  retrieval half only; the report states the reading comparison as
+  it came out, either way. Never type a baseline into a scorecard,
+  and never quote the example's judged figures as measurements: its
+  store is fictional, it carries no baseline, and its scorecard says
+  what its figures are.
 - **A question set measures the store it was written from** (EVALUATION
   §1, profile 1.13): generation grounds every question in the outline,
   is told which archetypes the bundle's types support

@@ -145,7 +145,7 @@ With `N` questions, `R_q` the result for question `q`:
 | `paraphrase_agreement` | fraction whose paraphrase retrieval shares ≥1 concept with the curated phrasing's — the honest phrasing-gap number: did shopper words find the *same* knowledge? (reference bundle: 0.897) |
 | `trust_mix` | concept counts by trust tier — how much a person actually read (`human-reviewed`) vs. attested wholesale (`human-attested`) vs. machine-checked |
 | `by_archetype` | `{questions, found}` per archetype in every run (how many questions retrieved knowledge), plus `answered` in a judged run only: a dry run records no verdict, so nothing downstream can read a retrieval pass as one (L-U1) |
-| `baseline.*` | optional same-questions run over raw site HTML: `coverage`, `context_tokens_mean` |
+| `baseline.*` | present only when the run measured it (`evaluate --baseline`): the same questions put to the store's own pages, read as text, with the same retriever and judge — `condition`, `pages`, `retrieval_hit_rate`, `context_tokens_mean`, and in a judged run `coverage` and `groundedness` (`pages_unreadable`, `pages_available` and `pages_cut` when they apply) |
 
 Grading can be decoupled from answering: `evaluate --judge-model M`
 grades with a different model than the answerer, and the scorecard's
@@ -154,10 +154,39 @@ grades with a different model than the answerer, and the scorecard's
 suffix, that the run was self-graded. Self-graded coverage is
 evidence, not proof (READINESS A7/R3).
 
-**GEO lift** = bundle coverage − baseline coverage, and the token
-ratio `baseline.context_tokens_mean / context_tokens_mean`. The
-reference bundle reports 0.615 → 0.949 coverage and a 17× token
-reduction. B2B-heavy stores should treat the `procurement` archetype
+**GEO lift** = bundle coverage − baseline coverage, with the reading
+cost of each side beside it (`context_tokens_mean`). Both sides come
+from one run, never from an estimate:
+
+```bash
+okf-web evaluate my-bundle --baseline --write-scorecard
+```
+
+puts the same questions to the store's own pages — the pages the
+bundle's concepts cite as their `resource`, the ones behind the
+bundle's own answers first, fifty unless `--baseline-limit` says
+otherwise, or the pages named in `--baseline-urls FILE` — fetched
+through the one fetch door and read as the text a visitor sees. The
+evaluator's own harness then runs over them unchanged: the same
+retriever, the same `top_k`, and in a judged run the same answer
+prompt and the same judge. The condition is generous to the pages on
+purpose, so what remains is the bundle's: facts that live on no page,
+live values a page states without a date, and the reading cost of a
+whole page where one concept would do. A dry run records the
+retrieval half only (how often a page matched, what reading it
+costs); a store none of whose pages can be read has no baseline —
+a refusal, exit 2, never a zero — and a scorecard carries a
+comparison only when its own run measured one (the scorecard lists
+the pages read). The report states the reading comparison as it came
+out, either way.
+
+The reference bundle carries no baseline: its store is fictional, so
+there are no pages to read, and its scorecard's judged figures were
+written with the example to show the format, not measured (the
+scorecard says so). Its retrieval figures are the ones any
+`evaluate --dry-run` reproduces.
+
+B2B-heavy stores should treat the `procurement` archetype
 as a starting point and expand it with their own RFQ research — the
 buyer journey differs enough that three generic questions understate
 it.

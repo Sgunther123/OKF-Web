@@ -9,6 +9,14 @@ tied to a dollar lever that pays even before generative engines
 fetch a single file (the MCP bridge and any on-site assistant consume
 the bundle from day one).
 
+> **Correction, 2026-11-10.** Where a phase below says the reference
+> bundle was "measured" at a coverage figure (0.944, 0.949), only its
+> retrieval figures (the question count and the hit rate) were
+> measured, by `okf-web evaluate --dry-run`. The judged coverage was
+> written into the example's scorecard by hand as questions were
+> added. The example store is fictional, and its scorecard now says
+> what its figures are (EVALUATION §3).
+
 ## The admission rule
 
 A new concept class enters the profile only if all three hold:
