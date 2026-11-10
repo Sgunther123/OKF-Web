@@ -52,9 +52,12 @@ table gains `BaselineError`. Suite **553** without `build`, 554 with it
 (this container's 3.11 has it now, its 3.10 venv does not) and in CI. Lint 0/0; dry-run unchanged (39 questions, 1.0, 2,406
 tokens, 0.897). Open, the maintainer's choice: a real judged run of
 the example (it needs a model), or its scorecard stays labeled as it
-now is. Positions: `main` == `25b33c5`; the branch two ahead
-(`bfbb0b7`, the question-set guards, and this commit), which move to
-`main` on the user's word.
+now is. That commit is `9431f79`. It recorded `main` one push behind
+(`25b33c5`, "two ahead"): the positions section had been trusted
+without a fetch. Corrected by the MEMORY-only commit after it:
+`main` == `bfbb0b7` since 2026-11-06; the branch two ahead
+(`9431f79` and that correction), which move to `main` on the user's
+word.
 
 On 2026-11-06, **a question set measures the store it was
 written from** (`bfbb0b7`; on the user's "Implement as recommended", after the
@@ -1041,12 +1044,16 @@ review.
   ahead of `main`. There is no record commit (dropped 2026-09-17), so
   the sha named here is refreshed only by the next content commit and
   can lag: always `git fetch` and read `origin/main` before a main
-  push. As of this commit: `main` == `25b33c5` (the user's "Push the
-  commit directly to main" of 2026-11-06, run 3 green first: a
-  fast-forward from `2814339` over `25b33c5`, the flip recorded), and
-  the branch is two ahead (`bfbb0b7`, the question-set guards,
-  profile 1.13, and this commit, the measured baseline), which move
-  to `main` on the user's word. Before
+  push. As of this commit: `main` == `bfbb0b7` (the user's "Push the
+  commit directly to main" of 2026-11-06, 22:28 UTC, run 4 green
+  first: a fast-forward from `25b33c5` over `bfbb0b7`, the
+  question-set guards, profile 1.13), and the branch is two ahead:
+  `9431f79` (the measured baseline, which recorded `main` one push
+  behind) and this commit (MEMORY-only, the correction), which move
+  to `main` on the user's word. Before that, `main` == `25b33c5` (the
+  user's "Push the commit directly to main" of 2026-11-06, run 3
+  green first: a fast-forward from `2814339` over `25b33c5`, the
+  flip recorded). Before
   that, `main` == `2814339` (the user's "Push the commit directly to
   main" of 2026-11-06, the first under the re-created ruleset "Branch
   Protection", run 2 green first: a fast-forward from `3188302`, the
@@ -1098,7 +1105,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Measure the before: the same questions put to the store's own pages, and the example's typed comparison removed
+(this commit)  Correct the recorded position of main: it has carried the question-set guards since 2026-11-06 (MEMORY-only)
+9431f79  Measure the before: the same questions put to the store's own pages, and the example's typed comparison removed
 bfbb0b7  Measure a store against questions written from it: grounded generation, negative probes, provenance, declared applicability (profile 1.13)
 25b33c5  Record the repository made public, and the answer to the Actions question (MEMORY-only)
 2814339  Record the repository founded twice and its first CI run (MEMORY-only)
@@ -1298,6 +1306,11 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
   Cache-Control, ignores Content-Type overrides); `pip install
   crossplane apacheconfig` for nginx/Apache syntax parsing. No nginx,
   Apache, or Docker binaries are installable here (apt unavailable).
+- A position is fetched, not remembered (2026-11-10): `9431f79`
+  recorded `main` one push behind because this file's positions
+  section, which says itself that it can lag, was copied without a
+  `git fetch origin main`. Fetch before writing a position, not only
+  before a push.
 - Edit `.claude/MEMORY.md` only from a fresh Read of the exact region —
   recalled wording drifts and exact-match edits miss (repeatedly
   observed).
