@@ -612,7 +612,7 @@ def generate_questions(bundle: Bundle, llm: LLMClient, per_archetype: int = 3) -
         "BUNDLE OUTLINE:\n" + "\n".join(sorted(outline))
     )
     response = llm.complete(system, user, max_tokens=4096)
-    payload = _extract_yaml(response)
+    payload = _question_payload(response)
     if not payload.get("questions") and str(payload.get("reason") or "").strip().lower() == "not-a-store":
         raise NotAStore(
             "the outline describes no store (nothing sold, no policies, no "
@@ -620,7 +620,9 @@ def generate_questions(bundle: Bundle, llm: LLMClient, per_archetype: int = 3) -
             "set invented for it would measure the prompt, not the bundle"
         )
     questions = []
-    for i, item in enumerate(payload.get("questions", []), start=1):
+    for i, item in enumerate(payload.get("questions") or [], start=1):
+        if not isinstance(item, dict):
+            continue
         questions.append(
             Question(
                 id=str(item.get("id") or f"gen{i}"),
@@ -819,6 +821,57 @@ def _extract_yaml(text: str) -> dict:
     except yaml.YAMLError:
         return {}
     return data if isinstance(data, dict) else {}
+
+
+_ITEM_START_RE = re.compile(r"^\s*-\s+([A-Za-z_]+)\s*:\s?(.*)$")
+_ITEM_FIELD_RE = re.compile(r"^\s+([A-Za-z_]+)\s*:\s?(.*)$")
+_TOP_FIELD_RE = re.compile(r"^([A-Za-z_]+)\s*:\s?(.*)$")
+
+
+def _plain_scalar(value: str) -> str:
+    """A value as the model meant it: the wrapping quotes it put around
+    a sentence removed, whatever the sentence holds."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        quote = value[0]
+        value = value[1:-1]
+        value = value.replace("''", "'") if quote == "'" else value.replace('\\"', '"')
+    return value.strip()
+
+
+def _question_payload(text: str) -> dict:
+    """The model's question set as a mapping. The reply is YAML when the
+    model wrote it well; when one line is not (a store's name with an
+    apostrophe inside single quotes, a colon in a question), the whole
+    set used to be lost to a parse error and the run reported that the
+    model had produced nothing (the first real capped survey,
+    2026-11-11). The set is then read line by line: each ``- key:
+    value`` starts a question, each indented ``key: value`` adds to it,
+    and a value is everything after the first colon."""
+    payload = _extract_yaml(text)
+    if isinstance(payload.get("questions"), list) or payload.get("reason"):
+        return payload
+    fenced = re.search(r"```(?:yaml)?\s*\n(.*?)```", text, re.DOTALL)
+    items: list[dict] = []
+    salvaged: dict = {}
+    current: dict | None = None
+    for line in (fenced.group(1) if fenced else text).splitlines():
+        start = _ITEM_START_RE.match(line)
+        if start:
+            current = {start.group(1).lower(): _plain_scalar(start.group(2))}
+            items.append(current)
+            continue
+        field_match = _ITEM_FIELD_RE.match(line)
+        if field_match and current is not None:
+            current[field_match.group(1).lower()] = _plain_scalar(field_match.group(2))
+            continue
+        top = _TOP_FIELD_RE.match(line)
+        if top:
+            current = None
+            if top.group(1).lower() == "reason":
+                salvaged["reason"] = _plain_scalar(top.group(2))
+    salvaged["questions"] = [item for item in items if item.get("question")]
+    return salvaged
 
 
 _AFFIRMATIVE = {"yes", "true"}

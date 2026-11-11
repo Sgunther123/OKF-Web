@@ -4,9 +4,46 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-11 — **a live check is asked or absent** (on
-the user's "Implement as recommended" of that day, continuing the
-work below). `okf-web evaluate --probe` puts the bundle's questions
+Last updated: 2026-11-11 — **a capped survey of a real store** (on
+the first real runs of that day's work, made by the maintainer). Two
+findings, both fixed here. (1) A survey under a limit read the first
+pages the sitemap listed: on a 218-page dealer's site with a limit of
+six, the home page twice (`/` and `/index.shtml`), the about page, an
+HTML site map, the contact page and a links page; no product, no
+policy. `surveyor.rank_pages(urls)` now orders a sitemap's pages for
+a capped survey (the home page once; then policy and help pages,
+catalog pages and the contact and about pages in turn, section pages
+before the pages under them, contact before about; then blogs and
+picture pages; last, site maps, carts, second home spellings and
+addresses that are not pages), judging an address by its words alone;
+`okf-web survey --sitemap --limit` uses it, a survey with no limit
+reads what it always read, and a hand-written `--urls` list keeps its
+order. (2) The question set generated from those six pages was lost:
+the model's reply was not valid YAML (the store's name holds an
+apostrophe; the suspected line is a single-quoted sentence holding
+it), `_extract_yaml` returned nothing and the run reported that the
+model had produced no set. `evaluator._question_payload` now reads
+such a reply line by line (each `- key: value` starts a question,
+the wrapping quotes are the model's), and `reason: not-a-store`
+survives the same way. The raw reply was not kept, so the exact line
+is inferred, not seen. **The live check's first real run** the same
+day: `evaluate --probe` was accepted by the service (the default
+model with `web_search_20260209`), the judge returned verdicts, the
+record and the scorecard's section were written; the store asked
+about sits on a reserved `.example` address, the assistant said so
+and ran no search (the service's own count agrees: no
+`server_tool_use` in `usage`), about 6,000 tokens in and 500 out for
+one question before any search. A reply with searches and citations
+is still unverified against the real service. `tests/
+test_capped_survey.py` (37) and 20 mutations, all caught. Suite
+**616** without `build`, 617 with it. Positions: `main` ==
+`bfbb0b7` (fetched); the branch five ahead (`9431f79`, `4001250`,
+`2240087`, `c7d9b3d`, this commit), which move to `main` on the
+user's word.
+
+Earlier on 2026-11-11, **a live check is asked or absent**
+(`c7d9b3d`; on the user's "Implement as recommended" of that day,
+continuing the work below). `okf-web evaluate --probe` puts the bundle's questions
 to a live assistant with web search on, worded as a shopper would
 (one message naming the store and its host, no system prompt), and
 the run's judge compares each answer with the concepts the bundle
@@ -29,14 +66,13 @@ ask), `--dry-run`, a subscription CLI. The assistant's answer reaches
 the judge inert, in one `<answer>` block after the verified
 concepts. No profile bump: a scorecard-only key written by the
 evaluator, like `x_geo.evaluated` (GEO-PROFILE §10 says so).
-**Never yet asked of a live assistant**: no test and no CI run does,
-and this container holds no API key; the first real run is the
-maintainer's, and until it is made the adapter is verified against a
-scripted client only. `tests/test_engines.py` (24) and 37 mutations,
-all caught. Suite **579** without `build`, 580 with it. Positions:
-`main` == `bfbb0b7` (fetched); the branch four ahead (`9431f79`,
-`4001250`, `2240087`, this commit), which move to `main` on the
-user's word.
+No test and no CI run asks a live assistant, and this container
+holds no API key: at this commit the adapter was verified against a
+scripted client only (its first real run is the entry above).
+`tests/test_engines.py` (24) and 37 mutations, all caught. Suite then
+**579** without `build`, 580 with it. Positions then: `main` ==
+`bfbb0b7` (fetched); the branch four ahead (`9431f79`, `4001250`,
+`2240087`, `c7d9b3d`).
 
 Earlier on 2026-11-11, **the guide's own typed comparison**
 (`2240087`; on the same request). USER-GUIDE's answer to "Why can't AI assistants just
@@ -1018,7 +1054,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **579 passing** without `build`, 580 where it is installed (CI,
+- Test suite: **616 passing** without `build`, 617 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1095,11 +1131,12 @@ review.
   push. As of this commit: `main` == `bfbb0b7` (the user's "Push the
   commit directly to main" of 2026-11-06, 22:28 UTC, run 4 green
   first: a fast-forward from `25b33c5` over `bfbb0b7`, the
-  question-set guards, profile 1.13), and the branch is four ahead:
+  question-set guards, profile 1.13), and the branch is five ahead:
   `9431f79` (the measured baseline, which recorded `main` one push
   behind), `4001250` (MEMORY-only, the correction), `2240087` (the
-  guide's typed comparison) and this commit (the live check), which
-  move to `main` on the user's word. Before that, `main` == `25b33c5` (the
+  guide's typed comparison), `c7d9b3d` (the live check) and this
+  commit (the capped survey's two fixes), which move to `main` on the
+  user's word. Before that, `main` == `25b33c5` (the
   user's "Push the commit directly to main" of 2026-11-06, run 3
   green first: a fast-forward from `2814339` over `25b33c5`, the
   flip recorded). Before
@@ -1154,7 +1191,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Ask a live assistant what it tells shoppers: the store's questions with web search on, graded against the bundle
+(this commit)  Make a capped survey of a real store usable: rank the pages a limit keeps, and read a question set line by line before calling it empty
+c7d9b3d  Ask a live assistant what it tells shoppers: the store's questions with web search on, graded against the bundle
 2240087  Take the guide's typed comparison out, and refuse the next one with a test
 4001250  Correct the recorded position of main: it has carried the question-set guards since 2026-11-06 (MEMORY-only)
 9431f79  Measure the before: the same questions put to the store's own pages, and the example's typed comparison removed
@@ -1375,10 +1413,16 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
 - The example scorecard's judged figures are labeled as written with
   the example (2026-11-10). A real judged run would replace them and
   needs a model: the maintainer's choice of where it runs.
-- `evaluate --probe` (2026-11-11) has never asked a live assistant:
-  its first real run needs an API key and is the maintainer's. One
-  adapter exists (Claude with web search); another provider is a new
-  class behind the `Engine` protocol and a way to choose it.
+- `evaluate --probe` has asked a live assistant once (2026-11-11, a
+  store on a reserved example address: no search was run, rightly). A
+  reply with searches and cited pages has not been seen from the real
+  service yet; the count of searches is read from the reply's blocks,
+  and the service's own count (`usage.server_tool_use`) is the thing
+  to compare it with on that run. One adapter exists (Claude with web
+  search); another provider is a new class behind the `Engine`
+  protocol and a way to choose it.
+- A failed question generation keeps nothing of the model's reply:
+  the next one that fails cannot be diagnosed from a record either.
 - `okf-web mcp --url` (remote-bundle mode, DISTRIBUTION §4) shipped as
   GAPS item 10 (`40a176e`); nothing planned remains unscheduled here.
 

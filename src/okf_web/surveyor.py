@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import re
+import urllib.parse
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
@@ -74,6 +75,7 @@ __all__ = [
     "page_policy",
     "fetch",
     "discover_sitemap",
+    "rank_pages",
     "extraction_prompt",
     "stable_page_hash",
     "SurveyResult",
@@ -261,6 +263,127 @@ def discover_sitemap(
             "policy allows"
         )
     return urls
+
+
+# --- which pages a capped survey reads ----------------------------------------
+#
+# A sitemap lists pages in whatever order its generator walked the site.
+# The first real capped survey (2026-11-11, a 218-page dealer's site,
+# six pages) read the home page twice, the about page, an HTML site
+# map, the contact page and a links page: no product and no policy,
+# and nothing to write a shopper's question from.
+
+#: Address words (a token's beginning) that mark a policy or help page.
+_POLICY_WORDS = (
+    "shipping", "deliver", "return", "refund", "exchange", "warrant", "guarantee",
+    "faq", "help", "support", "polic", "terms", "condition", "payment", "financ",
+)
+#: Where and who: the contact kind first, the about kind after.
+_CONTACT_WORDS = ("contact", "location", "locator", "hours", "directions", "visit")
+_ABOUT_WORDS = ("about", "company", "story", "team")
+#: A catalog's section pages (the first path segment names a listing).
+_LISTING_WORDS = frozenset({
+    "collections", "collection", "category", "categories", "catalog", "catalogue",
+    "shop", "department", "departments",
+})
+#: Writing about the store, and picture pages: read after the catalog.
+_ASIDE_WORDS = frozenset({
+    "blog", "blogs", "news", "press", "article", "articles", "post", "posts", "tag", "tags",
+    "author", "authors", "archive", "archives", "gallery", "galleries", "photo", "photos",
+    "thumbnail", "thumbnails", "thumbnailframe", "slideshow", "video", "videos",
+    "event", "events",
+})
+#: Pages that hold no knowledge of the store: read last.
+_UTILITY_WORDS = (
+    "sitemap", "links", "search", "cart", "basket", "checkout", "account", "login",
+    "signin", "register", "signup", "wishlist", "compare", "privacy", "cookie",
+    "accessibility", "compatib", "feed", "rss", "unsubscribe",
+)
+#: Addresses a page survey cannot read as a page.
+_NOT_A_PAGE = frozenset({
+    ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico", ".zip", ".doc",
+    ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".mp4", ".mp3", ".mov", ".xml", ".txt",
+    ".csv", ".json", ".css", ".js",
+})
+_HOME_RE = re.compile(r"^/?(?:(?:index|home|default)\.[a-z0-9]+)?$")
+
+
+def _address_words(text: str) -> list[str]:
+    """The words of an address: the one slug rule's pieces."""
+    return [word for word in slug(text).split("-") if word]
+
+
+def _page_kind(url: str) -> tuple[str, tuple]:
+    """``(kind, sort key)`` for one listed address. The kinds: ``home``,
+    ``policy``, ``where``, ``catalog``, ``aside``, ``last``."""
+    try:
+        path = urllib.parse.unquote(urllib.parse.urlsplit(url).path).lower()
+    except ValueError:
+        return "last", ()
+    segments = [segment for segment in path.split("/") if segment]
+    extension = ("." + segments[-1].rsplit(".", 1)[1]) if segments and "." in segments[-1] else ""
+    if extension in _NOT_A_PAGE:
+        return "last", ()
+    if _HOME_RE.match(path):
+        return "home", (len(path),)
+    tokens = _address_words(path)
+    if any(token.startswith(_UTILITY_WORDS) for token in tokens):
+        return "last", ()
+    if any(token in _ASIDE_WORDS for token in tokens):
+        return "aside", ()
+    if any(token.startswith(_POLICY_WORDS) for token in tokens):
+        return "policy", ()
+    if any(token.startswith(_CONTACT_WORDS) for token in tokens):
+        return "where", (0,)
+    if any(token.startswith(_ABOUT_WORDS) for token in tokens):
+        return "where", (1,)
+    first = _address_words(segments[0]) if segments else []
+    listing = any(token in _LISTING_WORDS for token in first)
+    # Section pages before the pages under them: a listing, then the
+    # shallower address, then the shorter one.
+    return "catalog", (0 if listing else 1, len(segments), len(path))
+
+
+def rank_pages(urls: list[str]) -> list[str]:
+    """The listed pages in the order a survey that cannot read them all
+    should take them. Every distinct address given comes back exactly
+    once: only the order changes.
+
+    The order: the home page; then policy and help pages, catalog pages
+    and the contact and about pages taken in turn (policy, catalog,
+    where, catalog, ...), so that a small limit still reaches each
+    kind; then writing about the store and picture pages; last, pages
+    that hold no knowledge of it (a site map, a cart, a login, a
+    second spelling of the home page) and addresses that are not pages
+    at all (a PDF, an image). Within a
+    kind the sitemap's own order is kept, except that a catalog's
+    section pages come before the pages under them and the contact
+    kind before the about kind. An address is judged by its words
+    alone: nothing is fetched."""
+    queues: dict[str, list[tuple[tuple, int, str]]] = {
+        kind: [] for kind in ("home", "policy", "where", "catalog", "aside", "last")
+    }
+    seen: set[str] = set()
+    for index, url in enumerate(urls):
+        if url in seen:
+            continue
+        seen.add(url)
+        kind, order = _page_kind(url)
+        queues[kind].append((order, index, url))
+    for kind in ("home", "where", "catalog"):
+        queues[kind].sort()
+    # One home page, the shortest address; its other spellings
+    # (/index.html beside /) say nothing more and go last.
+    ranked = [url for _, _, url in queues["home"][:1]]
+    queues["last"] = sorted(queues["home"][1:] + queues["last"], key=lambda item: item[1])
+    turn = {kind: [url for _, _, url in queues[kind]] for kind in ("policy", "catalog", "where")}
+    while any(turn.values()):
+        for kind in ("policy", "catalog", "where", "catalog"):
+            if turn[kind]:
+                ranked.append(turn[kind].pop(0))
+    ranked += [url for _, _, url in queues["aside"]]
+    ranked += [url for _, _, url in queues["last"]]
+    return ranked
 
 
 def extraction_prompt() -> str:

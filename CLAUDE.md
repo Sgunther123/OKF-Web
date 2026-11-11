@@ -375,6 +375,16 @@ test_passport, test_locations) → re-measure the scorecard → verification loo
   block to equal HOSTING §2.1's. Change the serving rules in all three
   places together; when a recipe changes, re-run the live checks it
   records in §8 (Caddy, wrangler, netlify-cli; tooling notes in MEMORY).
+- A survey under a limit reads `surveyor.rank_pages(listed)`, never
+  the first pages a sitemap lists, and a generated question set is
+  read through `evaluator._question_payload`, which falls back to
+  reading the reply line by line when it is not YAML. The first real
+  capped survey (2026-11-11: a 218-page dealer's site, six pages) read
+  the home page twice, an HTML site map and a links page, then lost
+  its whole question set to one single-quoted sentence holding an
+  apostrophe, and reported that the model had produced nothing. A
+  limit is applied to the ranked list; a reply is called empty only
+  after both readings.
 - Keep `.claude/MEMORY.md` truthful: any commit that changes something it
   records (profile, counts, metrics, histories, rhythm) updates it in the same
   commit — and edit it only from a fresh Read of the exact region: recalled

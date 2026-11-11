@@ -215,9 +215,11 @@ def cmd_survey(args) -> int:
             return 2
     urls: list[str] = []
     if args.sitemap:
-        urls.extend(
-            surveyor.discover_sitemap(args.sitemap, allow_private=args.allow_private_hosts)
-        )
+        listed = surveyor.discover_sitemap(args.sitemap, allow_private=args.allow_private_hosts)
+        # A limit reads the most useful pages, not the first ones the
+        # sitemap happens to list (a home page, its second spelling and
+        # a site map would otherwise fill a small limit).
+        urls.extend(surveyor.rank_pages(listed) if args.limit else listed)
     if args.urls:
         urls.extend(
             line.strip()
@@ -968,7 +970,13 @@ def _add_survey_parser(sub) -> None:
         "credentials; price/availability fields are dropped per the "
         "live-values rule",
     )
-    p.add_argument("--limit", type=int, default=0)
+    p.add_argument(
+        "--limit", type=int, default=0,
+        help="read at most this many pages. A sitemap's pages are then taken "
+        "most useful first: the home page, then policy and help pages, the "
+        "catalog's section pages and the contact and about pages in turn; "
+        "site maps, carts, galleries and files that are not pages come last",
+    )
     _add_network_args(p)
     _add_llm_args(p)
     p.set_defaults(func=cmd_survey)

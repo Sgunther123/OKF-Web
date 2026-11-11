@@ -147,7 +147,11 @@ okf-web survey my-store --sitemap https://www.yourstore.com --limit 10 --llm cla
 ```
 
 The tool reads your site's page list, fetches each page, and drafts
-fact sheets into a new folder called `my-store`. Every draft starts
+fact sheets into a new folder called `my-store`. With `--limit` it
+takes the most useful pages first, not the first ones your site
+happens to list: your home page, then policy and help pages, your
+catalog's section pages, and your contact and about pages in turn;
+site maps, carts, photo galleries and PDF files come last. Every draft starts
 in "unapproved" status, and every fact in it carries a footnote
 pointing at the page it came from.
 

@@ -60,7 +60,10 @@ Four mechanisms (profile 1.13) keep a set about the store:
   entities, tags); negative probes are exempt, one per archetype; a
   generated set is refused, nothing written, when its ungrounded
   questions outnumber its grounded ones (`--allow-ungrounded` writes
-  it anyway, for a set you intend to curate by hand).
+  it anyway, for a set you intend to curate by hand). The model's
+  reply is YAML; when one line of it is not (a store's name with an
+  apostrophe inside single quotes, a colon in a question), the set
+  is read line by line instead of being called empty.
 - **Negative probes.** `probe: negative` marks a question the bundle
   is expected to answer with a sourced "no": an out-of-catalog need
   the range makes plausible, a refused capability. Curation adds

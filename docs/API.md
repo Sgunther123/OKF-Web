@@ -153,6 +153,7 @@ code. Review 2026-10-21, phase U4.
 | `place_draft` | function | the single write gate for concept files |
 | `rebuild_index` | function | the root index from what is stable |
 | `discover_sitemap` | function | a site's sitemap URLs |
+| `rank_pages` | function | listed pages in the order a capped survey should take them (the order only; nothing is fetched) |
 | `fetch` | function | a page under the page policy |
 | `html_to_text` | function | the text a page carries |
 | `stable_page_hash` | function | the hash drift compares |
