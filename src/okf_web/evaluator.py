@@ -272,6 +272,11 @@ class Report:
     baseline: dict = field(default_factory=dict)
     baseline_pages: list[str] = field(default_factory=list)
     baseline_unreadable: list[str] = field(default_factory=list)
+    # What a live assistant answered when a shopper's questions were put
+    # to it (`engines.probe`, attached by `Probe.attach`): one record
+    # per assistant and one row per question. Empty when none was asked.
+    live: list[dict] = field(default_factory=list)
+    live_rows: list[dict] = field(default_factory=list)
 
     def _fraction(self, predicate) -> float:
         if not self.results:
@@ -1013,6 +1018,9 @@ def write_scorecard(
         # Only what `baseline.measure` returned in this run: a scorecard
         # never carries a comparison its own run did not make.
         fm["x_geo"]["baseline"] = report.baseline
+    if report.live:
+        # The same rule for the live check: only what this run asked.
+        fm["x_geo"]["live"] = report.live
     lines = ["# Results", ""]
     lines.append("| id | archetype | retrieved | paraphrase | answered | cited |")
     lines.append("| --- | --- | --- | --- | --- | --- |")
@@ -1054,6 +1062,36 @@ def write_scorecard(
         if report.baseline_unreadable:
             lines += ["", "Could not be read:", ""]
             lines += [f"* `{_inert_line(item)}`" for item in report.baseline_unreadable]
+    if report.live:
+        asked_of = ", ".join(
+            f"`{_inert_line(record.get('engine', '?'))}`" for record in report.live
+        )
+        lines += ["", "# What a live assistant answered", ""]
+        lines.append(
+            f"The same questions were put to {asked_of} with web search on, "
+            "worded as a shopper would. `substantive` counts answers about "
+            "this store rather than a shrug; `contradicted` counts the "
+            "answers this bundle's knowledge could check and found wrong."
+        )
+        lines += [
+            "",
+            "| id | asked | substantive | checked | contradicted | names the store | cites the store |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+        for row in report.live_rows:
+            lines.append(
+                f"| {_inert_line(row.get('id', '?'))} | {row.get('asked', 0)} | "
+                f"{row.get('answered', 0)} | {row.get('checked', 0)} | "
+                f"{row.get('contradicted', 0)} | {row.get('named', 0)} | "
+                f"{row.get('cited', 0)} |"
+            )
+        noted = [row for row in report.live_rows if row.get("notes")]
+        if noted:
+            lines += ["", "What the judge found contradicted:", ""]
+            lines += [
+                f"* `{_inert_line(row.get('id', '?'))}`: `{_inert_line(row['notes'])}`"
+                for row in noted
+            ]
     body = "\n" + "\n".join(lines) + "\n"
 
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -220,6 +220,24 @@ commit histories, environment quirks, and the user's operating rhythm).
   and never quote the example's judged figures as measurements: its
   store is fictional, it carries no baseline, and its scorecard says
   what its figures are.
+- **A live check is asked or absent** (EVALUATION §3): `x_geo.live`
+  reaches a scorecard only through `write_scorecard`, from an
+  `engines.probe` of the same run (`evaluate --probe`): each question
+  in one shopper's message with no system prompt, the provider's web
+  search on, graded by the run's judge against the concepts the
+  bundle retrieves for it. An assistant that cannot be reached, or a
+  bundle with no `x_geo.site`, is `ProbeError` (exit 2), never a row
+  of zeros; a failed or declined ask is counted apart; an answer the
+  bundle cannot check counts neither for nor against; a dry run and a
+  subscription CLI are refused. The assistant's answer was written
+  from pages anyone can publish: the judge receives it in one
+  `<answer>` block with `<answer` and `<concept` delimiters
+  neutralized (`engines._inert_answer`), after the verified concepts,
+  never before. The report states it only from the
+  record (`report.live_sentences`), and the scorecard's live table
+  never carries an `answered` header, which is how the report finds
+  the bundle's own verdicts. Tests patch `cli._engine` to stand in
+  for the assistant; no test and no CI run asks a live one.
 - **A question set measures the store it was written from** (EVALUATION
   §1, profile 1.13): generation grounds every question in the outline,
   is told which archetypes the bundle's types support

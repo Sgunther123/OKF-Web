@@ -34,7 +34,7 @@ def test_wheel_ships_prompts_and_question_packs(tmp_path):
     names = set(zipfile.ZipFile(wheel).namelist())
     prompts = sorted(p.name for p in (REPO_ROOT / "src/okf_web/prompts").glob("*.md"))
     packs = sorted(p.name for p in (REPO_ROOT / "src/okf_web/questionpacks").glob("*.yaml"))
-    assert len(prompts) == 4 and len(packs) == 10
+    assert len(prompts) == 5 and len(packs) == 10
     for name in prompts:
         assert f"okf_web/prompts/{name}" in names
     for name in packs:

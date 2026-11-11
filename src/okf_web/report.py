@@ -59,6 +59,7 @@ __all__ = [
     "question_blocks",
     "provenance_sentence",
     "reading_tile",
+    "live_sentences",
     "build_report",
     "write_report",
 ]
@@ -349,6 +350,51 @@ def reading_tile(metrics: dict, baseline: dict) -> tuple[str, str, str] | None:
     return (f"{ours / theirs:.1f}× more", "reading than the store's own pages", detail)
 
 
+def _number(value) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _plural(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+def live_sentences(live) -> list[str]:
+    """What the scorecard's live check found, one plain statement per
+    assistant asked; empty when none was. Every figure is read from the
+    record and a malformed record says nothing: a cloned bundle's
+    scorecard is untrusted text like any other."""
+    sentences: list[str] = []
+    for record in live if isinstance(live, list) else []:
+        if not isinstance(record, dict) or not isinstance(record.get("engine"), str):
+            continue
+        asked, answered = _number(record.get("asked")), _number(record.get("answered"))
+        if not asked or asked < 1 or answered is None or not 0 <= answered <= 1:
+            continue
+        checked = int(_number(record.get("checked")) or 0)
+        contradicted = int(_number(record.get("contradicted")) or 0)
+        if not 0 <= contradicted <= checked:
+            continue
+        if checked:
+            verdict = (f"Of the {_plural(checked, 'answer', 'answers')} the store's verified "
+                       f"knowledge could check, {contradicted} contradicted it.")
+        else:
+            verdict = ("None of its answers could be checked against the store's "
+                       "verified knowledge.")
+        named, cited = _number(record.get("names_store")), _number(record.get("cites_store"))
+        seen = ""
+        if named is not None and cited is not None and 0 <= named <= 1 and 0 <= cited <= 1:
+            seen = (f" It named the store in {_pct(named)} of its replies and cited a "
+                    f"page of the store in {_pct(cited)}.")
+        sentences.append(
+            f"Asked the same questions as a shopper would, {record['engine']} with web "
+            f"search gave a substantive answer about this store in {_pct(answered)} of "
+            f"{_plural(int(asked), 'reply', 'replies')}. {verdict}{seen}"
+        )
+    return sentences
+
+
 def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
     """Render the bundle's scorecard as a self-contained HTML page."""
     scorecard = _scorecard(bundle)
@@ -567,7 +613,7 @@ def build_report(bundle: Bundle, today: _dt.date | None = None) -> str:
   <div class="tiles">{''.join(tiles)}</div>
   <h2>What this means</h2>
   <p class="meaning">{e(meaning)}{(" " + e(provenance_sentence(bundle))) if provenance_sentence(bundle) else ""}</p>
-  <h2>{topic_heading}</h2>
+{"".join(f'  <p class="meaning">{e(sentence)}</p>' + chr(10) for sentence in live_sentences(scorecard.x_geo.get("live")))}  <h2>{topic_heading}</h2>
   <table>{''.join(rows) or '<tr><td>No per-topic data in this scorecard.</td><td>—</td></tr>'}</table>
   <h2 id="gaps">What the store still can't answer</h2>
   <ul>{gaps_html}</ul>

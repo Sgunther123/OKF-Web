@@ -49,7 +49,9 @@ read today — derived only from human-verified concepts, with prices
 and stock deliberately absent (live values stay executable, never
 static). `okf-web report` renders the measured answerability as a
 shareable page — beside the same questions put to your own pages,
-once `evaluate --baseline` has measured that — and `okf-web mcp`
+once `evaluate --baseline` has measured that — `evaluate --probe`
+asks a live assistant with web search the same questions and records
+what it tells shoppers today, and `okf-web mcp`
 serves the bundle to assistants now. If engines adopt bundle-style knowledge, yours is already
 published; if they don't, the verified tier still feeds your markup,
 your `llms.txt`, and your own bots.
@@ -61,7 +63,7 @@ your `llms.txt`, and your own bots.
 | [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) | Plain-English guide for store owners — walkthrough and FAQs, no programming background needed |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | The system design — architecture, novelty, threat model, efficiency budget |
 | [`docs/GEO-PROFILE.md`](docs/GEO-PROFILE.md) | The `ecommerce-geo/1.12` profile: concept types, `x_geo` namespace, risk tiers, `http` runtime |
-| [`docs/EVALUATION.md`](docs/EVALUATION.md) | The answerability rubric: archetypes, metrics, gating, and the measured before and after (`evaluate --baseline`) |
+| [`docs/EVALUATION.md`](docs/EVALUATION.md) | The answerability rubric: archetypes, metrics, gating, the measured before and after (`evaluate --baseline`) and the live check (`evaluate --probe`) |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phased tooling roadmap, ranked by adoption leverage |
 | [`docs/EXPANSION.md`](docs/EXPANSION.md) | Value expansion plan: fit, ownership, passports, omnichannel, B2B |
 | [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md) | Seeing engines consume the bundle (logscan + log recipes) |
@@ -105,6 +107,7 @@ okf-web survey my-bundle --sitemap https://www.example-store.com --limit 25
 okf-web questions my-bundle --pack outdoor   # or apparel/electronics/grocery/machinery (+ .es variants); no LLM
 okf-web evaluate my-bundle --write-scorecard
 okf-web evaluate my-bundle --baseline --write-scorecard   # ...and the same questions put to your own pages: the measured before and after
+okf-web evaluate my-bundle --probe --write-scorecard      # ...and to a live assistant with web search: what shoppers are told today, checked against the bundle
 okf-web report my-bundle                     # scorecard → shareable HTML report; no LLM
 okf-web view my-bundle --access-log access.log   # bundle viewer: what's inside, how engines use it, who read it; no LLM
 

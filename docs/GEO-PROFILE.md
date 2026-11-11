@@ -161,6 +161,7 @@ the OKF core surface stays pristine.
 | `review` | mapping | Set by `reject`: `{rejected_by, at, reason}`; cleared on approval |
 | `l10n_source_hash` | string | Translations only (§7): content hash of the source concept at translation time — powers the parity check |
 | `metrics` / `baseline` | mapping | Scorecard concepts only |
+| `live` | list | Scorecard concepts only: one record per live assistant asked (`evaluate --probe`, EVALUATION §3) |
 | `rate_limit` / `auth` | string | Capability concepts: consumption etiquette |
 
 Producers MAY add further `x_geo` keys; consumers MUST ignore unknown
@@ -439,6 +440,9 @@ without changing a key or a type. U3 (2026-10-23) fixes the Promotion
 end day without changing a key: a sale is valid through `ends_at`, so
 the surveyor stamps `stale_after` at the following midnight UTC and
 W027 accepts anything up to that instant (F5 states the rule).
+`x_geo.live` (2026-11-11) is written by the evaluator on scorecard
+concepts only, like `x_geo.evaluated` before it: no concept a store
+authors changes, so it does not bump the profile either.
 
 **1.13** (current) declares what does not apply (2026-11-06):
 `x_geo.not_applicable` on the root index (§2, §7), the question

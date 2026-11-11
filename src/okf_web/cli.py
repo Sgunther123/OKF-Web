@@ -27,6 +27,7 @@ import yaml
 
 from . import baseline as baseline_mod
 from . import drift as drift_mod
+from . import engines as engines_mod
 from . import report as report_mod
 from . import evaluator, init, linter, packs, publisher, review, signing, surveyor
 from .config import WELL_KNOWN_PATH
@@ -388,6 +389,20 @@ def cmd_evaluate(args) -> int:
             file=sys.stderr,
         )
         return 2
+    if args.probe and args.dry_run:
+        print(
+            "--probe needs a judged run: what a live assistant says is graded "
+            "against the bundle by the judge (drop --dry-run)",
+            file=sys.stderr,
+        )
+        return 2
+    if args.probe and getattr(args, "llm", "api") != "api":
+        print(
+            "--probe asks the provider's API with web search on, which a "
+            "subscription CLI does not offer (use --llm api)",
+            file=sys.stderr,
+        )
+        return 2
     retriever = _build_retriever(args, args.bundle)
     if retriever is None and args.min_relevance != evaluator.RELEVANCE_FLOOR:
         retriever = functools.partial(evaluator.retrieve, min_relevance=args.min_relevance)
@@ -406,6 +421,14 @@ def cmd_evaluate(args) -> int:
             min_relevance=args.min_relevance,
             allow_private=args.allow_private_hosts,
         )
+    live = None
+    if args.probe:
+        # Asked before the bundle's own run for the same reason: an
+        # assistant that cannot be reached is refused first.
+        live = engines_mod.probe(
+            bundle, questions, _engine(args), judge or llm, top_k=args.top_k,
+            repeats=args.probe_repeats, retriever=retriever,
+        )
     report = evaluator.evaluate(
         bundle, questions, llm=llm, top_k=args.top_k, retriever=retriever,
         judge=judge,
@@ -422,6 +445,9 @@ def cmd_evaluate(args) -> int:
     if measured is not None:
         measured.attach(report)
         _print_baseline(measured)
+    if live is not None:
+        live.attach(report)
+        _print_live(live)
     if args.write_scorecard:
         report.view = "published" if args.published else "working"
         out = evaluator.write_scorecard(bundle, report, force=args.force)
@@ -441,6 +467,27 @@ def cmd_evaluate(args) -> int:
         )
         failed = True
     return 1 if failed else 0
+
+
+def _engine(args):
+    """The live assistant ``--probe`` asks. One provider today; tests
+    patch this name to put a stand-in behind the command."""
+    return engines_mod.AnthropicSearch(
+        model=args.probe_model or args.model, max_searches=args.probe_searches,
+    )
+
+
+def _print_live(live) -> None:
+    """What the live assistant said, in the scorecard's own figures."""
+    record = live.record
+    print(f"\nlive: {record['engine']} with web search, {record['asked']} ask(s)")
+    for key in ("answered", "names_store", "cites_store", "agrees"):
+        if key in record:
+            print(f"  {key}: {record[key]}")
+    print(f"  checked: {record['checked']}, contradicted: {record['contradicted']}")
+    for key in ("declined", "errors"):
+        if key in record:
+            print(f"  {key}: {record[key]}")
 
 
 def _print_baseline(measured) -> None:
@@ -1011,6 +1058,31 @@ def _add_evaluate_parser(sub) -> None:
         "answers are taken first",
     )
     _add_network_args(p)
+    p.add_argument(
+        "--probe",
+        action="store_true",
+        help="also put the same questions to a live assistant with web "
+        "search on, worded as a shopper would, and record what it says "
+        "against the bundle: answered, contradicted, names the store, "
+        "cites the store (needs API credentials and a judged run)",
+    )
+    p.add_argument(
+        "--probe-model",
+        help="the assistant's model for --probe (default: --model)",
+    )
+    p.add_argument(
+        "--probe-repeats",
+        type=int,
+        default=1,
+        help="ask each question this many times; the record gives shares "
+        "(default 1)",
+    )
+    p.add_argument(
+        "--probe-searches",
+        type=int,
+        default=3,
+        help="web searches the assistant may run per question (default 3)",
+    )
     p.add_argument("--write-scorecard", action="store_true")
     p.add_argument(
         "--force",

@@ -295,6 +295,21 @@ code. Review 2026-10-21, phase U4.
 | `PAGE_CHARS_MAX` | int | characters of a page's text kept (40,000) |
 | `PAGE_TYPE` | str | the type the page stand-ins carry (`Web Page`) |
 
+### `okf_web.engines`
+
+| Name | Kind | Meaning |
+| --- | --- | --- |
+| `probe` | function | the questions put to a live assistant as a shopper would, graded against the bundle |
+| `Probe` | class | one live check: the record the scorecard stores and one row per question; `attach(report)` |
+| `Engine` | protocol | a live assistant: `name` and `ask(prompt)` |
+| `EngineAnswer` | class | one answer: its text, the addresses it cites, its searches, whether the provider declined |
+| `AnthropicSearch` | class | Claude through the Messages API with the web search tool, no system prompt |
+| `store_of` | function | the store as a shopper names it: `(name, host)` |
+| `shopper_prompt` | function | the one message the assistant receives |
+| `judge_prompt` | function | the judge's instructions for a live answer |
+| `ProbeError` | class | no store address, or an assistant that cannot be reached (refusal) |
+| `ANTHROPIC_SEARCH_TOOL` | str | the web search tool version the adapter declares |
+
 ### `okf_web.drift`
 
 | Name | Kind | Meaning |
@@ -339,6 +354,7 @@ code. Review 2026-10-21, phase U4.
 | `build_report` | function | the merchant report from the recorded scorecard |
 | `provenance_sentence` | function | where the committed question set came from, as the report states it |
 | `reading_tile` | function | the reading-cost comparison with a measured baseline, stated as it came out (None without one) |
+| `live_sentences` | function | what a recorded live check found, one statement per assistant asked (empty without one) |
 | `write_report` | function | the report into the bundle |
 | `scorecard_gaps` | function | the gap ids a scorecard records |
 | `judged_verdicts` | function | the per-question verdicts a scorecard records |

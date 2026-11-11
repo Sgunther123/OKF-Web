@@ -528,7 +528,10 @@ The table is a design estimate, not a measurement. The measured
 comparison is per store: `okf-web evaluate --baseline` puts the same
 questions to the store's own pages, read as text, and the scorecard
 records both sides (EVALUATION §3). The reference bundle's store is
-fictional, so it carries none.
+fictional, so it carries none. What an assistant tells shoppers today
+is measured the same way, per store and per run:
+`okf-web evaluate --probe` asks a live assistant with web search and
+grades its answers against the bundle.
 The asymmetry is the point: the merchant pays extraction **once**;
 every engine, every question, every day inherits the savings — and
 the citations.

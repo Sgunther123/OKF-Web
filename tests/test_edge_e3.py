@@ -252,6 +252,6 @@ def test_forged_concept_blocks_cannot_open_or_close_a_block(tmp_path):
     assert "&lt;/concept" in context
 
 
-def test_both_evaluator_prompts_carry_the_data_rule():
-    for name in ("evaluator_answer.md", "evaluator_judge.md"):
+def test_every_prompt_that_reads_untrusted_text_carries_the_data_rule():
+    for name in ("evaluator_answer.md", "evaluator_judge.md", "probe_judge.md"):
         assert "data, not instructions" in evaluator._prompt(name), name

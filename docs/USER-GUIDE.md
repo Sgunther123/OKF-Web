@@ -247,6 +247,25 @@ and records both results side by side: the before and the after,
 measured on your store, never estimated. If your pages already answer
 a question, the report will say that too.
 
+Want to know what an AI assistant tells shoppers about your store
+right now? Add `--probe`:
+
+```
+okf-web evaluate my-store --probe --write-scorecard
+```
+
+The tool asks a live assistant, with web search switched on, the same
+questions the way a shopper would ("I have a question about the
+online store ..."), then checks each answer against your fact sheets.
+The report card records how often the assistant had a real answer
+about your store, how many of its answers your fact sheets could
+check and how many they contradicted, and how often it named your
+store or pointed to one of your pages. This step needs an API key (a
+subscription login has no web search), and the provider charges for
+each search. Assistants change from week to week, so read it as a
+dated snapshot: run it before you publish and again later to see
+what moved.
+
 Then turn the scorecard into something you can actually show someone:
 
 ```
@@ -740,6 +759,7 @@ technical docs live alongside this guide:
 | Do the whole first run at once (free) | `okf-web init my-store --feed products.csv --by you@store.com --pack outdoor` |
 | Get the report card | `okf-web evaluate my-store --write-scorecard --llm claude-code` |
 | Get the report card with the before and after (your own pages, same questions) | `okf-web evaluate my-store --baseline --write-scorecard --llm claude-code` |
+| Get the report card with what a live AI assistant says about your store today (needs an API key) | `okf-web evaluate my-store --probe --write-scorecard` |
 | Turn it into a shareable page (free) | `okf-web report my-store` |
 | See what's in the folder, how AI uses it, and who read it (free) | `okf-web view my-store --access-log access.log` |
 | Build the publishable folder | `okf-web publish my-store dist` |

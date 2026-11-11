@@ -146,6 +146,7 @@ With `N` questions, `R_q` the result for question `q`:
 | `trust_mix` | concept counts by trust tier — how much a person actually read (`human-reviewed`) vs. attested wholesale (`human-attested`) vs. machine-checked |
 | `by_archetype` | `{questions, found}` per archetype in every run (how many questions retrieved knowledge), plus `answered` in a judged run only: a dry run records no verdict, so nothing downstream can read a retrieval pass as one (L-U1) |
 | `baseline.*` | present only when the run measured it (`evaluate --baseline`): the same questions put to the store's own pages, read as text, with the same retriever and judge — `condition`, `pages`, `retrieval_hit_rate`, `context_tokens_mean`, and in a judged run `coverage` and `groundedness` (`pages_unreadable`, `pages_available` and `pages_cut` when they apply) |
+| `live[]` | present only when the run asked (`evaluate --probe`): one record per live assistant — `engine`, `search`, `asked_as`, `questions`, `repeats`, `asked`, `answered` (the share of replies that were a substantive answer about this store), `checked` and `contradicted` (the answers the bundle's knowledge could check, and those it found wrong), `agrees` (when anything was checked), `names_store`, `cites_store`, `searches_mean`, `judged_by`, `by_archetype` (`declined` and `errors` when they apply) |
 
 Grading can be decoupled from answering: `evaluate --judge-model M`
 grades with a different model than the answerer, and the scorecard's
@@ -186,6 +187,61 @@ written with the example to show the format, not measured (the
 scorecard says so). Its retrieval figures are the ones any
 `evaluate --dry-run` reproduces.
 
+**What a shopper is told today.** The scorecard measures the bundle
+and the baseline measures the store's pages; neither says what an
+assistant answers when a shopper asks it about the store today.
+
+```bash
+okf-web evaluate my-bundle --probe --write-scorecard
+```
+
+puts each question to a live assistant with web search on — today
+Claude through the Messages API and its web search tool;
+`--probe-model` names the assistant's model, `--probe-searches` caps
+its searches per question, `--probe-repeats` asks each question more
+than once — in one message worded as a shopper would word it (`I have
+a question about the online store <name> (<host>). <question>`), with
+no system prompt, so the assistant behaves as its provider ships it.
+The run's judge then compares each answer with the concepts the
+bundle retrieves for that question, and the record keeps what came
+out: how often the assistant gave a substantive answer about this
+store rather than a shrug, how many of those answers the store's
+verified knowledge could check and how many it contradicted, and,
+read off the answers without a model, how often it named the store
+and cited a page on the store's address.
+
+Three limits are part of the measurement:
+
+- an API with search is the provider's assistant without its consumer
+  app around it: close, not identical;
+- an answer is one draw, so the record gives shares over replies and
+  `--probe-repeats` widens the sample;
+- `contradicted` is disagreement with the store's verified knowledge,
+  not with the world. An answer the bundle does not cover is
+  unchecked and counts neither way, and so does a live value (a
+  price, stock) that the bundle serves as a capability instead of
+  stating.
+
+A declined turn and a failed ask are counted apart from answers; an
+assistant that cannot be reached at all is a refusal (exit 2), never
+a row of zeros. The check needs the root index's `x_geo.site` (an
+assistant cannot be asked about a store with no name to find it by),
+a judged run (not `--dry-run`) and the provider's API (`--llm api`: a
+subscription CLI offers no web search); the provider bills each
+search. The scorecard lists one row per question and the judge's note
+on each contradiction, and the report states the result in a
+sentence, only from that record. An assistant's answer is written
+from pages anyone can publish, so the judge receives it as inert
+text in a block of its own, after the store's verified concepts: it
+cannot close that block or open one that passes for verified
+knowledge.
+
+It is the one measurement here that looks at the world instead of at
+the bundle, so it is dated (the scorecard's `generated.at`) and it
+attributes nothing by itself: assistants change on their own. Asked
+before a bundle is published and again afterwards, it shows what
+moved in what shoppers are told.
+
 B2B-heavy stores should treat the `procurement` archetype
 as a starting point and expand it with their own RFQ research — the
 buyer journey differs enough that three generic questions understate
@@ -198,7 +254,9 @@ it.
 machine-generated (`generated.by: okf-web-evaluator/<model>`), risk
 `c`, metrics under `x_geo.metrics`, what was measured under
 `x_geo.evaluated` (`view`: `working` or `published`; `retriever`;
-`top_k`; `language` for a localized view), per-question table and the
+`top_k`; `language` for a localized view), a measured comparison
+under `x_geo.baseline` and a live check under `x_geo.live` when the
+run made them (§3), per-question table and the
 **knowledge gaps** list in the body. The report's footer states the
 view and the method from that record instead of assuming them. The
 report, the viewer and the bridge's `okf_info` read the scorecard only
