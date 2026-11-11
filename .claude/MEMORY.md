@@ -4,7 +4,23 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-10 — **a comparison is measured or absent** (on
+Last updated: 2026-11-11 — **the guide's own typed comparison** (on
+the user's "Implement as recommended" of that day, which continues
+the work below). USER-GUIDE's answer to "Why can't AI assistants just
+read my website?" still said that answering from the fact folder
+"used about 22 times less AI reading effort ... measured on the
+example store": the last quotation of a comparison nothing had
+measured, missed by `9431f79` because the sweep searched for the
+figures it knew (17, 0.615, 41,780) and this one was a different
+number in words. The answer now says how a store's own figure is
+measured (`--baseline`), and `test_baseline.py` gains a static test
+(16 now) that refuses a stated multiple ("N times less", "N×
+cheaper") in README and the documents. Suite **554** without `build`,
+555 with it. Positions: `main` == `bfbb0b7` (fetched); the branch
+three ahead (`9431f79`, `4001250`, this commit), which move to `main`
+on the user's word.
+
+On 2026-11-10, **a comparison is measured or absent** (`9431f79`; on
 the user's request to make the proof real, after an audit of the
 reference numbers the same day). The audit: across the seven versions
 of the example scorecard (`57c59af` to `6c43803`) its raw-page
@@ -970,7 +986,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **553 passing** without `build`, 554 where it is installed (CI,
+- Test suite: **554 passing** without `build`, 555 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1047,10 +1063,11 @@ review.
   push. As of this commit: `main` == `bfbb0b7` (the user's "Push the
   commit directly to main" of 2026-11-06, 22:28 UTC, run 4 green
   first: a fast-forward from `25b33c5` over `bfbb0b7`, the
-  question-set guards, profile 1.13), and the branch is two ahead:
+  question-set guards, profile 1.13), and the branch is three ahead:
   `9431f79` (the measured baseline, which recorded `main` one push
-  behind) and this commit (MEMORY-only, the correction), which move
-  to `main` on the user's word. Before that, `main` == `25b33c5` (the
+  behind), `4001250` (MEMORY-only, the correction) and this commit
+  (the guide's typed comparison), which move to `main` on the user's
+  word. Before that, `main` == `25b33c5` (the
   user's "Push the commit directly to main" of 2026-11-06, run 3
   green first: a fast-forward from `2814339` over `25b33c5`, the
   flip recorded). Before
@@ -1105,7 +1122,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Correct the recorded position of main: it has carried the question-set guards since 2026-11-06 (MEMORY-only)
+(this commit)  Take the guide's typed comparison out, and refuse the next one with a test
+4001250  Correct the recorded position of main: it has carried the question-set guards since 2026-11-06 (MEMORY-only)
 9431f79  Measure the before: the same questions put to the store's own pages, and the example's typed comparison removed
 bfbb0b7  Measure a store against questions written from it: grounded generation, negative probes, provenance, declared applicability (profile 1.13)
 25b33c5  Record the repository made public, and the answer to the Actions question (MEMORY-only)

@@ -7,6 +7,7 @@ baseline rather than a zero."""
 from __future__ import annotations
 
 import json
+import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -19,6 +20,12 @@ from okf_web.baseline import Baseline, BaselineError
 from okf_web.evaluator import Question
 from okf_web.model import Bundle, Concept, load_bundle, parse_document, render_document
 from okf_web.report import build_report, reading_tile
+
+REPO = Path(__file__).resolve().parents[1]
+#: A multiple stated as fact: "22 times less", "17× cheaper".
+TYPED_COMPARISON = re.compile(
+    r"(?i)\b\d+(?:[.,]\d+)?\s*(?:×|x|times)\s+(?:less|cheaper|fewer|smaller|more efficient)\b"
+)
 
 RETURNS = "https://shop.test/pages/returns"
 TENT = "https://shop.test/products/tent"
@@ -272,6 +279,23 @@ def test_the_example_scorecard_carries_no_typed_comparison(example_bundle):
             load_bundle(example_bundle),
             evaluator.load_questions(example_bundle / "evaluations" / "questions.yaml"),
             fetch_text=_fetch({}))
+
+
+def test_no_document_states_a_comparison_as_a_number():
+    """A comparison is measured on a store or absent, so the documents
+    say how it is measured and never state a multiple. The guide said
+    "about 22 times less AI reading effort ... measured on the example
+    store" until 2026-11-11, and nothing had ever measured it."""
+    hits = []
+    for path in [REPO / "README.md", *sorted((REPO / "docs").glob("*.md"))]:
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if TYPED_COMPARISON.search(line):
+                hits.append(f"{path.name}:{number}: {line.strip()}")
+    assert not hits, hits
+    # The pattern catches the forms that were quoted, bold or plain.
+    assert TYPED_COMPARISON.search("used about **22 times less** AI reading effort")
+    assert TYPED_COMPARISON.search("17× cheaper in the reference bundle")
+    assert not TYPED_COMPARISON.search("the same questions, measured both times")
 
 
 # --- the report --------------------------------------------------------------

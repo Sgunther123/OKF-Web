@@ -365,9 +365,10 @@ Optimization). SEO gets you found; this gets you quoted correctly.
 A: They try. But a product page is mostly menus, scripts, and design
 — the facts are buried, policies hide in collapsible boxes, and
 reading it all is slow and expensive for the AI, so it samples and
-guesses. Measured on the example store, answering from the fact
-folder used about **22 times less** AI reading effort than answering
-from raw pages, and answered more questions correctly.
+guesses. How much that costs your store is measured, not assumed:
+add `--baseline` to the report-card command and the tool asks the
+same questions of your own pages, so you see both results side by
+side.
 
 **Q: What is OKF? Am I locking into some vendor?**
 A: The Open Knowledge Format is an open, public format (published by
