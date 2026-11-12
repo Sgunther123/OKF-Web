@@ -149,7 +149,7 @@ With `N` questions, `R_q` the result for question `q`:
 | `trust_mix` | concept counts by trust tier — how much a person actually read (`human-reviewed`) vs. attested wholesale (`human-attested`) vs. machine-checked |
 | `by_archetype` | `{questions, found}` per archetype in every run (how many questions retrieved knowledge), plus `answered` in a judged run only: a dry run records no verdict, so nothing downstream can read a retrieval pass as one (L-U1) |
 | `baseline.*` | present only when the run measured it (`evaluate --baseline`): the same questions put to the store's own pages, read as text, with the same retriever and judge — `condition`, `pages`, `retrieval_hit_rate`, `context_tokens_mean`, and in a judged run `coverage` and `groundedness` (`pages_unreadable`, `pages_available` and `pages_cut` when they apply) |
-| `live[]` | present only when the run asked (`evaluate --probe`): one record per live assistant — `engine`, `search`, `asked_as`, `questions`, `repeats`, `asked`, `answered` (the share of replies that were a substantive answer about this store), `checked` and `contradicted` (the answers the bundle's knowledge could check, and those it found wrong), `agrees` (when anything was checked), `names_store`, `cites_store`, `searches_mean`, `judged_by`, `by_archetype` (`declined` and `errors` when they apply) |
+| `live[]` | present only when the run asked (`evaluate --probe`): one record per live assistant — `engine`, `search`, `asked_as`, `questions`, `repeats`, `asked`, `answered` (the share of replies that were a substantive answer about this store), `checked` and `contradicted` (the answers the bundle's knowledge could check, and those it found wrong), `agrees` (when anything was checked), `names_store`, `cites_store`, `finds_store` (the share of replies whose searches returned a page on the store's address, when the assistant reports its searches' results), `searches_mean`, `judged_by`, `by_archetype` (`declined` and `errors` when they apply) |
 
 Grading can be decoupled from answering: `evaluate --judge-model M`
 grades with a different model than the answerer, and the scorecard's
@@ -210,8 +210,21 @@ bundle retrieves for that question, and the record keeps what came
 out: how often the assistant gave a substantive answer about this
 store rather than a shrug, how many of those answers the store's
 verified knowledge could check and how many it contradicted, and,
-read off the answers without a model, how often it named the store
-and cited a page on the store's address.
+read off the replies without a model, how often it named the store,
+how often it cited a page on the store's address, and how often its
+searches returned such a page at all (`finds_store`: an answer
+cannot cite a store its searches never found, so the two figures
+are read together).
+
+The searches are asked for directly (`allowed_callers: ["direct"]`
+on the web search tool). Left at its default, this tool version runs
+its searches inside the provider's own code execution, and a reply
+made that way carries no citations: the first run on a real store
+(2026-11-12) recorded that no answer cited the store, for answers
+that could not have cited anything. The same question asked both
+ways that day: three searches, about 59,500 tokens in and no
+citation by default; two searches, about 22,100 tokens in and four
+citations asked directly.
 
 Three limits are part of the measurement:
 

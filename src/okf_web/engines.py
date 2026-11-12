@@ -11,9 +11,11 @@ Each question is sent the way a shopper would send it: one message
 naming the store and its address, no system prompt, the provider's web
 search switched on. The answer is then compared with the store's own
 verified knowledge (the concepts the bundle retrieves for that
-question) by the evaluation's judge, and three things are read off it
-without a model: whether the provider declined, whether the answer
-names the store, and whether it cites a page on the store's address.
+question) by the evaluation's judge, and four things are read off the
+reply without a model: whether the provider declined, whether the
+answer names the store, whether it cites a page on the store's
+address, and whether the searches behind it returned such a page at
+all (an answer cannot cite a store its searches never found).
 
 What this is not, recorded with every measurement:
 
@@ -61,6 +63,14 @@ __all__ = [
 #: a model that predates it needs the version it knows.
 ANTHROPIC_SEARCH_TOOL = "web_search_20260209"
 
+#: The searches are asked for directly. On this tool version the
+#: provider's default runs them inside its own code execution (a
+#: filtering step), and a reply made that way carries no citations:
+#: the first run on a real store (2026-11-12) recorded "cites the
+#: store: 0" for answers that could not cite anything, at more than
+#: twice the tokens of the same question asked directly.
+_SEARCH_CALLERS = ("direct",)
+
 #: Room for the assistant's answer and whatever reasoning precedes it.
 _ANSWER_MAX_TOKENS = 8000
 #: How many times a turn the provider paused is sent back to continue.
@@ -79,13 +89,15 @@ class ProbeError(RuntimeError, Refusal):
 @dataclass
 class EngineAnswer:
     """One answer from a live assistant: its text, the page addresses it
-    cites, how many searches it ran, and whether the provider declined
-    to answer."""
+    cites, how many searches it ran, whether the provider declined to
+    answer, and the page addresses its searches returned (None from an
+    assistant that does not say)."""
 
     text: str
     cited: list[str] = field(default_factory=list)
     searched: int = 0
     declined: bool = False
+    found: list[str] | None = None
 
 
 class Engine(Protocol):
@@ -102,9 +114,12 @@ class AnthropicSearch:
     """Claude through the Messages API with the web search server tool.
 
     The request is the shopper's message and nothing else: no system
-    prompt, so the assistant behaves as the provider ships it. A turn
-    the provider pauses is sent back to continue; a declined turn is
-    recorded as declined, not as an answer."""
+    prompt, so the assistant behaves as the provider ships it. The
+    searches are made directly (``_SEARCH_CALLERS``), which is the form
+    whose answers carry citations. A turn the provider pauses is sent
+    back to continue; a declined turn is recorded as declined, not as
+    an answer. What the assistant said before a search and after it are
+    two paragraphs of one answer."""
 
     def __init__(self, model: str = DEFAULT_MODEL, max_searches: int = 3,
                  client=None, tool_type: str = ANTHROPIC_SEARCH_TOOL):
@@ -125,28 +140,48 @@ class AnthropicSearch:
 
     def ask(self, prompt: str) -> EngineAnswer:
         messages: list[dict] = [{"role": "user", "content": prompt}]
-        text: list[str] = []
+        text = ""
         cited: list[str] = []
+        found: list[str] = []
         searched = 0
+        apart = False  # a tool ran since the last words
         reason = ""
         for _ in range(_MAX_RESUMES + 1):
             response = self._client.messages.create(
                 model=self.model,
                 max_tokens=_ANSWER_MAX_TOKENS,
                 tools=[{"type": self.tool_type, "name": "web_search",
-                        "max_uses": self.max_searches}],
+                        "max_uses": self.max_searches,
+                        "allowed_callers": list(_SEARCH_CALLERS)}],
                 messages=messages,
             )
             for block in response.content:
                 kind = getattr(block, "type", "")
                 if kind == "text":
-                    text.append(getattr(block, "text", "") or "")
+                    piece = getattr(block, "text", "") or ""
+                    # A cited answer arrives in pieces that join as they
+                    # stand; words either side of a tool's work do not.
+                    if apart and text.strip() and piece.strip():
+                        text = text.rstrip() + "\n\n" + piece.lstrip()
+                    else:
+                        text += piece
+                    apart = False
                     for citation in getattr(block, "citations", None) or []:
                         url = getattr(citation, "url", None)
-                        if url and url not in cited:
+                        if url and str(url) not in cited:
                             cited.append(str(url))
-                elif kind == "server_tool_use" and getattr(block, "name", "") == "web_search":
-                    searched += 1
+                elif kind == "server_tool_use":
+                    apart = True
+                    if getattr(block, "name", "") == "web_search":
+                        searched += 1
+                elif kind == "web_search_tool_result":
+                    results = getattr(block, "content", None)
+                    # A failed search carries one error object, not a list.
+                    for item in results if isinstance(results, list) else []:
+                        url = (item.get("url") if isinstance(item, dict)
+                               else getattr(item, "url", None))
+                        if url and str(url) not in found:
+                            found.append(str(url))
             reason = getattr(response, "stop_reason", "") or ""
             if reason != "pause_turn":
                 break
@@ -154,8 +189,8 @@ class AnthropicSearch:
             # stands and it resumes where it stopped.
             messages.append({"role": "assistant", "content": response.content})
         return EngineAnswer(
-            text="".join(text).strip(), cited=cited, searched=searched,
-            declined=reason == "refusal",
+            text=text.strip(), cited=cited, searched=searched,
+            declined=reason == "refusal", found=found,
         )
 
 
@@ -227,7 +262,8 @@ def _agrees(value) -> bool | None:
 class Probe:
     """One live check: the record the scorecard stores and one row per
     question (``id``, ``archetype``, ``asked``, ``answered``,
-    ``checked``, ``contradicted``, ``named``, ``cited``, ``notes``)."""
+    ``checked``, ``contradicted``, ``named``, ``cited``, ``found``,
+    ``notes``)."""
 
     record: dict
     rows: list[dict] = field(default_factory=list)
@@ -273,7 +309,8 @@ def probe(
 
     rows: list[dict] = []
     asked = errors = answered = checked = contradicted = named = cited = declined = 0
-    searches = 0
+    searches = found = 0
+    reported = False  # the assistant says which pages its searches returned
     by_archetype: dict[str, dict[str, int]] = {}
     first_error = ""
     for question in questions:
@@ -282,7 +319,7 @@ def probe(
         verified = evaluator.render_context(retrieve_fn(bundle, question.question, top_k))
         row = {"id": question.id, "archetype": question.archetype, "asked": 0,
                "answered": 0, "checked": 0, "contradicted": 0, "named": 0,
-               "cited": 0, "notes": ""}
+               "cited": 0, "found": 0, "notes": ""}
         for _ in range(repeats):
             try:
                 answer = engine.ask(shopper_prompt(store, host, question.question))
@@ -298,6 +335,11 @@ def probe(
             asked += 1
             row["asked"] += 1
             searches += answer.searched
+            if answer.found is not None:
+                reported = True
+                if any(_on_store(url, host) for url in answer.found):
+                    found += 1
+                    row["found"] += 1
             if answer.declined or not answer.text:
                 declined += 1 if answer.declined else 0
                 continue
@@ -356,6 +398,10 @@ def probe(
     search = getattr(engine, "tool_type", "")
     if search:
         record["search"] = search
+    if reported:
+        # The share of replies whose searches returned a page on the
+        # store's address: what `cites_store` can at most be.
+        record["finds_store"] = _share(found, asked)
     if checked:
         record["agrees"] = _share(checked - contradicted, checked)
     if declined:

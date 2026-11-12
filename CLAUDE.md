@@ -242,7 +242,14 @@ commit histories, environment quirks, and the user's operating rhythm).
   record (`report.live_sentences`), and the scorecard's live table
   never carries an `answered` header, which is how the report finds
   the bundle's own verdicts. Tests patch `cli._engine` to stand in
-  for the assistant; no test and no CI run asks a live one.
+  for the assistant; no test and no CI run asks a live one. The
+  adapter asks for direct searches (`engines._SEARCH_CALLERS`,
+  `allowed_callers: ["direct"]`): the tool's default runs them inside
+  the provider's code execution and such a reply carries no
+  citations, so `cites_store` would be zero by construction. Beside
+  it the record keeps `finds_store`, whether the searches returned a
+  page on the store's address at all, present only when the
+  assistant reports its searches' results.
 - **A question set measures the store it was written from** (EVALUATION
   §1, profile 1.13): generation grounds every question in the outline,
   is told which archetypes the bundle's types support
@@ -398,6 +405,21 @@ test_passport, test_locations) → re-measure the scorecard → verification loo
   The first real surveys did (six pages, nineteen drafts written, six
   concepts left). `tests/test_page_concepts.py` surveys pages that
   yield several; a stand-in for a model emits what a model emits.
+- A reply is read from the service, not from its documentation's
+  example. The live check's adapter was written against the web
+  search tool's documented reply and verified with scripted ones of
+  that shape; the tool version it names answers in another shape by
+  default (searches inside the provider's code execution, no
+  citations). The first run on a real store (2026-11-12) recorded
+  "cites the store: 0" for five answers that carried no citation of
+  anything. Seen only by taking one real reply apart, block by
+  block, beside what the reader made of it. A new provider, tool
+  version or model gets that look before its figures are believed.
+- Break-testing rewrites a source file and restores it; when both
+  writes fall in one second and the sizes match, Python keeps the
+  compiled file of the broken source and the next run fails for no
+  reason in the code. Run such checks with
+  `PYTHONDONTWRITEBYTECODE=1`, or clear `__pycache__` after them.
 - Keep `.claude/MEMORY.md` truthful: any commit that changes something it
   records (profile, counts, metrics, histories, rhythm) updates it in the same
   commit — and edit it only from a fresh Read of the exact region: recalled

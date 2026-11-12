@@ -126,7 +126,10 @@ def test_a_probe_asks_as_a_shopper_and_grades_against_the_bundle(tmp_path):
     assert rows["pol-1"]["notes"] == "says 14 days; the policy says 30"
     assert rows["fact-1"] == {"id": "fact-1", "archetype": "product_fact", "asked": 1,
                               "answered": 1, "checked": 0, "contradicted": 0,
-                              "named": 1, "cited": 1, "notes": ""}
+                              "named": 1, "cited": 1, "found": 0, "notes": ""}
+    # An assistant that does not say which pages its searches returned
+    # leaves that figure out of the record: absent, never zero.
+    assert "finds_store" not in record
     assert rows["cap-1"]["answered"] == 0
     # The judge got the evaluator's context for the question as VERIFIED,
     # under the probe's own prompt.
@@ -241,6 +244,13 @@ def _search():
     return SimpleNamespace(type="server_tool_use", name="web_search", input={"query": "q"})
 
 
+def _results(*urls):
+    # The provider's results as its client gives them: objects, or plain mappings.
+    return SimpleNamespace(type="web_search_tool_result", content=[
+        SimpleNamespace(type="web_search_result", url=url) if index % 2 == 0 else {"url": url}
+        for index, url in enumerate(urls)])
+
+
 class _Messages:
     def __init__(self, responses):
         self.responses = list(responses)
@@ -257,9 +267,15 @@ def _client(*responses):
 
 def test_the_adapter_sends_the_shoppers_message_with_search_on_and_nothing_else():
     client = _client(SimpleNamespace(stop_reason="end_turn", content=[
+        _text("Let me look that up."),
         _search(),
-        SimpleNamespace(type="web_search_tool_result", content=[]),
-        # The search tool filters its own results with code: not a search.
+        _results("https://www.trailshop.test/returns", "https://reviews.example/trail-shop",
+                 "https://www.trailshop.test/returns"),
+        # A search the provider could not run carries an error, not results.
+        _search(),
+        SimpleNamespace(type="web_search_tool_result", content=SimpleNamespace(
+            type="web_search_tool_result_error", error_code="unavailable")),
+        # Code the provider runs for itself is not a search.
         SimpleNamespace(type="server_tool_use", name="code_execution", input={}),
         _text("Returns are accepted "),
         _text("within 30 days.", urls=["https://www.trailshop.test/returns",
@@ -268,13 +284,18 @@ def test_the_adapter_sends_the_shoppers_message_with_search_on_and_nothing_else(
     engine = AnthropicSearch(model="some-model", max_searches=2, client=client)
     answer = engine.ask("I have a question about the online store Trail Shop. Returns?")
     assert answer == EngineAnswer(
-        text="Returns are accepted within 30 days.",
-        cited=["https://www.trailshop.test/returns"], searched=1, declined=False)
+        # What was said before the search and after it: two paragraphs.
+        # The pieces of a cited sentence join as they stand.
+        text="Let me look that up.\n\nReturns are accepted within 30 days.",
+        cited=["https://www.trailshop.test/returns"], searched=2, declined=False,
+        found=["https://www.trailshop.test/returns", "https://reviews.example/trail-shop"])
     [request] = client.messages.requests
     assert request == {
         "model": "some-model",
         "max_tokens": engines._ANSWER_MAX_TOKENS,
-        "tools": [{"type": engines.ANTHROPIC_SEARCH_TOOL, "name": "web_search", "max_uses": 2}],
+        # The searches are asked for directly: the form whose answers carry citations.
+        "tools": [{"type": engines.ANTHROPIC_SEARCH_TOOL, "name": "web_search", "max_uses": 2,
+                   "allowed_callers": ["direct"]}],
         "messages": [{"role": "user",
                       "content": "I have a question about the online store Trail Shop. Returns?"}],
     }
@@ -287,7 +308,8 @@ def test_a_paused_turn_is_sent_back_and_a_declined_one_is_recorded():
     done = SimpleNamespace(stop_reason="end_turn", content=[_search(), _text("It is 30 days.")])
     client = _client(paused, done)
     answer = AnthropicSearch(client=client).ask("Returns?")
-    assert answer.text == "Looking. It is 30 days." and answer.searched == 2
+    assert answer.text == "Looking.\n\nIt is 30 days." and answer.searched == 2
+    assert answer.found == []  # it searched, and says so: nothing came back
     first, second = client.messages.requests
     # The paused turn goes back as it stands, with no extra user message.
     assert second["messages"] == [{"role": "user", "content": "Returns?"},
@@ -299,6 +321,79 @@ def test_a_paused_turn_is_sent_back_and_a_declined_one_is_recorded():
     forever = _client(*[paused] * (engines._MAX_RESUMES + 1))
     assert AnthropicSearch(client=forever).ask("Returns?").searched == engines._MAX_RESUMES + 1
     assert len(forever.messages.requests) == engines._MAX_RESUMES + 1
+
+
+def test_the_reply_shape_of_the_providers_default_is_why_the_searches_are_direct():
+    # What the provider sent on the first run against a real store
+    # (2026-11-12), with the tool left at its default: the searches ran
+    # inside its own code execution, their results came back, and no
+    # text carried a citation. A reader can count such a reply's
+    # searches and its results, and has nothing to read a citation from.
+    nested = SimpleNamespace(type="code_execution_20260120", tool_id="t")
+    reply = SimpleNamespace(stop_reason="end_turn", content=[
+        SimpleNamespace(type="server_tool_use", name="code_execution", input={}),
+        SimpleNamespace(type="server_tool_use", name="web_search", input={"query": "q"},
+                        caller=nested),
+        SimpleNamespace(type="web_search_tool_result", caller=nested, content=[
+            SimpleNamespace(type="web_search_result", url="https://www.trailshop.test/returns")]),
+        SimpleNamespace(type="code_execution_tool_result", content=SimpleNamespace(stdout="")),
+        SimpleNamespace(type="text", text="Their returns window is 30 days.", citations=None),
+    ])
+    answer = AnthropicSearch(client=_client(reply)).ask("Returns?")
+    assert answer.searched == 1 and answer.found == ["https://www.trailshop.test/returns"]
+    assert answer.cited == []
+    assert engines._SEARCH_CALLERS == ("direct",)
+
+
+FOUND = {
+    # The store's page came back and another site was cited.
+    "return unused gear": EngineAnswer(
+        "Trail Shop accepts returns within 14 days.",
+        cited=["https://reviews.example/trail-shop"], searched=2,
+        found=["https://reviews.example/trail-shop", "https://trailshop.test/returns"]),
+    # It came back and was cited.
+    "tent weigh": EngineAnswer(
+        "The tent at trailshop.test weighs about 1.4 kg.",
+        cited=["https://www.trailshop.test/products/tent"], searched=1,
+        found=["https://www.trailshop.test/products/tent"]),
+    # Three searches, and nothing of the store among their results.
+    "stove": EngineAnswer("", searched=3, found=["https://other.example/stoves"]),
+}
+
+
+def test_whether_the_searches_returned_the_store_is_recorded_beside_what_was_cited(
+        bundle_copy, tmp_path):
+    live = engines.probe(_bundle(tmp_path), QUESTIONS, _Assistant(FOUND), _Judge())
+    assert live.record["cites_store"] == 0.333 and live.record["finds_store"] == 0.667
+    rows = {row["id"]: row for row in live.rows}
+    assert (rows["pol-1"]["found"], rows["pol-1"]["cited"]) == (1, 0)
+    assert (rows["fact-1"]["found"], rows["fact-1"]["cited"]) == (1, 1)
+    # An empty reply still searched: what came back is counted, and no judge is asked.
+    assert (rows["cap-1"]["found"], rows["cap-1"]["asked"], rows["cap-1"]["answered"]) == (0, 1, 0)
+    # A declined reply whose searches did return the store counts as found, not as cited.
+    declined = dict(FOUND, stove=EngineAnswer(
+        "", searched=1, declined=True, found=["https://www.trailshop.test/stoves"]))
+    again = engines.probe(_bundle(tmp_path), QUESTIONS, _Assistant(declined), _Judge())
+    assert again.record["finds_store"] == 1.0 and again.record["cites_store"] == 0.333
+
+    # The scorecard's table gains the column only when a record carries the figure.
+    bundle = load_bundle(bundle_copy)
+    questions = evaluator.load_questions(bundle_copy / "evaluations" / "questions.yaml")
+    report = live.attach(evaluator.evaluate(bundle, questions))
+    out = evaluator.write_scorecard(bundle, report, force=True)
+    fm, body = parse_document(out.read_text(encoding="utf-8"))
+    assert fm["x_geo"]["live"][0]["finds_store"] == 0.667
+    assert ("| id | asked | substantive | checked | contradicted | names the store | "
+            "cites the store | store in results |\n"
+            "| --- | --- | --- | --- | --- | --- | --- | --- |\n") in body
+    assert "| pol-1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 |" in body
+    assert "| cap-1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |" in body
+    assert "`store in results` counts the replies whose searches returned a page" in body
+    # Still no `answered` header: the report reads no verdict of the bundle's from it.
+    from okf_web.report import judged_verdicts
+    assert judged_verdicts(load_bundle(bundle_copy).concepts[evaluator.SCORECARD_PATH]) == {}
+    _, findings = linter.lint_bundle(bundle_copy)
+    assert not [f for f in findings if f.path == evaluator.SCORECARD_PATH]
 
 
 # --- the scorecard and the report --------------------------------------------
@@ -323,8 +418,10 @@ def test_a_scorecard_carries_a_live_check_only_when_its_run_made_one(bundle_copy
     assert fm["x_geo"]["live"] == [live.record]
     assert "# What a live assistant answered" in body
     assert "put to `scripted/assistant` with web search on" in body
-    assert "| pol-1 | 1 | 1 | 1 | 1 | 1 | 0 |" in body
-    assert "| cap-1 | 1 | 0 | 0 | 0 | 0 | 0 |" in body
+    assert "| pol-1 | 1 | 1 | 1 | 1 | 1 | 0 |\n" in body
+    assert "| cap-1 | 1 | 0 | 0 | 0 | 0 | 0 |\n" in body
+    # No figure for what the searches returned, so no column for it.
+    assert "store in results" not in body and "| cites the store |\n" in body
     # The judge's note is one inert line.
     assert "* `pol-1`: `says '14 days' the policy says 30`" in body
     # The live table is not a results table: it pronounces no verdict
@@ -391,6 +488,17 @@ def test_a_malformed_live_record_says_nothing():
     # statement and keeps the rest.
     odd = dict(unchecked, names_store=3, cites_store=0.5)
     assert live_sentences([odd]) == live_sentences([unchecked])
+    # What the searches returned is stated after what was cited, from the record alone.
+    seen = dict(unchecked, names_store=1.0, cites_store=0.0)
+    [plain] = live_sentences([seen])
+    assert plain.endswith("It named the store in 100% of its replies and cited a page of "
+                          "the store in 0%.")
+    [found] = live_sentences([dict(seen, finds_store=0.25)])
+    assert found == plain + " Its searches returned a page of the store in 25% of them."
+    for junk in (3, -0.1, "most", None, True):
+        assert live_sentences([dict(seen, finds_store=junk)]) == [plain], junk
+    # Without the statement about the store's name and pages there is nothing to add to.
+    assert live_sentences([dict(unchecked, finds_store=0.25)]) == live_sentences([unchecked])
 
 
 # --- the command -------------------------------------------------------------

@@ -4,8 +4,43 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-12 — **a page keeps every concept it yields**
-(found in the same real runs as the entry below). Both capped
+Last updated: 2026-11-12 — **the live check asks for direct
+searches** (on the maintainer's first runs against a real store,
+that day). Five questions about a dealer's site, the tool left at
+its default: searches_mean 2.8, answered 0.8, names_store 1.0,
+checked 4, contradicted 0, and **cites_store 0.0**. One question
+then asked both ways and each reply taken apart: by default the
+searches ran inside the provider's code execution (ten
+`server_tool_use` blocks: seven `code_execution`, three
+`web_search` with a `caller`), 27 result pages (four on the store's
+address), 59,538 tokens in, 2,248 out, and **no citation on any
+text block**; asked with `allowed_callers: ["direct"]`, two
+searches, 19 result pages (none on the store's address), 22,117
+tokens in, 997 out, and four citations. So the zero was the shape
+of the reply, not the assistant's choice. The reader's count of
+searches equalled the service's own (`usage.server_tool_use.
+web_search_requests`) both times: 3 and 2. `engines.AnthropicSearch`
+now declares `allowed_callers` (`_SEARCH_CALLERS`, direct), reads
+the pages the searches returned (`EngineAnswer.found`; None from an
+assistant that does not say), and joins what was said before a
+search and after it as two paragraphs (a cited sentence's pieces
+still join as they stand). The record gains `finds_store` (the
+share of replies whose searches returned a page on the store's
+address; absent when no answer reported its results), the rows
+`found`, the scorecard's live table a `store in results` column
+when a record carries the figure, and `report.live_sentences` one
+more sentence. Not changed: the shopper's wording (the generated
+questions say "you" to the store, and the assistant opens by saying
+it is not the store; seen, left). Two tests added in
+`tests/test_engines.py` (26 there), three changed; 21 mutations,
+all caught. Suite **630** without `build`, 631 with it. Positions:
+`main` == `bfbb0b7` (fetched); the branch seven ahead (`9431f79`,
+`4001250`, `2240087`, `c7d9b3d`, `9342408`, `a8ec7b2`, this commit;
+run 10 green for `a8ec7b2`), which move to `main` on the user's
+word.
+
+Earlier on 2026-11-12, **a page keeps every concept it yields**
+(`a8ec7b2`; found in the same real runs as the entry below). Both capped
 surveys of the dealer's site ended with exactly one concept a page:
 six pages, six concepts, nineteen drafts written the first time.
 `surveyor.place_draft`'s path stability took "a URL that already has
@@ -32,10 +67,7 @@ is gone). Not changed: `linkmap.json` maps a URL to one path (the
 last in path order when a page has several), and a concept a page
 stops yielding stays as it was. `tests/test_page_concepts.py` (12)
 and 12 mutations, all caught. Suite **628** without `build`, 629
-with it. Positions: `main` == `bfbb0b7` (fetched); the branch six
-ahead (`9431f79`, `4001250`, `2240087`, `c7d9b3d`, `9342408`, this
-commit; run 9 green for `9342408`), which move to `main` on the
-user's word.
+with it.
 
 On 2026-11-11, **a capped survey of a real store** (`9342408`; on
 the first real runs of that day's work, made by the maintainer). Two
@@ -1084,7 +1116,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **628 passing** without `build`, 629 where it is installed (CI,
+- Test suite: **630 passing** without `build`, 631 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1161,13 +1193,14 @@ review.
   push. As of this commit: `main` == `bfbb0b7` (the user's "Push the
   commit directly to main" of 2026-11-06, 22:28 UTC, run 4 green
   first: a fast-forward from `25b33c5` over `bfbb0b7`, the
-  question-set guards, profile 1.13), and the branch is six ahead:
+  question-set guards, profile 1.13), and the branch is seven ahead:
   `9431f79` (the measured baseline, which recorded `main` one push
   behind), `4001250` (MEMORY-only, the correction), `2240087` (the
   guide's typed comparison), `c7d9b3d` (the live check), `9342408`
-  (the capped survey's two fixes; run 9 green) and this commit (the
-  write gate keeps every concept a page yields), which move to
-  `main` on the user's word. Before that, `main` == `25b33c5` (the
+  (the capped survey's two fixes), `a8ec7b2` (the write gate keeps
+  every concept a page yields; run 10 green) and this commit (the
+  live check's direct searches), which move to `main` on the user's
+  word. Before that, `main` == `25b33c5` (the
   user's "Push the commit directly to main" of 2026-11-06, run 3
   green first: a fast-forward from `2814339` over `25b33c5`, the
   flip recorded). Before
@@ -1222,7 +1255,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Keep every concept a surveyed page yields: path stability in the write gate is per concept, not per page
+(this commit)  Ask the live assistant for direct searches, and record whether they returned a page of the store: a reply made the default way carries no citations
+a8ec7b2  Keep every concept a surveyed page yields: path stability in the write gate is per concept, not per page
 9342408  Make a capped survey of a real store usable: rank the pages a limit keeps, and read a question set line by line before calling it empty
 c7d9b3d  Ask a live assistant what it tells shoppers: the store's questions with web search on, graded against the bundle
 2240087  Take the guide's typed comparison out, and refuse the next one with a test
@@ -1445,14 +1479,16 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
 - The example scorecard's judged figures are labeled as written with
   the example (2026-11-10). A real judged run would replace them and
   needs a model: the maintainer's choice of where it runs.
-- `evaluate --probe` has asked a live assistant once (2026-11-11, a
-  store on a reserved example address: no search was run, rightly). A
-  reply with searches and cited pages has not been seen from the real
-  service yet; the count of searches is read from the reply's blocks,
-  and the service's own count (`usage.server_tool_use`) is the thing
-  to compare it with on that run. One adapter exists (Claude with web
-  search); another provider is a new class behind the `Engine`
-  protocol and a way to choose it.
+- `evaluate --probe` has been seen against the real service with and
+  without searches (2026-11-11 and 11-12); its count of searches
+  matched the service's own. Not yet seen: a full run after the
+  change to direct searches (the two-way comparison was one
+  question), a `pause_turn` resume, and a declined turn. The
+  shopper's wording puts second-person questions ("do you carry") to
+  an assistant that then says it is not the store; whether to
+  reword is undecided. One adapter exists (Claude with web search);
+  another provider is a new class behind the `Engine` protocol and a
+  way to choose it.
 - A failed question generation keeps nothing of the model's reply:
   the next one that fails cannot be diagnosed from a record either.
 - A concept a page stops yielding stays in the bundle as it was

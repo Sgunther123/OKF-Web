@@ -1126,10 +1126,17 @@ def write_scorecard(
             "this store rather than a shrug; `contradicted` counts the "
             "answers this bundle's knowledge could check and found wrong."
         )
+        # Whether the searches returned a page of the store is shown
+        # when an assistant reports its searches' results.
+        searches = any("finds_store" in record for record in report.live)
+        if searches:
+            lines[-1] += (" `store in results` counts the replies whose searches "
+                          "returned a page on the store's address at all.")
         lines += [
             "",
-            "| id | asked | substantive | checked | contradicted | names the store | cites the store |",
-            "| --- | --- | --- | --- | --- | --- | --- |",
+            "| id | asked | substantive | checked | contradicted | names the store | cites the store |"
+            + (" store in results |" if searches else ""),
+            "| --- | --- | --- | --- | --- | --- | --- |" + (" --- |" if searches else ""),
         ]
         for row in report.live_rows:
             lines.append(
@@ -1137,6 +1144,7 @@ def write_scorecard(
                 f"{row.get('answered', 0)} | {row.get('checked', 0)} | "
                 f"{row.get('contradicted', 0)} | {row.get('named', 0)} | "
                 f"{row.get('cited', 0)} |"
+                + (f" {row.get('found', 0)} |" if searches else "")
             )
         noted = [row for row in report.live_rows if row.get("notes")]
         if noted:

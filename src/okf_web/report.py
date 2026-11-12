@@ -387,6 +387,10 @@ def live_sentences(live) -> list[str]:
         if named is not None and cited is not None and 0 <= named <= 1 and 0 <= cited <= 1:
             seen = (f" It named the store in {_pct(named)} of its replies and cited a "
                     f"page of the store in {_pct(cited)}.")
+        found = _number(record.get("finds_store"))
+        if seen and found is not None and 0 <= found <= 1:
+            seen += (f" Its searches returned a page of the store in {_pct(found)} "
+                     "of them.")
         sentences.append(
             f"Asked the same questions as a shopper would, {record['engine']} with web "
             f"search gave a substantive answer about this store in {_pct(answered)} of "

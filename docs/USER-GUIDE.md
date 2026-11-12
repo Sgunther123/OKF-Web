@@ -263,8 +263,9 @@ questions the way a shopper would ("I have a question about the
 online store ..."), then checks each answer against your fact sheets.
 The report card records how often the assistant had a real answer
 about your store, how many of its answers your fact sheets could
-check and how many they contradicted, and how often it named your
-store or pointed to one of your pages. This step needs an API key (a
+check and how many they contradicted, how often it named your store
+or pointed to one of your pages, and how often its searches turned
+up one of your pages at all. This step needs an API key (a
 subscription login has no web search), and the provider charges for
 each search. Assistants change from week to week, so read it as a
 dated snapshot: run it before you publish and again later to see
