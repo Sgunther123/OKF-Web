@@ -317,6 +317,12 @@ def test_a_paused_turn_is_sent_back_and_a_declined_one_is_recorded():
     declined = AnthropicSearch(client=_client(
         SimpleNamespace(stop_reason="refusal", content=[]))).ask("Returns?")
     assert declined.declined and declined.text == ""
+    # A reply cut at the output limit is no answer: the ask fails, and a
+    # probe counts a failed ask apart.
+    cut = SimpleNamespace(stop_reason="max_tokens", content=[_search(), _text("It is 3")])
+    with pytest.raises(engines.LLMTruncated, match="cut off at its output limit"):
+        AnthropicSearch(client=_client(cut)).ask("Returns?")
+    assert client.messages.requests[0]["max_tokens"] == engines._ANSWER_MAX_TOKENS == 16000
     # A turn that never stops pausing ends after the resumes it is allowed.
     forever = _client(*[paused] * (engines._MAX_RESUMES + 1))
     assert AnthropicSearch(client=forever).ask("Returns?").searched == engines._MAX_RESUMES + 1

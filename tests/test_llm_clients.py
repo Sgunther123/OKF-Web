@@ -136,3 +136,161 @@ def test_cli_maps_an_unsupported_cli_to_exit_2(tmp_path, monkeypatch, capsys):
     assert code == 2
     err = capsys.readouterr().err
     assert "does not support --tools" in err and "ANTHROPIC_API_KEY" in err
+
+
+# --- the API client and a reply cut at its output limit ---------------------------
+#
+# The default model reasons before it writes, and the provider's output
+# limit covers the reasoning as well as the answer. Until 2026-11-12 the
+# client asked for the answer's size alone and returned whatever came
+# back: a question set cut after its third question was a set of three.
+
+from types import SimpleNamespace  # noqa: E402
+
+from okf_web import errors, evaluator, surveyor  # noqa: E402
+from okf_web.llm import AnthropicClient, LLMTruncated  # noqa: E402
+from okf_web.model import Bundle, Concept, load_bundle  # noqa: E402
+
+
+def _reply(text, stop="end_turn"):
+    # What the provider sends: the reasoning first, with its text
+    # withheld, then the words.
+    return SimpleNamespace(stop_reason=stop, content=[
+        SimpleNamespace(type="thinking", thinking=""),
+        SimpleNamespace(type="text", text=text[: len(text) // 2]),
+        SimpleNamespace(type="text", text=text[len(text) // 2:]),
+    ])
+
+
+class BadRequestError(Exception):
+    """Named as the provider's client names it."""
+
+
+class _Stream:
+    def __init__(self, message):
+        self.message = message
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def get_final_message(self):
+        return self.message
+
+
+class _Messages:
+    def __init__(self, *outcomes):
+        self.outcomes = list(outcomes)
+        self.requests: list[dict] = []
+
+    def stream(self, **kwargs):
+        self.requests.append(kwargs)
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return _Stream(outcome)
+
+
+def _api_client(*outcomes) -> AnthropicClient:
+    client = AnthropicClient.__new__(AnthropicClient)  # no SDK and no key needed
+    client.model = "some-model"
+    client._client = SimpleNamespace(messages=_Messages(*outcomes))
+    return client
+
+
+def _limits(client):
+    return [request["max_tokens"] for request in client._client.messages.requests]
+
+
+def test_the_api_client_asks_for_the_answer_plus_room_for_the_reasoning():
+    client = _api_client(_reply("The whole answer."))
+    assert client.complete("RULES", "QUESTION", max_tokens=1024) == "The whole answer."
+    [request] = client._client.messages.requests
+    assert request == {"model": "some-model", "system": "RULES", "max_tokens": 1024 + 8000,
+                       "messages": [{"role": "user", "content": "QUESTION"}]}
+    assert _limits(_api_client(_reply("x"))) == []  # nothing is sent before a call
+    default = _api_client(_reply("x"))
+    default.complete("s", "u")
+    assert _limits(default) == [4096 + 8000]
+
+
+def test_a_reply_cut_at_the_limit_is_asked_for_again_with_more_room_and_never_used():
+    client = _api_client(_reply("questions:\n  - id: disc-1", stop="max_tokens"),
+                         _reply("questions: all twenty-eight"))
+    assert client.complete("s", "u", max_tokens=4096) == "questions: all twenty-eight"
+    assert _limits(client) == [4096 + 8000, 4096 + 32000]
+
+
+def test_a_reply_cut_twice_fails_and_says_why():
+    client = _api_client(_reply("half", stop="max_tokens"), _reply("half again", stop="max_tokens"))
+    with pytest.raises(LLMTruncated, match=r"some-model was cut off at its output limit "
+                                           r"\(36096 tokens, its reasoning included\)") as cut:
+        client.complete("s", "u", max_tokens=4096)
+    assert "a cut-off reply is not used" in str(cut.value)
+    assert _limits(client) == [4096 + 8000, 4096 + 32000]  # two tries, never a third
+    # The command acted and the outcome failed: exit 1, not a refusal.
+    assert isinstance(cut.value, errors.Failure) and errors.exit_code(cut.value) == 1
+
+
+def test_a_model_with_a_small_output_is_asked_as_the_caller_sized_it():
+    too_much = BadRequestError("max_tokens: 12096 > 8192, which is the maximum allowed")
+    client = _api_client(too_much, _reply("Fits."))
+    assert client.complete("s", "u", max_tokens=4096) == "Fits."
+    assert _limits(client) == [4096 + 8000, 4096]
+    # Cut at its own size, there is no more room to ask for.
+    cut = _api_client(too_much, _reply("ha", stop="max_tokens"))
+    with pytest.raises(LLMTruncated, match=r"\(4096 tokens"):
+        cut.complete("s", "u", max_tokens=4096)
+    assert _limits(cut) == [4096 + 8000, 4096]
+    # A reply cut with room, where the model has no more to give: the cut stands.
+    capped = _api_client(_reply("ha", stop="max_tokens"), too_much)
+    with pytest.raises(LLMTruncated, match=r"\(12096 tokens"):
+        capped.complete("s", "u", max_tokens=4096)
+
+
+@pytest.mark.parametrize("failure", [
+    BadRequestError("messages: text content blocks must be non-empty"),
+    RuntimeError("overloaded: max_tokens mentioned by something that is no bad request"),
+    OSError("connection reset"),
+])
+def test_any_other_failure_is_the_callers_to_see(failure):
+    client = _api_client(failure)
+    with pytest.raises(type(failure)):
+        client.complete("s", "u")
+    assert _limits(client) == [4096 + 8000]  # not asked again
+    later = _api_client(_reply("x", stop="max_tokens"), failure)
+    with pytest.raises(type(failure)):
+        later.complete("s", "u")
+
+
+class _CutFor:
+    """A client whose reply for one kind of request was cut twice."""
+
+    model = "static/cut"
+
+    def __init__(self, marker, otherwise=""):
+        self.marker, self.otherwise = marker, otherwise
+
+    def complete(self, system, user, max_tokens=0):
+        if self.marker in user:
+            raise LLMTruncated("static/cut was cut off at its output limit")
+        return self.otherwise
+
+
+def test_a_cut_question_set_is_a_failure_not_a_short_set(tmp_path):
+    bundle = Bundle(root=tmp_path, concepts={"store.md": Concept(
+        "store.md", {"type": "Store Identity", "title": "Shop", "description": "A shop."}, "x")})
+    with pytest.raises(LLMTruncated):
+        evaluator.generate_questions(bundle, _CutFor("PER_ARCHETYPE"))
+
+
+def test_a_page_whose_extraction_was_cut_is_reported_and_the_others_are_kept(tmp_path):
+    block = ('<<<CONCEPT path="faq/b.md">>>\n---\ntype: FAQ\ntitle: B\n---\n\nBody.\n<<<END>>>\n')
+    result = surveyor.survey(
+        ["https://shop.test/a", "https://shop.test/b"], tmp_path,
+        _CutFor("https://shop.test/a", otherwise=block), fetcher=lambda url: f"text of {url}")
+    assert result.written == ["faq/b.md"]
+    assert result.errors == ["https://shop.test/a: static/cut was cut off at its output limit"]
+    assert list(load_bundle(tmp_path).concepts) == ["faq/b.md"]

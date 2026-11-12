@@ -22,11 +22,12 @@ import tempfile
 from typing import Protocol
 
 from .config import DEFAULT_MODEL
-from .errors import Refusal
+from .errors import Failure, Refusal
 
 __all__ = [
     "LLMClient",
     "AnthropicClient",
+    "LLMTruncated",
     "LLMUnavailable",
     "probe_cli_help",
     "SubscriptionCLIClient",
@@ -40,10 +41,30 @@ __all__ = [
 
 
 class LLMClient(Protocol):
+    """``max_tokens`` is the room the caller's answer needs, not a
+    limit on everything the model may produce on the way to it."""
+
     model: str
 
     def complete(self, system: str, user: str, max_tokens: int = 4096) -> str:
         ...
+
+
+class LLMTruncated(RuntimeError, Failure):
+    """The model's reply was cut off at its output limit before it was
+    finished. A cut-off reply is never used: a question set would be
+    its first few questions, a verdict half a line of JSON."""
+
+
+#: Room asked for on top of the caller's answer, for the reasoning a
+#: model does before it writes. The provider's output limit covers
+#: both, and current models reason unless told not to: a limit sized
+#: for the answer alone cut replies off from the day the default model
+#: began to reason (a question set of three where the uncut reply held
+#: twenty-eight; found 2026-11-12, when a real run made it visible).
+_REASONING_ROOM = 8000
+#: The room of the one further try after a reply was cut.
+_MORE_ROOM = 32000
 
 
 class AnthropicClient:
@@ -62,15 +83,69 @@ class AnthropicClient:
         self._client = anthropic.Anthropic()
 
     def complete(self, system: str, user: str, max_tokens: int = 4096) -> str:
-        response = self._client.messages.create(
+        """The model's whole reply as text. The request asks for the
+        caller's answer plus room for the model's reasoning; a reply
+        cut at that limit is asked for once more with far more room,
+        and one cut again raises :class:`LLMTruncated`. A model whose
+        whole output is smaller than the answer plus the room is asked
+        as the caller sized it."""
+        first = max_tokens + _REASONING_ROOM
+        try:
+            message = self._message(system, user, first)
+        except Exception as exc:  # noqa: BLE001 — only the provider's refusal of the limit is handled
+            if not _limit_refused(exc):
+                raise
+            message = self._message(system, user, max_tokens)
+            if _cut(message):
+                raise LLMTruncated(self._cut_off(max_tokens)) from exc
+            return _text(message)
+        if not _cut(message):
+            return _text(message)
+        second = max_tokens + _MORE_ROOM
+        try:
+            message = self._message(system, user, second)
+        except Exception as exc:  # noqa: BLE001 — as above
+            if not _limit_refused(exc):
+                raise
+            raise LLMTruncated(self._cut_off(first)) from exc
+        if _cut(message):
+            raise LLMTruncated(self._cut_off(second))
+        return _text(message)
+
+    def _message(self, system: str, user: str, limit: int):
+        # Streamed: the provider's client refuses a plain request whose
+        # limit could run past ten minutes, and for some models any
+        # limit over a few thousand tokens.
+        with self._client.messages.stream(
             model=self.model,
             system=system,
-            max_tokens=max_tokens,
+            max_tokens=limit,
             messages=[{"role": "user", "content": user}],
+        ) as stream:
+            return stream.get_final_message()
+
+    def _cut_off(self, limit: int) -> str:
+        return (
+            f"{self.model} was cut off at its output limit ({limit} tokens, its "
+            "reasoning included) before it finished its reply; a cut-off reply "
+            "is not used"
         )
-        return "".join(
-            block.text for block in response.content if getattr(block, "type", "") == "text"
-        )
+
+
+def _text(message) -> str:
+    return "".join(
+        block.text for block in message.content if getattr(block, "type", "") == "text"
+    )
+
+
+def _cut(message) -> bool:
+    return getattr(message, "stop_reason", None) == "max_tokens"
+
+
+def _limit_refused(exc: Exception) -> bool:
+    """The provider turned the request away for asking more output than
+    the model can give (a bad request that names ``max_tokens``)."""
+    return type(exc).__name__ == "BadRequestError" and "max_tokens" in str(exc)
 
 
 class LLMUnavailable(RuntimeError, Refusal):

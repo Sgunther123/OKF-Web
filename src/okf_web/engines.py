@@ -44,6 +44,7 @@ from typing import Protocol
 from . import evaluator
 from .config import DEFAULT_MODEL
 from .errors import Refusal
+from .llm import LLMTruncated
 from .model import Bundle
 
 __all__ = [
@@ -72,7 +73,8 @@ ANTHROPIC_SEARCH_TOOL = "web_search_20260209"
 _SEARCH_CALLERS = ("direct",)
 
 #: Room for the assistant's answer and whatever reasoning precedes it.
-_ANSWER_MAX_TOKENS = 8000
+#: A reply cut at this limit is a failed ask, not an answer.
+_ANSWER_MAX_TOKENS = 16000
 #: How many times a turn the provider paused is sent back to continue.
 _MAX_RESUMES = 3
 #: Asks that may fail in a row, from the first, before the probe stops:
@@ -188,6 +190,11 @@ class AnthropicSearch:
             # The provider's own loop paused: send the turn back as it
             # stands and it resumes where it stopped.
             messages.append({"role": "assistant", "content": response.content})
+        if reason == "max_tokens":
+            raise LLMTruncated(
+                f"{self.name} was cut off at its output limit ({_ANSWER_MAX_TOKENS} "
+                "tokens) before it finished its answer; a cut-off answer is not graded"
+            )
         return EngineAnswer(
             text=text.strip(), cited=cited, searched=searched,
             declined=reason == "refusal", found=found,

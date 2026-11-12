@@ -4,9 +4,52 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-12 — **both fixes of that day seen working
-on the real store** (the maintainer's runs, after the two commits
-below; MEMORY-only). The capped survey of the same dealer's site
+Last updated: 2026-11-12 — **a reply cut at its output limit is
+never used** (found when a real question set came back with 3
+questions where the run before had 28). `llm.AnthropicClient.
+complete` sent the caller's `max_tokens` as the request's limit and
+returned the text without reading `stop_reason`. The provider's
+limit covers the model's reasoning as well as its answer, and the
+default model reasons unless told not to, so replies were cut and
+used as whole. **Seen on the maintainer's machine**, the question
+set asked for twice for one bundle of 11 concepts: at 4,096 the
+reply ended `max_tokens` with 3,063 of the 4,096 tokens spent on
+reasoning and the text cut mid-sentence, 14 questions readable; at
+12,096 it ended `end_turn` (4,236 out, 1,706 reasoning) with 31.
+This is what the first real run's "the model produced no usable
+set" was (recorded on 2026-11-11 as a quoting slip, inferred and
+never seen), and why real sets came back with 14, 28 and 3
+questions; the line-by-line reading added that day made cut replies
+partly readable instead of empty. Judges (`max_tokens` 1,024) and
+page extraction (8,192) ran under the same limit: a cut verdict
+read as "not answered", a cut extraction dropped its last concept.
+Now: the request asks for the answer plus `_REASONING_ROOM` (8,000);
+a reply that ends `max_tokens` is asked for once more with
+`_MORE_ROOM` (32,000), and one cut again raises `LLMTruncated` (a
+`Failure`, exit 1); a model whose whole output is smaller than
+answer plus room (the provider's bad request naming `max_tokens`) is
+asked as the caller sized it. Requests are streamed
+(`messages.stream`, `get_final_message`): the provider's client
+refuses a plain request with a large limit. `LLMClient`'s
+`max_tokens` now means the room the answer needs.
+`engines.AnthropicSearch`: `_ANSWER_MAX_TOKENS` 16,000 and a cut
+answer raises, so a probe counts it as a failed ask. A page whose
+extraction is cut is one line in `SurveyResult.errors`; a cut
+question set raises through `generate_questions`. Tests: nine in
+`tests/test_llm_clients.py` (the client driven through a scripted
+stream; no SDK needed) and the engines test extended; 17 mutations,
+all caught. Suite **640** without `build`, 641 with it. Not
+re-measured: how many past judged verdicts a cut changed (none on
+record here: the example's judged figures were written with the
+example). Positions: `main` == `5c3a3d9` (fetched;
+the user's "Push the commit directly to main" of 2026-11-12, run 12
+green first, a fast-forward from `bfbb0b7` over eight commits); the
+branch one ahead with this commit, which moves to `main` on the
+user's word.
+
+Earlier on 2026-11-12, **both fixes of that day seen working
+on the real store** (`5c3a3d9`; the maintainer's runs, after the
+two commits below; MEMORY-only). The capped survey of the same dealer's site
 that had kept six concepts from six pages kept ten, and the
 question set written from them had 28 questions where the earlier
 one had 14. The live check asked the new way, five questions:
@@ -1129,7 +1172,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **630 passing** without `build`, 631 where it is installed (CI,
+- Test suite: **640 passing** without `build`, 641 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1203,18 +1246,21 @@ review.
   ahead of `main`. There is no record commit (dropped 2026-09-17), so
   the sha named here is refreshed only by the next content commit and
   can lag: always `git fetch` and read `origin/main` before a main
-  push. As of this commit: `main` == `bfbb0b7` (the user's "Push the
-  commit directly to main" of 2026-11-06, 22:28 UTC, run 4 green
-  first: a fast-forward from `25b33c5` over `bfbb0b7`, the
-  question-set guards, profile 1.13), and the branch is eight ahead:
-  `9431f79` (the measured baseline, which recorded `main` one push
-  behind), `4001250` (MEMORY-only, the correction), `2240087` (the
+  push. As of this commit: `main` == `5c3a3d9` (the user's "Push the
+  commit directly to main" of 2026-11-12, 19:18 UTC, run 12 green
+  first: a fast-forward from `bfbb0b7` over eight commits, `9431f79`
+  (the measured baseline), `4001250` (MEMORY-only), `2240087` (the
   guide's typed comparison), `c7d9b3d` (the live check), `9342408`
   (the capped survey's two fixes), `a8ec7b2` (the write gate keeps
   every concept a page yields), `5304935` (the live check's direct
-  searches; run 11 green) and this commit (MEMORY-only: both seen
-  working on the real store), which move to `main` on the user's
-  word. Before that, `main` == `25b33c5` (the
+  searches) and `5c3a3d9` (MEMORY-only: both seen working on the
+  real store)), and the branch is one ahead with this commit (a
+  reply cut at its output limit is never used), which moves to
+  `main` on the user's word. Before that, `main` == `bfbb0b7` (the
+  user's "Push the commit directly to main" of 2026-11-06, 22:28
+  UTC, run 4 green first: a fast-forward from `25b33c5` over
+  `bfbb0b7`, the question-set guards, profile 1.13). Before that,
+  `main` == `25b33c5` (the
   user's "Push the commit directly to main" of 2026-11-06, run 3
   green first: a fast-forward from `2814339` over `25b33c5`, the
   flip recorded). Before
@@ -1269,7 +1315,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Record both fixes seen working on the real store: ten concepts from six pages, and a live check that cites (MEMORY-only)
+(this commit)  Never use a model reply that was cut off at its output limit: room for the reasoning, one more try, then a failure
+5c3a3d9  Record both fixes seen working on the real store: ten concepts from six pages, and a live check that cites (MEMORY-only)
 5304935  Ask the live assistant for direct searches, and record whether they returned a page of the store: a reply made the default way carries no citations
 a8ec7b2  Keep every concept a surveyed page yields: path stability in the write gate is per concept, not per page
 9342408  Make a capped survey of a real store usable: rank the pages a limit keeps, and read a question set line by line before calling it empty
@@ -1504,8 +1551,9 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
   reword is undecided. One adapter exists (Claude with web search);
   another provider is a new class behind the `Engine` protocol and a
   way to choose it.
-- A failed question generation keeps nothing of the model's reply:
-  the next one that fails cannot be diagnosed from a record either.
+- A failed question generation keeps nothing of the model's reply.
+  A reply cut at its limit now says so (`LLMTruncated`); any other
+  unreadable reply still cannot be diagnosed from a record.
 - A concept a page stops yielding stays in the bundle as it was
   (draft or stable, with the old text's hash), and `drift` goes on
   reporting it changed: nothing retires it but a person. And

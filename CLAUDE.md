@@ -393,10 +393,23 @@ test_passport, test_locations) → re-measure the scorecard → verification loo
   reading the reply line by line when it is not YAML. The first real
   capped survey (2026-11-11: a 218-page dealer's site, six pages) read
   the home page twice, an HTML site map and a links page, then lost
-  its whole question set to one single-quoted sentence holding an
-  apostrophe, and reported that the model had produced nothing. A
-  limit is applied to the ranked list; a reply is called empty only
-  after both readings.
+  its whole question set and reported that the model had produced
+  nothing. The loss was put down to a quoting slip at the time; the
+  next bullet is what it was. A limit is applied to the ranked list;
+  a reply is called empty only after both readings.
+- A reply is whole or it is not used. The provider's output limit
+  covers the reasoning a model does before it writes, and the default
+  model reasons unless told not to; `llm.AnthropicClient` asked for
+  the answer's size alone and never read how the reply ended. Seen on
+  2026-11-12: the same request ended `max_tokens` at 4,096 tokens,
+  3,063 of them reasoning, with 14 questions readable from the cut
+  text, and ended normally with 31 when given room. Real question
+  sets had come back with 0, 14, 28 and 3 questions; judges and page
+  extractions ran under the same limit. The client now asks for the
+  answer plus room (`_REASONING_ROOM`), asks once more with far more
+  after a cut, and then raises `LLMTruncated` (a failure). `max_tokens`
+  in `complete` is the room an answer needs, never a budget to tune;
+  any new call to a model reads `stop_reason` before it reads text.
 - A stand-in that yields one of a thing proves nothing about two.
   From 2026-08-12 to 2026-11-12 the write gate sent every draft of a
   URL to the first concept that URL owned, so each surveyed page kept

@@ -136,6 +136,7 @@ code. Review 2026-10-21, phase U4.
 | `probe_cli_help` | function | the agent CLI's `--help`, or None for a missing binary |
 | `estimate_tokens` | function | the token estimate the budget uses |
 | `LLMUnavailable` | class | no usable client (refusal) |
+| `LLMTruncated` | class | the model's reply was cut off at its output limit, twice (failure); a cut-off reply is never used |
 | `DEFAULT_MODEL` | str | `config.DEFAULT_MODEL` |
 
 ### `okf_web.packs`
