@@ -4,9 +4,26 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-12 — **the live check asks for direct
-searches** (on the maintainer's first runs against a real store,
-that day). Five questions about a dealer's site, the tool left at
+Last updated: 2026-11-12 — **both fixes of that day seen working
+on the real store** (the maintainer's runs, after the two commits
+below; MEMORY-only). The capped survey of the same dealer's site
+that had kept six concepts from six pages kept ten, and the
+question set written from them had 28 questions where the earlier
+one had 14. The live check asked the new way, five questions:
+searches_mean 2.4, answered 0.8, names_store 1.0, **cites_store
+0.8**, the store's pages among the search results for four of the
+five (`finds_store` 0.8), checked 4, contradicted 0, agrees 1.0. A
+row can cite the store without being a substantive answer, and be
+substantive without the store among its results: both happened
+once. Still not seen: a `pause_turn` resume and a declined turn.
+Positions: `main` == `bfbb0b7` (fetched); the branch eight ahead
+(`9431f79`, `4001250`, `2240087`, `c7d9b3d`, `9342408`, `a8ec7b2`,
+`5304935`, this commit; run 11 green for `5304935`), which move to
+`main` on the user's word.
+
+Earlier on 2026-11-12, **the live check asks for direct
+searches** (`5304935`; on the maintainer's first runs against a
+real store, that day). Five questions about a dealer's site, the tool left at
 its default: searches_mean 2.8, answered 0.8, names_store 1.0,
 checked 4, contradicted 0, and **cites_store 0.0**. One question
 then asked both ways and each reply taken apart: by default the
@@ -33,11 +50,7 @@ more sentence. Not changed: the shopper's wording (the generated
 questions say "you" to the store, and the assistant opens by saying
 it is not the store; seen, left). Two tests added in
 `tests/test_engines.py` (26 there), three changed; 21 mutations,
-all caught. Suite **630** without `build`, 631 with it. Positions:
-`main` == `bfbb0b7` (fetched); the branch seven ahead (`9431f79`,
-`4001250`, `2240087`, `c7d9b3d`, `9342408`, `a8ec7b2`, this commit;
-run 10 green for `a8ec7b2`), which move to `main` on the user's
-word.
+all caught. Suite **630** without `build`, 631 with it.
 
 Earlier on 2026-11-12, **a page keeps every concept it yields**
 (`a8ec7b2`; found in the same real runs as the entry below). Both capped
@@ -1193,13 +1206,14 @@ review.
   push. As of this commit: `main` == `bfbb0b7` (the user's "Push the
   commit directly to main" of 2026-11-06, 22:28 UTC, run 4 green
   first: a fast-forward from `25b33c5` over `bfbb0b7`, the
-  question-set guards, profile 1.13), and the branch is seven ahead:
+  question-set guards, profile 1.13), and the branch is eight ahead:
   `9431f79` (the measured baseline, which recorded `main` one push
   behind), `4001250` (MEMORY-only, the correction), `2240087` (the
   guide's typed comparison), `c7d9b3d` (the live check), `9342408`
   (the capped survey's two fixes), `a8ec7b2` (the write gate keeps
-  every concept a page yields; run 10 green) and this commit (the
-  live check's direct searches), which move to `main` on the user's
+  every concept a page yields), `5304935` (the live check's direct
+  searches; run 11 green) and this commit (MEMORY-only: both seen
+  working on the real store), which move to `main` on the user's
   word. Before that, `main` == `25b33c5` (the
   user's "Push the commit directly to main" of 2026-11-06, run 3
   green first: a fast-forward from `2814339` over `25b33c5`, the
@@ -1255,7 +1269,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Ask the live assistant for direct searches, and record whether they returned a page of the store: a reply made the default way carries no citations
+(this commit)  Record both fixes seen working on the real store: ten concepts from six pages, and a live check that cites (MEMORY-only)
+5304935  Ask the live assistant for direct searches, and record whether they returned a page of the store: a reply made the default way carries no citations
 a8ec7b2  Keep every concept a surveyed page yields: path stability in the write gate is per concept, not per page
 9342408  Make a capped survey of a real store usable: rank the pages a limit keeps, and read a question set line by line before calling it empty
 c7d9b3d  Ask a live assistant what it tells shoppers: the store's questions with web search on, graded against the bundle
@@ -1480,10 +1495,10 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
   the example (2026-11-10). A real judged run would replace them and
   needs a model: the maintainer's choice of where it runs.
 - `evaluate --probe` has been seen against the real service with and
-  without searches (2026-11-11 and 11-12); its count of searches
-  matched the service's own. Not yet seen: a full run after the
-  change to direct searches (the two-way comparison was one
-  question), a `pause_turn` resume, and a declined turn. The
+  without searches, and asked directly over five questions
+  (2026-11-11 and 11-12); its count of searches matched the
+  service's own. Not yet seen: a `pause_turn` resume and a declined
+  turn. The
   shopper's wording puts second-person questions ("do you carry") to
   an assistant that then says it is not the store; whether to
   reword is undecided. One adapter exists (Claude with web search);
