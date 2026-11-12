@@ -189,6 +189,46 @@ def test_repeats_give_shares_and_declared_archetypes_are_set_aside(tmp_path):
         engines.probe(bundle, QUESTIONS, assistant, _Judge(), repeats=0)
 
 
+def test_a_judges_note_is_cut_at_a_word_and_written_for_the_stores_owner(tmp_path):
+    # The first note a store's owner was sent (2026-11-12) ended "warranty
+    # for defe" and spoke of "VERIFIED's statement": cut at a character
+    # count, in the prompt's own labels.
+    long = ("The answer says new equipment carries only the maker's warranty, while the store's "
+            "own knowledge says the store itself repairs or replaces new goods for twelve "
+            "months, covers parts and labor in the first ninety days, and asks only that the "
+            "buyer register the purchase within thirty days of delivery to keep that cover, in "
+            "writing, with the serial number of each machine.")
+    assert len(long) > engines._NOTE_CHARS == 320
+
+    class Wordy(_Judge):
+        def __init__(self, note):
+            super().__init__()
+            self.note = note
+
+        def complete(self, system, user, max_tokens=0):
+            verdict = json.loads(super().complete(system, user, max_tokens))
+            verdict["notes"] = self.note
+            return json.dumps(verdict)
+
+    def note_for(text):
+        result = engines.probe(_bundle(tmp_path), QUESTIONS[:1], _Assistant(SCRIPT), Wordy(text))
+        return result.rows[0]["notes"]
+
+    cut = note_for(long)
+    assert len(cut) <= engines._NOTE_CHARS and cut.endswith(" ...")
+    kept = cut[: -len(" ...")]
+    assert long.startswith(kept) and long[len(kept)] == " "   # cut between words, never inside one
+    assert not kept.endswith(" ")
+    # A note that fits is kept whole, as one line.
+    assert note_for("says 14 days;\n the policy  says 30") == "says 14 days; the policy says 30"
+    assert note_for("") == "" and note_for(None) == ""
+    # The judge is told who reads the note and which words not to use.
+    prompt = engines.judge_prompt()
+    assert "written for the\n  store's owner in plain words" in prompt
+    assert 'never write VERIFIED, ANSWER or any\n  other label of this prompt in the note' in prompt
+    assert "at most 40 words" in prompt
+
+
 def test_a_declined_or_failed_ask_is_counted_apart_never_as_an_answer(tmp_path):
     bundle = _bundle(tmp_path)
     script = {

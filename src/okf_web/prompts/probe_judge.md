@@ -20,8 +20,12 @@ answer the question yourself.
     time limit, condition or policy, or a claim VERIFIED rules out.
   - `null`: `answered` is false, or VERIFIED says nothing on what the
     ANSWER states, so it cannot be checked.
-- `notes` (string): one sentence. For `false`, name the contradiction;
-  for `null`, say what could not be checked.
+- `notes` (string): one sentence of at most 40 words, written for the
+  store's owner in plain words. For `false`, say what the assistant's
+  answer claims and what the store's own knowledge says instead; for
+  `null`, say what could not be checked. Call them "the answer" and
+  "the store's own knowledge": never write VERIFIED, ANSWER or any
+  other label of this prompt in the note.
 
 # Rules
 

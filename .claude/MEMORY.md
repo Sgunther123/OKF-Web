@@ -4,9 +4,29 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-12 — **a reply cut at its output limit is
-never used** (found when a real question set came back with 3
-questions where the run before had 28). `llm.AnthropicClient.
+Last updated: 2026-11-12 — **a judge's note is for the store's
+owner** (the first real contradiction the live check found, read by
+the maintainer). With the fix below in place the same store's
+question set came back whole (31 questions), and one of three live
+answers contradicted the store's own page on its warranty. The note
+that reported it ended mid-word ("... warranty for defe") and spoke
+of "VERIFIED's statement": it had been cut at 240 characters, and
+the judge wrote in its prompt's labels. `prompts/probe_judge.md` now
+asks for one sentence of at most 40 words, in plain words for the
+store's owner, naming "the answer" and "the store's own knowledge"
+and never a label of the prompt; `engines.probe` shortens a longer
+note at a word with " ..." (`textwrap.shorten`, `_NOTE_CHARS` 320).
+One test added to `tests/test_engines.py` (27 there); 5 mutations,
+all caught. Suite **641** without `build`, 642 with it. The new
+wording has not been seen from a live judge yet. Positions: `main`
+== `c64e943` (fetched; the user's "Push the commit directly to
+main" of 2026-11-12, 20:23 UTC, run 13 green first, a fast-forward
+from `5c3a3d9`); the branch one ahead with this commit, which moves
+to `main` on the user's word.
+
+Earlier on 2026-11-12, **a reply cut at its output limit is
+never used** (`c64e943`; found when a real question set came back
+with 3 questions where the run before had 28). `llm.AnthropicClient.
 complete` sent the caller's `max_tokens` as the request's limit and
 returned the text without reading `stop_reason`. The provider's
 limit covers the model's reasoning as well as its answer, and the
@@ -41,11 +61,7 @@ stream; no SDK needed) and the engines test extended; 17 mutations,
 all caught. Suite **640** without `build`, 641 with it. Not
 re-measured: how many past judged verdicts a cut changed (none on
 record here: the example's judged figures were written with the
-example). Positions: `main` == `5c3a3d9` (fetched;
-the user's "Push the commit directly to main" of 2026-11-12, run 12
-green first, a fast-forward from `bfbb0b7` over eight commits); the
-branch one ahead with this commit, which moves to `main` on the
-user's word.
+example).
 
 Earlier on 2026-11-12, **both fixes of that day seen working
 on the real store** (`5c3a3d9`; the maintainer's runs, after the
@@ -1172,7 +1188,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **640 passing** without `build`, 641 where it is installed (CI,
+- Test suite: **641 passing** without `build`, 642 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1246,7 +1262,13 @@ review.
   ahead of `main`. There is no record commit (dropped 2026-09-17), so
   the sha named here is refreshed only by the next content commit and
   can lag: always `git fetch` and read `origin/main` before a main
-  push. As of this commit: `main` == `5c3a3d9` (the user's "Push the
+  push. As of this commit: `main` == `c64e943` (the user's "Push the
+  commit directly to main" of 2026-11-12, 20:23 UTC, run 13 green
+  first: a fast-forward from `5c3a3d9` over `c64e943`, a reply cut at
+  its output limit is never used), and the branch is one ahead with
+  this commit (a judge's note is for the store's owner), which moves
+  to `main` on the user's word. Before that, `main` == `5c3a3d9` (the
+  user's "Push the
   commit directly to main" of 2026-11-12, 19:18 UTC, run 12 green
   first: a fast-forward from `bfbb0b7` over eight commits, `9431f79`
   (the measured baseline), `4001250` (MEMORY-only), `2240087` (the
@@ -1254,9 +1276,7 @@ review.
   (the capped survey's two fixes), `a8ec7b2` (the write gate keeps
   every concept a page yields), `5304935` (the live check's direct
   searches) and `5c3a3d9` (MEMORY-only: both seen working on the
-  real store)), and the branch is one ahead with this commit (a
-  reply cut at its output limit is never used), which moves to
-  `main` on the user's word. Before that, `main` == `bfbb0b7` (the
+  real store)). Before that, `main` == `bfbb0b7` (the
   user's "Push the commit directly to main" of 2026-11-06, 22:28
   UTC, run 4 green first: a fast-forward from `25b33c5` over
   `bfbb0b7`, the question-set guards, profile 1.13). Before that,
@@ -1315,7 +1335,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Never use a model reply that was cut off at its output limit: room for the reasoning, one more try, then a failure
+(this commit)  Have the live check's judge write its note for the store's owner, and cut a long note at a word
+c64e943  Never use a model reply that was cut off at its output limit: room for the reasoning, one more try, then a failure
 5c3a3d9  Record both fixes seen working on the real store: ten concepts from six pages, and a live check that cites (MEMORY-only)
 5304935  Ask the live assistant for direct searches, and record whether they returned a page of the store: a reply made the default way carries no citations
 a8ec7b2  Keep every concept a surveyed page yields: path stability in the write gate is per concept, not per page

@@ -36,6 +36,7 @@ refusal (:class:`ProbeError`), never a column of zeros.
 
 from __future__ import annotations
 
+import textwrap
 import urllib.parse
 from dataclasses import dataclass, field
 from importlib import resources
@@ -80,7 +81,9 @@ _MAX_RESUMES = 3
 #: Asks that may fail in a row, from the first, before the probe stops:
 #: an unreachable assistant is found out in three calls, not thirty-nine.
 _FAILURES_BEFORE_STOP = 3
-_NOTE_CHARS = 240
+#: A judge's note longer than this is cut at a word, with a mark that
+#: it was cut: it is read by a person, in a scorecard or a mail.
+_NOTE_CHARS = 320
 
 
 class ProbeError(RuntimeError, Refusal):
@@ -376,7 +379,8 @@ def probe(
             if not agrees:
                 contradicted += 1
                 row["contradicted"] += 1
-                row["notes"] = row["notes"] or str(verdict.get("notes") or "")[:_NOTE_CHARS]
+                row["notes"] = row["notes"] or textwrap.shorten(
+                    str(verdict.get("notes") or ""), _NOTE_CHARS, placeholder=" ...")
         slot = by_archetype.setdefault(
             question.archetype, {"asked": 0, "answered": 0, "contradicted": 0})
         slot["asked"] += row["asked"]
