@@ -4,7 +4,40 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-11 — **a capped survey of a real store** (on
+Last updated: 2026-11-12 — **a page keeps every concept it yields**
+(found in the same real runs as the entry below). Both capped
+surveys of the dealer's site ended with exactly one concept a page:
+six pages, six concepts, nineteen drafts written the first time.
+`surveyor.place_draft`'s path stability took "a URL that already has
+a concept keeps its path" literally: the first concept a URL owned
+received every later draft of that URL, the same page's second and
+third blocks included, so a page kept only the last concept it
+yielded, under the first one's path (reproduced: three blocks,
+`written: ['store.md', 'store.md', 'store.md']`, one file, a Product
+Collection in `store.md`). In the code since `13ff741` (2026-08-12);
+unseen because every stand-in model in the tests emits one block a
+page and the example bundle has one concept a URL. Now per concept:
+a draft whose path its URL owns is written in place; a draft with a
+new path takes over a concept of its own type that the URL owns and
+no other draft of the page claims (a rename), or, where the producer
+declared the page's paths, the URL's only concept (renamed and
+retyped); anything else is a further concept, written where
+proposed. `place_draft(..., claimed=None)`: one set a page, the
+paths its drafts propose plus where each landed; `survey_page`
+checks every block first, numbers a second block under one path
+(`-2`, `-3`), declares the paths and hands the gate one loaded
+bundle (one load a page, not one a block). A page is unchanged when
+any concept it owns carries the text's hash (`_existing_by_resource`
+is gone). Not changed: `linkmap.json` maps a URL to one path (the
+last in path order when a page has several), and a concept a page
+stops yielding stays as it was. `tests/test_page_concepts.py` (12)
+and 12 mutations, all caught. Suite **628** without `build`, 629
+with it. Positions: `main` == `bfbb0b7` (fetched); the branch six
+ahead (`9431f79`, `4001250`, `2240087`, `c7d9b3d`, `9342408`, this
+commit; run 9 green for `9342408`), which move to `main` on the
+user's word.
+
+On 2026-11-11, **a capped survey of a real store** (`9342408`; on
 the first real runs of that day's work, made by the maintainer). Two
 findings, both fixed here. (1) A survey under a limit read the first
 pages the sitemap listed: on a 218-page dealer's site with a limit of
@@ -36,10 +69,7 @@ and ran no search (the service's own count agrees: no
 one question before any search. A reply with searches and citations
 is still unverified against the real service. `tests/
 test_capped_survey.py` (37) and 20 mutations, all caught. Suite
-**616** without `build`, 617 with it. Positions: `main` ==
-`bfbb0b7` (fetched); the branch five ahead (`9431f79`, `4001250`,
-`2240087`, `c7d9b3d`, this commit), which move to `main` on the
-user's word.
+**616** without `build`, 617 with it.
 
 Earlier on 2026-11-11, **a live check is asked or absent**
 (`c7d9b3d`; on the user's "Implement as recommended" of that day,
@@ -1054,7 +1084,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **616 passing** without `build`, 617 where it is installed (CI,
+- Test suite: **628 passing** without `build`, 629 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1131,12 +1161,13 @@ review.
   push. As of this commit: `main` == `bfbb0b7` (the user's "Push the
   commit directly to main" of 2026-11-06, 22:28 UTC, run 4 green
   first: a fast-forward from `25b33c5` over `bfbb0b7`, the
-  question-set guards, profile 1.13), and the branch is five ahead:
+  question-set guards, profile 1.13), and the branch is six ahead:
   `9431f79` (the measured baseline, which recorded `main` one push
   behind), `4001250` (MEMORY-only, the correction), `2240087` (the
-  guide's typed comparison), `c7d9b3d` (the live check) and this
-  commit (the capped survey's two fixes), which move to `main` on the
-  user's word. Before that, `main` == `25b33c5` (the
+  guide's typed comparison), `c7d9b3d` (the live check), `9342408`
+  (the capped survey's two fixes; run 9 green) and this commit (the
+  write gate keeps every concept a page yields), which move to
+  `main` on the user's word. Before that, `main` == `25b33c5` (the
   user's "Push the commit directly to main" of 2026-11-06, run 3
   green first: a fast-forward from `2814339` over `25b33c5`, the
   flip recorded). Before
@@ -1191,7 +1222,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Make a capped survey of a real store usable: rank the pages a limit keeps, and read a question set line by line before calling it empty
+(this commit)  Keep every concept a surveyed page yields: path stability in the write gate is per concept, not per page
+9342408  Make a capped survey of a real store usable: rank the pages a limit keeps, and read a question set line by line before calling it empty
 c7d9b3d  Ask a live assistant what it tells shoppers: the store's questions with web search on, graded against the bundle
 2240087  Take the guide's typed comparison out, and refuse the next one with a test
 4001250  Correct the recorded position of main: it has carried the question-set guards since 2026-11-06 (MEMORY-only)
@@ -1423,6 +1455,11 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
   protocol and a way to choose it.
 - A failed question generation keeps nothing of the model's reply:
   the next one that fails cannot be diagnosed from a record either.
+- A concept a page stops yielding stays in the bundle as it was
+  (draft or stable, with the old text's hash), and `drift` goes on
+  reporting it changed: nothing retires it but a person. And
+  `linkmap.json` names one path a URL, the last in path order when a
+  page has several concepts.
 - `okf-web mcp --url` (remote-bundle mode, DISTRIBUTION §4) shipped as
   GAPS item 10 (`40a176e`); nothing planned remains unscheduled here.
 

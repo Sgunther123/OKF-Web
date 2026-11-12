@@ -150,7 +150,7 @@ code. Review 2026-10-21, phase U4.
 | --- | --- | --- |
 | `survey` | function | pages → drafts through the write gate |
 | `survey_page` | function | one page |
-| `place_draft` | function | the single write gate for concept files |
+| `place_draft` | function | the single write gate for concept files (a producer of several drafts for one URL passes one `claimed` set for them) |
 | `rebuild_index` | function | the root index from what is stable |
 | `discover_sitemap` | function | a site's sitemap URLs |
 | `rank_pages` | function | listed pages in the order a capped survey should take them (the order only; nothing is fetched) |

@@ -112,6 +112,11 @@ commit histories, environment quirks, and the user's operating rhythm).
   of human-approved and `stable` content; producer paths confined to
   content directories — `surveyor.PRODUCER_DENIED_DIRS`; `resource` pinned
   to the surveyed URL). Never write concept files ad hoc in pipeline code.
+  Path stability is **per concept**: a page keeps every concept it
+  yields. A draft is written in place, takes over a concept of its own
+  type that the producer renamed, or is a further concept of the same
+  page; a producer that yields several drafts for one URL declares
+  their paths in one `claimed` set, as `survey_page` does.
 - **Derived and rendered text is inert** (EDGE-CASES E3): JSON-LD is
   serialized with `structured.dumps_script_safe`; only `http(s)` resources
   are ever linked (viewer, linkmap, JSON-LD `url`; lint E020/W038); the
@@ -385,6 +390,14 @@ test_passport, test_locations) → re-measure the scorecard → verification loo
   apostrophe, and reported that the model had produced nothing. A
   limit is applied to the ranked list; a reply is called empty only
   after both readings.
+- A stand-in that yields one of a thing proves nothing about two.
+  From 2026-08-12 to 2026-11-12 the write gate sent every draft of a
+  URL to the first concept that URL owned, so each surveyed page kept
+  only the last concept it yielded, under the first one's path, while
+  every test passed: no test page had yielded more than one concept.
+  The first real surveys did (six pages, nineteen drafts written, six
+  concepts left). `tests/test_page_concepts.py` surveys pages that
+  yield several; a stand-in for a model emits what a model emits.
 - Keep `.claude/MEMORY.md` truthful: any commit that changes something it
   records (profile, counts, metrics, histories, rhythm) updates it in the same
   commit — and edit it only from a fresh Read of the exact region: recalled

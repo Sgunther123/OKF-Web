@@ -191,6 +191,19 @@ different URL, or by none, is a collision resolved with a new name;
 and a `stable` or human-reviewed concept is never overwritten, only
 proposed against under `_review/proposed/`.
 
+A page can yield several concepts (a home page states who the store
+is, what it sells and where it is), and the gate keeps each: path
+stability is per concept. A draft whose path its URL already owns is
+written in place; a draft with a new path takes over a concept of its
+own type that the URL owns and that no other draft of the same page
+claims (the producer renamed it); anything else is a further concept
+from that page, written where proposed. Two blocks of one reply under
+one path are two concepts, the second on a numbered path. A page
+counts as unchanged when any concept it owns was drafted from the
+same text. `linkmap.json` maps a URL to one path, so a page with
+several concepts links to the last of them in path order. A concept
+a page stops yielding stays as it was, for a person to retire.
+
 The contract for LLM extraction:
 
 - **Frontier:** `sitemap.xml` (with `lastmod` when present) or an

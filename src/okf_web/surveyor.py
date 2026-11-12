@@ -479,11 +479,6 @@ def _safe_rel_path(rel: str) -> bool:
     )
 
 
-def _existing_by_resource(bundle_root: Path) -> dict[str, Concept]:
-    bundle = load_bundle(bundle_root)
-    return {c.resource: c for c in bundle.concepts.values() if c.resource}
-
-
 def survey_page(
     url: str,
     page_text: str,
@@ -495,8 +490,10 @@ def survey_page(
     """Run one page through extract → gate → stamp → write."""
     bundle_root = Path(bundle_root)
     source_hash = stable_page_hash(page_text)
-    existing = _existing_by_resource(bundle_root).get(url)
-    if existing is not None and existing.source_hash == source_hash:
+    state = load_bundle(bundle_root)
+    # A page can own several concepts; it is unchanged when any of them
+    # was drafted from this same text.
+    if any(c.source_hash == source_hash for c in state.concepts.values() if c.resource == url):
         result.skipped_unchanged.append(url)
         return
 
@@ -517,6 +514,10 @@ def survey_page(
         result.quarantined.append(url)
         return
 
+    # Every block is checked before any is written, so the gate knows
+    # the paths this page claims when it places the first of them.
+    drafts: list[tuple[str, dict, str]] = []
+    claimed: set[str] = set()
     for rel, doc_text in blocks:
         if not _safe_rel_path(rel):
             _quarantine(bundle_root, url, doc_text, f"unsafe concept path {rel!r}")
@@ -567,7 +568,17 @@ def survey_page(
             result.quarantined.append(f"{url} -> {rel}")
             continue
 
-        place_draft(bundle_root, url, rel, fm, body, result)
+        # Two blocks of one reply under one path are two concepts: the
+        # second takes a numbered path instead of replacing the first.
+        stem, number = rel[: -len(".md")], 1
+        while rel in claimed:
+            number += 1
+            rel = f"{stem}-{number}.md"
+        claimed.add(rel)
+        drafts.append((rel, fm, body))
+
+    for rel, fm, body in drafts:
+        place_draft(bundle_root, url, rel, fm, body, result, state=state, claimed=claimed)
 
 
 def place_draft(
@@ -578,6 +589,7 @@ def place_draft(
     body: str,
     result: SurveyResult,
     state: Bundle | None = None,
+    claimed: set[str] | None = None,
 ) -> str:
     """The write-policy gate every draft producer shares (LLM surveyor,
     feed ingest): path stability, collision safety, and never silently
@@ -585,18 +597,40 @@ def place_draft(
 
     Bulk producers pass ``state`` — the bundle they already hold — and it
     is updated in place after a write so the next draft's checks see this
-    one without a per-row reload. Returns the rel path the draft actually
-    landed at."""
+    one without a per-row reload. A producer that yields several drafts
+    for one URL (a surveyed page) passes ``claimed``, one set for the
+    page: the paths its drafts propose, to which the gate adds the path
+    each one lands at, so no draft of a page takes another's place.
+    Returns the rel path the draft actually landed at."""
     if state is None:
         state = load_bundle(bundle_root)
+    declared = claimed is not None
+    if claimed is None:
+        claimed = set()
 
-    # Path stability: a URL that already has a concept keeps its
-    # path, even when the producer proposes a new name on re-survey —
-    # otherwise a rename would orphan the old file and duplicate
-    # the product.
-    prior = next((c for c in state.concepts.values() if c.resource == url), None)
-    if prior is not None and prior.rel_path != rel:
-        rel = prior.rel_path
+    # Path stability: a URL keeps the paths of the concepts it owns,
+    # even when the producer proposes a new name on re-survey —
+    # otherwise a rename would orphan the old file and duplicate the
+    # product. A page can yield several concepts, so the rule is per
+    # concept: a draft whose path the URL already owns is written in
+    # place; a draft with a new path takes over a concept of its own
+    # type that the URL owns and no draft of this page claims (the
+    # producer renamed it); where the producer declared the page's
+    # paths, it also takes over the URL's only concept when that one is
+    # unclaimed (renamed and retyped); anything else is a further
+    # concept from the same page, written where proposed. Without the
+    # declaration the gate cannot tell a retyped concept from a second
+    # one, and keeps both. Until 2026-11-12 every draft of a URL was
+    # sent to the first concept that URL owned, so a page kept only the
+    # last concept it yielded, under the first one's path.
+    owned = [c for c in state.concepts.values() if c.resource == url]
+    if owned and all(c.rel_path != rel for c in owned):
+        free = [c for c in owned if c.rel_path not in claimed]
+        renamed = next((c for c in free if c.type == fm.get("type")), None)
+        if renamed is None and declared and len(owned) == 1 and free:
+            renamed = free[0]
+        if renamed is not None:
+            rel = renamed.rel_path
 
     # Collision safety: never let one page's draft silently overwrite
     # a concept this URL does not own — one owned by a different URL,
@@ -640,6 +674,7 @@ def place_draft(
         write_atomic(target, render_document(fm, body))
         result.written.append(rel)
         state.concepts[rel] = Concept(rel, fm, body, abs_path=target)
+    claimed.add(rel)
     return rel
 
 
