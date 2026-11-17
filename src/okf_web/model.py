@@ -51,6 +51,8 @@ __all__ = [
     "utc_now",
     "utc_today",
     "FRESHNESS_SLA_DAYS",
+    "LIVE_VALUES_HEADING",
+    "RELATED_HEADING",
     "default_stale_after",
     "LOCK_NAME",
     "BundleLocked",
@@ -289,6 +291,18 @@ def utc_today() -> _dt.date:
 # still has none. Promotions carry their end date instead; scorecards
 # are stamped by the evaluator (30 days). The merchant may always set a
 # tighter or looser date by hand or with `review approve --stale-after`.
+#: Two sections a concept may carry that are written for an agent
+#: reading the bundle, not as statements about the concept's subject:
+#: the standing note that live values are not stored here and where to
+#: execute them (feed ingestion writes it under this heading), and the
+#: list of links to other concepts. A surface that restates a concept
+#: to a person (an answer block on the store's own page) leaves both
+#: out: beside a product's price, "price is not stated here" reads as
+#: a contradiction, and a run of link titles is navigation, not an
+#: answer.
+LIVE_VALUES_HEADING = "Price and availability"
+RELATED_HEADING = "Related"
+
 FRESHNESS_SLA_DAYS: dict[str, int] = {
     "Product": 90,
     "Product Collection": 90,

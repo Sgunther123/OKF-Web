@@ -48,7 +48,18 @@ import json
 import re
 from pathlib import Path
 
-from .model import Bundle, Concept, TRUST_HUMAN, TRUST_HUMAN_BATCH, as_instant, split_l10n, write_atomic, utc_instant
+from .model import (
+    LIVE_VALUES_HEADING,
+    RELATED_HEADING,
+    TRUST_HUMAN,
+    TRUST_HUMAN_BATCH,
+    Bundle,
+    Concept,
+    as_instant,
+    split_l10n,
+    utc_instant,
+    write_atomic,
+)
 
 __all__ = [
     "dumps_script_safe",
@@ -348,11 +359,17 @@ _ANSWERS_INDEX_SCHEMA = "okf-web/answers-index/1"
 #: Types that are not text for a page: a capability is executed for its
 #: live value, never printed, and a scorecard is about the bundle.
 _NOT_AN_ANSWER = frozenset({"Attested Computation", "GEO Scorecard"})
+#: Sections written for an agent reading the bundle, not about the
+#: concept's subject (``model.LIVE_VALUES_HEADING``, ``RELATED_HEADING``):
+#: a page shows neither. Compared without case.
+_NOT_FOR_A_PAGE = frozenset({LIVE_VALUES_HEADING.casefold(), RELATED_HEADING.casefold()})
 
 
 def _answer_sections(body: str) -> list[dict]:
     """A concept's body as headed blocks of plain text, the text before
-    the first heading included under an empty heading."""
+    the first heading included under an empty heading; without the
+    sections that speak to an agent about the bundle (where live values
+    are executed, which other concepts to read)."""
     blocks: list[tuple[str, list[str]]] = [("", [])]
     for line in body.splitlines():
         match = _HEADING_RE.match(line)
@@ -361,7 +378,9 @@ def _answer_sections(body: str) -> list[dict]:
         else:
             blocks[-1][1].append(line)
     return [{"heading": heading, "text": text}
-            for heading, lines in blocks if (text := _plain("\n".join(lines)))]
+            for heading, lines in blocks
+            if heading.casefold() not in _NOT_FOR_A_PAGE
+            and (text := _plain("\n".join(lines)))]
 
 
 def answer_for(concept: Concept, base: str, lang: str = "", today=None) -> dict | None:

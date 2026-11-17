@@ -94,7 +94,9 @@ commit histories, environment quirks, and the user's operating rhythm).
   too and hold the same gate, plus their own: a concept past its
   `stale_after` on the publisher's clock is never printed on a page,
   even when the freshness policy ships it under a warning; a
-  capability and a scorecard have no answer; no reviewer's address is
+  capability and a scorecard have no answer; the two sections written
+  for an agent, not about the subject (`model.LIVE_VALUES_HEADING`,
+  `model.RELATED_HEADING`), are left out; no reviewer's address is
   written; every string is plain text for the reader to escape; a
   dist with no answer has no index.
 - **Attestation tiers never blur** (R3): `human:` = per-item review;

@@ -4,8 +4,30 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-17 — **the plugin allows a day between two
-clocks**. Found by the first run of its reader against answers a
+Last updated: 2026-11-17 — **an answer leaves out what a concept
+says to an agent**. Seen by reading what the example's answers
+print, section by section, and by a first sync of a store's catalog:
+a product's answer carried "Price and availability" (the standing
+note that live values are not stored here; feed ingestion writes it,
+the example tells an agent which capability to execute) and
+"Related" (links to other concepts, which come out as a bare run of
+titles). Under a product on its own page, beside its price, the
+first reads as a contradiction and the second as noise.
+`model.LIVE_VALUES_HEADING` and `model.RELATED_HEADING` name the
+two; `feed.py` writes the first from the constant;
+`structured._answer_sections` leaves both out, compared without
+case; the bundle keeps them, for the agents they are written for. A
+static test refuses a second spelling of either in the package.
+`tests/test_answers.py` 31 (+8); 6 mutations, all caught. Suite
+**689** without `build`, 690 with it. The example still publishes 45
+files; its tent's answer has three sections where it had five. Docs:
+DESIGN §8, API.md, a CLAUDE.md invariant. Positions: `main` ==
+`0140916` (fetched); the branch four ahead (`c706e0d`, `0b1d822`,
+`fc805ca`, run 17 green, and this commit), which move to `main` on
+the user's word.
+
+Earlier on 2026-11-17, **the plugin allows a day between two
+clocks** (`fc805ca`). Found by the first run of its reader against answers a
 running service had just served, not against the example: an answer
 approved minutes earlier was refused as dated in the future, because
 the reader's test read every dist on a fixed clock that the approval
@@ -17,10 +39,9 @@ is still not a date. `reader-test.php` reads a dist on the real
 clock, as the plugin and the publisher do (129 checks, 164 with the
 published example); 4 mutations, all caught. Suite unchanged
 (**681** without `build`, 682 with it). Still not run inside a
-WordPress. Positions: `main` == `0140916` (fetched); the branch
+WordPress. Positions then: `main` == `0140916` (fetched); the branch
 three ahead (`c706e0d`, run 15 green; `0b1d822`, run 16 green, the
-plugin's PHP tests run there; and this commit), which move to
-`main` on the user's word.
+plugin's PHP tests run there; and that commit).
 
 Earlier on 2026-11-17, **a WordPress plugin that prints a
 bundle's answers on the pages they are about** (`0b1d822`;
@@ -1264,7 +1285,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **681 passing** without `build`, 682 where it is installed (CI,
+- Test suite: **689 passing** without `build`, 690 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1341,10 +1362,11 @@ review.
   push. As of this commit: `main` == `0140916` (the user's "Push the
   commit directly to main" of 2026-11-12, 23:22 UTC, run 14 green
   first: a fast-forward from `c64e943` over `0140916`, a judge's note
-  is for the store's owner), and the branch is three ahead: `c706e0d`
+  is for the store's owner), and the branch is four ahead: `c706e0d`
   (answer blocks, run 15 green), `0b1d822` (the WordPress plugin,
-  run 16 green) and this commit (the plugin's clock tolerance),
-  which move to `main` on the user's word.
+  run 16 green), `fc805ca` (the plugin's clock tolerance, run 17
+  green) and this commit (an answer leaves out what was written for
+  an agent), which move to `main` on the user's word.
   Before that, `main` == `c64e943` (the user's "Push the
   commit directly to main" of 2026-11-12, 20:23 UTC, run 13 green
   first: a fast-forward from `5c3a3d9` over `c64e943`, a reply cut at
@@ -1416,7 +1438,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Let the plugin show an answer approved up to a day ahead of the store's clock, and read a dist on the real clock
+(this commit)  Leave out of an answer the two sections a concept carries for an agent: the live-values note and the related links
+fc805ca  Let the plugin show an answer approved up to a day ahead of the store's clock, and read a dist on the real clock
 0b1d822  Add a WordPress plugin that prints a bundle's verified answers on the pages they are about, and only prints
 c706e0d  Write the vouched concepts as text a page can show: answer blocks, listed by the page each is about
 0140916  Have the live check's judge write its note for the store's owner, and cut a long note at a word

@@ -185,6 +185,74 @@ def test_a_live_value_is_never_an_answer(example_bundle, tmp_path):
     assert "availability" not in product and "stock" not in product
 
 
+# --- what is for an agent, not for a page ----------------------------------
+
+def test_a_products_answer_leaves_out_what_was_written_for_an_agent(example_bundle, tmp_path):
+    """The example's tent carries a section telling an agent to execute
+    the live price check, and a list of related concepts. Under the
+    product on the store's own page, beside its price, the first reads
+    as a contradiction and the second as a run of titles."""
+    _, dist = _publish(example_bundle, tmp_path)
+    answer = _answers(dist)["answers/catalog/products/alpine-2-tent.json"]
+    assert [s["heading"] for s in answer["sections"]] == [
+        "Overview", "Specifications", "Fit and use notes"]
+    text = json.dumps(answer)
+    assert "Live Price Check" not in text and "Agents should" not in text
+    assert "Tent Buying Guide" not in text
+    # The bundle itself still says both, for the agents it is written for.
+    body = load_bundle(example_bundle).concepts["catalog/products/alpine-2-tent.md"].body
+    assert "# Price and availability" in body and "# Related" in body
+    for answer in _answers(dist).values():
+        assert not {s["heading"].casefold() for s in answer["sections"]} & {
+            "price and availability", "related"}
+
+
+def test_the_note_feed_ingestion_writes_is_the_one_left_out(tmp_path):
+    from okf_web.feed import item_to_document, parse_feed
+    from okf_web.model import LIVE_VALUES_HEADING, RELATED_HEADING
+    from okf_web.structured import _answer_sections
+
+    feed = tmp_path / "feed.csv"
+    feed.write_text("id,title,description,link,price,availability\n"
+                    "PK-35,Trailhead 35 Pack,A 35 liter hiking backpack.,"
+                    "https://shop.example/p/pack,129.00 USD,in stock\n", encoding="utf-8")
+    _, _, body = item_to_document(parse_feed(feed)[0])
+    assert f"# {LIVE_VALUES_HEADING}\n" in body and "129" not in body
+    sections = _answer_sections(body)
+    assert [s["heading"] for s in sections][:1] == ["Overview"]
+    assert all("deliberately not stated" not in s["text"] for s in sections)
+    assert LIVE_VALUES_HEADING == "Price and availability" and RELATED_HEADING == "Related"
+
+
+@pytest.mark.parametrize("heading", ["Price and availability", "PRICE AND AVAILABILITY",
+                                     "**Related**", "related"])
+def test_the_two_headings_are_matched_as_written_or_not(tmp_path, heading):
+    root = _concept(tmp_path, body=f"# Window\n\nThirty days.[^page]\n\n## {heading}\n\n"
+                                   "See the other pages.[^page]\n\n[^page]: the page.\n")
+    review.approve(load_bundle(root), "policies/returns.md", "owner@shop.example")
+    answer = answer_for(load_bundle(root).concepts["policies/returns.md"], "/.well-known/okf")
+    assert answer["sections"] == [{"heading": "Window", "text": "Thirty days."}]
+
+
+def test_a_concept_that_says_only_that_is_still_its_summary(tmp_path):
+    root = _concept(tmp_path, body="# Related\n\nOther pages.[^page]\n\n[^page]: the page.\n")
+    review.approve(load_bundle(root), "policies/returns.md", "owner@shop.example")
+    answer = answer_for(load_bundle(root).concepts["policies/returns.md"], "/.well-known/okf")
+    assert answer["summary"] == "Returns are accepted within 30 days." and answer["sections"] == []
+
+
+def test_one_spelling_of_the_two_headings_in_the_package():
+    from pathlib import Path
+
+    import okf_web
+    src = Path(okf_web.__file__).resolve().parent
+    for path in sorted(src.glob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        if path.name != "model.py":
+            assert '"Price and availability"' not in text and "# Price and availability" not in text, path.name
+            assert '"Related"' not in text, path.name
+
+
 # --- freshness ------------------------------------------------------------
 
 def test_a_stale_concept_is_published_under_a_warning_but_never_printed(example_bundle, tmp_path):

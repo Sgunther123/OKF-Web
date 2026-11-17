@@ -410,8 +410,13 @@ The bundle is static files — publishable to the same CDN as the site:
   warning, and a reader stops showing an answer at its `expires`; a
   capability is executed for its live value and never printed, so
   `Attested Computation` concepts have no answer, and neither has a
-  scorecard; translations are not restated (a page shows the view it
-  was written in). Every string is plain text for the reader to
+  scorecard; two sections a concept carries for an agent reading the
+  bundle are left out, the note that live values are not stored here
+  (`Price and availability`) and the list of links to other concepts
+  (`Related`), because under a product on its own page the first
+  reads as a contradiction and the second as a run of titles;
+  translations are not restated (a page shows the view it was written
+  in). Every string is plain text for the reader to
   escape, and the files themselves are serialized like JSON-LD, inert
   wherever they are pasted. A dist with no answer has no index: a
   reader that finds none shows nothing. `--no-structured` skips these

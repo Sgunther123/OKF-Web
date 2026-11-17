@@ -80,6 +80,8 @@ code. Review 2026-10-21, phase U4.
 | `utc_instant` | function | now (or a moment) as the spec's timestamp form |
 | `default_stale_after` | function | the type's freshness SLA from now |
 | `FRESHNESS_SLA_DAYS` | dict | the SLA per content class |
+| `LIVE_VALUES_HEADING` | str | the section that says live values are not stored here (`Price and availability`) |
+| `RELATED_HEADING` | str | the section that lists links to other concepts (`Related`) |
 | `bundle_lock` | context manager | hold `<bundle>/.okf-lock` |
 | `BundleLocked` | class | the lock is held (refusal) |
 | `BundleNotFound` | class | no such bundle (refusal) |

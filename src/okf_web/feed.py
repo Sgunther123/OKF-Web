@@ -39,7 +39,7 @@ from pathlib import Path
 from . import PROFILE
 from .linter import ERROR, lint_concept
 from .errors import Refusal
-from .model import Concept, load_bundle, slug, utc_instant, utc_now
+from .model import LIVE_VALUES_HEADING, Concept, load_bundle, slug, utc_instant, utc_now
 from .surveyor import SurveyResult, place_draft, stable_page_hash
 
 __all__ = [
@@ -267,7 +267,7 @@ def item_to_document(item: FeedItem) -> tuple[str, dict, str]:
     if attributes:
         lines += ["# Attributes", "", *attributes, ""]
     lines += [
-        "# Price and availability",
+        f"# {LIVE_VALUES_HEADING}",
         "",
         "The feed's price and availability fields are volatile and are "
         "deliberately not stated here; live values come from the "
