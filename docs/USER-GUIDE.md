@@ -338,7 +338,11 @@ product page. Each file is one fact sheet in plain text with the date
 a person approved it and the date it stops being current, and
 `answers/index.json` says which page each belongs on. Nothing in the
 folder changes your site by itself: your web person (or a plugin on
-your store's platform) reads it and decides where the words go.
+your store's platform) reads it and decides where the words go. If
+your store runs on WordPress, with or without WooCommerce, that
+plugin exists: `integrations/wordpress/` in this project. Once you
+switch it on it shows each page's approved answers under the page's
+own content, and it never edits a page, a product or a price.
 Drafts, facts only a machine checked, anything past its "stale after"
 date, and live values such as prices are never in it.
 

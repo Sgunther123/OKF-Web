@@ -415,7 +415,12 @@ The bundle is static files — publishable to the same CDN as the site:
   escape, and the files themselves are serialized like JSON-LD, inert
   wherever they are pasted. A dist with no answer has no index: a
   reader that finds none shows nothing. `--no-structured` skips these
-  too.
+  too. One reader ships here, for stores on WordPress
+  (`integrations/wordpress/`): off until switched on, it prints a
+  page's answers after the page's content and writes nothing. It
+  trusts the source no further than the toolchain does: it checks the
+  shape, the tier, the expiry and the page of every answer again
+  before printing it.
 - **Freshness plumbing:** standard `ETag`/`Last-Modified` per file;
   `manifest.json` sha256s let an agent sync a 500-concept bundle by
   fetching one JSON file and the handful of changed concepts.

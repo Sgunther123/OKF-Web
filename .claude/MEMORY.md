@@ -4,8 +4,39 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-17 — **answer blocks: the vouched concepts
-as text a page can show** (a third derived output of `publish`,
+Last updated: 2026-11-17 — **a WordPress plugin that prints a
+bundle's answers on the pages they are about**
+(`integrations/wordpress/okf-web-answers/`; the first reader of the
+answer blocks below, and the first code here that is not Python).
+Off until switched on. It reads `answers/index.json` from the site's
+own `/.well-known/okf`, or from an address the owner types (`https`
+only, or `http` on the site's own host; the plugin names no host),
+through WordPress's guarded fetch with a four-second timeout and a
+size limit; a reply at the limit is cut and not used; a failed read
+is remembered five minutes, a good one kept fifteen, keyed by
+address. It prints after a page's or post's content, after a
+WooCommerce product's summary, or where `[okf_web_answers]` stands,
+and nowhere on lists. It holds the publisher's gates again: shape,
+tier (the line under an answer says review or batch), `expires`
+checked at every print, and the answer's own `page` equal to the
+page viewed. Every string is escaped where it is printed. It writes
+no post, product, price or option: `tests/test_wordpress_plugin.py`
+(17) reads its source for such calls and for a second fetch door,
+and runs its two PHP test files (`reader-test.php`, 126 checks, 161
+with the published example; `plugin-test.php`, 85 checks against
+stand-ins for WordPress's functions) when `php` is on the path,
+failing without it in CI. 50 mutations of the plugin, all caught.
+Suite **681** without `build`, 682 with it. **Not run inside a
+WordPress**: a local install (WordPress on SQLite, WooCommerce,
+WP-CLI, all downloaded) was refused by the session's permission
+check and not attempted another way; its README says what is
+untried. Docs: its README, the repository map, DESIGN §8,
+USER-GUIDE step 6, a CLAUDE.md gotcha. Positions: `main` ==
+`0140916` (fetched); the branch two ahead (`c706e0d`, run 15 green,
+and this commit), which move to `main` on the user's word.
+
+Earlier on 2026-11-17, **answer blocks: the vouched concepts
+as text a page can show** (`c706e0d`; a third derived output of `publish`,
 beside JSON-LD and llms.txt). Assistants read the visible text of a
 store's pages far more than its markup, and the bundle put nothing
 there. `structured.answer_for` turns one concept into plain text
@@ -27,10 +58,10 @@ publishes **45** files (was 33): 11 answers and their index.
 **664** without `build`, 665 with it. Docs: DESIGN §8, HOSTING §0
 (count from the run, a row for the folder), USER-GUIDE step 6,
 README, API.md, two CLAUDE.md invariants. Nothing in this repository
-reads the answers yet. Positions: `main` == `0140916` (fetched; the
-user's "Push the commit directly to main" of 2026-11-12, 23:22 UTC,
-run 14 green first, a fast-forward from `c64e943`); the branch one
-ahead with this commit, which moves to `main` on the user's word.
+read the answers yet. Positions then: `main` == `0140916` (fetched;
+the user's "Push the commit directly to main" of 2026-11-12, 23:22
+UTC, run 14 green first, a fast-forward from `c64e943`); the branch
+one ahead with that commit.
 
 Earlier, on 2026-11-12, **a judge's note is for the store's
 owner** (`0140916`; the first real contradiction the live check found, read by
@@ -1215,7 +1246,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **664 passing** without `build`, 665 where it is installed (CI,
+- Test suite: **681 passing** without `build`, 682 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1292,8 +1323,9 @@ review.
   push. As of this commit: `main` == `0140916` (the user's "Push the
   commit directly to main" of 2026-11-12, 23:22 UTC, run 14 green
   first: a fast-forward from `c64e943` over `0140916`, a judge's note
-  is for the store's owner), and the branch is one ahead with this
-  commit (answer blocks), which moves to `main` on the user's word.
+  is for the store's owner), and the branch is two ahead: `c706e0d`
+  (answer blocks, run 15 green) and this commit (the WordPress
+  plugin), which move to `main` on the user's word.
   Before that, `main` == `c64e943` (the user's "Push the
   commit directly to main" of 2026-11-12, 20:23 UTC, run 13 green
   first: a fast-forward from `5c3a3d9` over `c64e943`, a reply cut at
@@ -1365,7 +1397,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Write the vouched concepts as text a page can show: answer blocks, listed by the page each is about
+(this commit)  Add a WordPress plugin that prints a bundle's verified answers on the pages they are about, and only prints
+c706e0d  Write the vouched concepts as text a page can show: answer blocks, listed by the page each is about
 0140916  Have the live check's judge write its note for the store's owner, and cut a long note at a word
 c64e943  Never use a model reply that was cut off at its output limit: room for the reasoning, one more try, then a failure
 5c3a3d9  Record both fixes seen working on the real store: ten concepts from six pages, and a live check that cites (MEMORY-only)
@@ -1583,6 +1616,13 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
 - Edit `.claude/MEMORY.md` only from a fresh Read of the exact region —
   recalled wording drifts and exact-match edits miss (repeatedly
   observed).
+- PHP 8.3 is installed here (`/usr/bin/php`, with sqlite3, curl,
+  mbstring), and GitHub's `ubuntu-latest` runners carry one too: the
+  plugin's PHP tests run in both. A WordPress cannot be installed in
+  this session: the command that would have set one up (WP-CLI
+  `core install` on a downloaded WordPress) was refused by the
+  session's permission check on 2026-11-17. Ask the maintainer
+  before trying again; do not go around it.
 
 ## Open items
 
@@ -1611,12 +1651,19 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
   reporting it changed: nothing retires it but a person. And
   `linkmap.json` names one path a URL, the last in path order when a
   page has several concepts.
-- Answer blocks are written and read by nothing here yet: a page
-  shows them only once its own software (a plugin on the store's
-  platform, a theme template, a build step) reads
-  `answers/index.json`. Whether assistants answer better from a page
-  that prints them has not been measured; `evaluate --baseline`
-  reading such a page is how it would be.
+- The WordPress plugin has not run inside a WordPress (2026-11-17):
+  what a real WordPress, theme and WooCommerce version do with it is
+  untried. The trial is an activation on a real site, then a page, a
+  post and a product each seen printing its answers, and the
+  versions recorded in `integrations/wordpress/README.md`. Its
+  licence header says Apache-2.0, as the repository's; whether it is
+  offered in the WordPress.org directory, and under which licence
+  line there, is the maintainer's choice.
+- Other platforms have no reader of the answer blocks: a store not
+  on WordPress shows them only through its own template or build
+  step. And whether assistants answer better from a page that
+  prints them has not been measured; `evaluate --baseline` reading
+  such a page is how it would be.
 - `okf-web mcp --url` (remote-bundle mode, DISTRIBUTION §4) shipped as
   GAPS item 10 (`40a176e`); nothing planned remains unscheduled here.
 

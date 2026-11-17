@@ -386,6 +386,20 @@ test_passport, test_locations) → re-measure the scorecard → verification loo
   after ten minutes while every test passed: no test ever signed at a
   terminal. `tests/test_signing.py` drives `okf-web sign` through a
   pseudo-terminal: a boundary that is a terminal is verified over one.
+- The WordPress plugin (`integrations/wordpress/okf-web-answers/`)
+  only prints: off until switched on, one guarded fetch
+  (`wp_safe_remote_get`) with a timeout and a size limit, every string
+  escaped where it is printed, and no call that writes a post, a
+  product, a price or an option
+  (`tests/test_wordpress_plugin.py` reads its source for them). It
+  re-checks each answer's shape, tier, expiry and page: the reader
+  holds the publisher's gates again, never instead. Its version is in
+  three places (plugin header, `OKF_WEB_ANSWERS_VERSION`, the
+  readme's stable tag; a test keeps them equal). The suite runs its
+  PHP tests when `php` is on the path and fails without it in CI. A
+  change to the answer's shape is a new schema string on both sides.
+  It has been run against stand-ins for WordPress, not inside one:
+  its README says so until that changes.
 - PyPI registration and pushing a release tag are **user-only** actions. Never
   trigger a release. The release path — TestPyPI rehearsal proving the wheel's
   packaged data, then the real tag — is docs/DISTRIBUTION.md §6.

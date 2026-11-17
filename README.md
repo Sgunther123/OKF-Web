@@ -81,6 +81,7 @@ your `llms.txt`, and your own bots.
 | [`bundle-example/`](bundle-example/index.md) | Complete conformant companion bundle for a fictional store |
 | [`src/okf_web/`](src/okf_web/) | Reference implementation (`okf-web` CLI) |
 | [`src/okf_web/prompts/`](src/okf_web/prompts/) | The versioned LLM prompts: extraction contract, question generation, answerer, judge |
+| [`integrations/wordpress/`](integrations/wordpress/README.md) | A WordPress plugin that prints a bundle's verified answers on the pages they are about; it only prints |
 | [`tests/`](tests/) | Test suite; the example bundle is linted in CI |
 
 ## Quickstart
