@@ -344,7 +344,9 @@ plugin exists: `integrations/wordpress/` in this project. Once you
 switch it on it shows each page's approved answers under the page's
 own content, and it never edits a page, a product or a price.
 Drafts, facts only a machine checked, anything past its "stale after"
-date, and live values such as prices are never in it.
+date, and live values such as prices are never in it. Neither is a
+fact whose page has changed since you approved it: it waits until you
+have looked at the change (the `_review/proposed` folder holds it).
 
 Send the `dist` folder to whoever manages your website and ask them
 to serve it at:

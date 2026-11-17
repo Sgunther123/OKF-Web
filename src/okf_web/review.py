@@ -26,6 +26,7 @@ from pathlib import Path
 
 from .errors import Refusal
 from .model import (
+    PROPOSALS_DIR,
     Bundle,
     Concept,
     RISK_HIGH,
@@ -172,7 +173,7 @@ def queue_summary(bundle: Bundle) -> QueueSummary:
     """What waits for a person: the pending concepts by effective risk and
     the surveyor's drift proposals."""
     items = pending(bundle)
-    proposed = sorted((bundle.root / "_review" / "proposed").rglob("*.md"))
+    proposed = sorted((bundle.root / PROPOSALS_DIR).rglob("*.md"))
     by_risk = {"a": 0, "b": 0, "c": 0}
     for item in items:
         tier = item.concept.effective_risk

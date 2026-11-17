@@ -49,6 +49,7 @@ from . import OKF_VERSION
 from .config import user_agent
 from .errors import Refusal
 from .model import (
+    PROPOSALS_DIR,
     Bundle,
     Concept,
     TRUST_HUMAN,
@@ -665,7 +666,7 @@ def place_draft(
     ):
         # Never overwrite human-approved or stable knowledge (a
         # `human-batch:` sign-off included): file a drift proposal.
-        proposal = bundle_root / "_review" / "proposed" / rel
+        proposal = bundle_root / PROPOSALS_DIR / rel
         proposal.parent.mkdir(parents=True, exist_ok=True)
         write_atomic(proposal, render_document(fm, body))
         result.proposed.append(rel)

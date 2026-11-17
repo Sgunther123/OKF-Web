@@ -28,6 +28,7 @@ __all__ = [
     "RESERVED_FILENAMES",
     "CONCEPT_CACHE_NAME",
     "INTERNAL_DIRS",
+    "PROPOSALS_DIR",
     "DIST_MARKER",
     "BundleNotFound",
     "marked_dists",
@@ -85,6 +86,10 @@ _CACHE_VERSION = 2
 # Directories the surveyor/review tooling uses for not-yet-accepted content.
 # They live inside the bundle checkout but are never published.
 INTERNAL_DIRS = {"_quarantine", "_review"}
+#: Where the write gate files a change to a concept a person approved,
+#: under the concept's own path, instead of overwriting it: the source
+#: changed since the approval, and a person has not looked yet.
+PROPOSALS_DIR = "_review/proposed"
 
 # The publisher drops this marker into every dist it writes. A dist that
 # ends up inside a bundle (E1 forbids creating one there, but older

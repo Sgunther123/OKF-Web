@@ -32,7 +32,9 @@ even if no engine ever fetches ``/.well-known/okf/`` (READINESS R2):
   prints them. The same gate as JSON-LD applies, because this too is
   restatement: only what a named human vouched for. No address of
   any reviewer is written, and capability concepts are left out: a
-  live value is executed, never printed.
+  live value is executed, never printed. A concept whose source has
+  changed since it was approved (a proposal waits beside it) has no
+  answer until a person has looked.
 
 The live-values rule survives the downgrade: Product JSON-LD carries
 identity (name, brand, GTIN/MPN/SKU, canonical URL) and **no price or
@@ -50,6 +52,7 @@ from pathlib import Path
 
 from .model import (
     LIVE_VALUES_HEADING,
+    PROPOSALS_DIR,
     RELATED_HEADING,
     TRUST_HUMAN,
     TRUST_HUMAN_BATCH,
@@ -427,13 +430,18 @@ def write_answers(dist: Path, bundle: Bundle, published: set[str], base: str,
     page's in the bundle's own order; returns the rel paths written
     (for the manifest). A dist with no answer gets no index either:
     nothing is better than an empty promise. Translations are not
-    restated here: a page shows the view it was written in."""
+    restated here: a page shows the view it was written in. And a
+    concept with a change proposed against it waits: its source has
+    changed since a person approved the text, so on the page it is
+    about, the approved text would stand beside what replaced it."""
     written: list[str] = []
     pages: dict[str, list[str]] = {}
     for rel in sorted(published):
         concept = bundle.concepts.get(rel)
         if concept is None or split_l10n(rel) is not None:
             continue
+        if (bundle.root / PROPOSALS_DIR / rel).is_file():
+            continue  # the page changed since the approval; a person has not looked yet
         answer = answer_for(concept, base, lang=bundle.language, today=today)
         if answer is None:
             continue

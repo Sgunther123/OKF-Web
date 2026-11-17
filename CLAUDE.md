@@ -96,9 +96,11 @@ commit histories, environment quirks, and the user's operating rhythm).
   even when the freshness policy ships it under a warning; a
   capability and a scorecard have no answer; the two sections written
   for an agent, not about the subject (`model.LIVE_VALUES_HEADING`,
-  `model.RELATED_HEADING`), are left out; no reviewer's address is
-  written; every string is plain text for the reader to escape; a
-  dist with no answer has no index.
+  `model.RELATED_HEADING`), are left out; a concept with a change
+  proposed against it (`model.PROPOSALS_DIR`) has no answer until a
+  person has looked; no reviewer's address is written; every string
+  is plain text for the reader to escape; a dist with no answer has
+  no index.
 - **Attestation tiers never blur** (R3): `human:` = per-item review;
   `human-batch:` = wholesale sign-off → `human-attested`. Only `human:`
   satisfies E010. batch-approve must keep stamping `human-batch:` — its

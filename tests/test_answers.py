@@ -253,6 +253,66 @@ def test_one_spelling_of_the_two_headings_in_the_package():
             assert '"Related"' not in text, path.name
 
 
+# --- a page that changed since the approval ---------------------------------
+
+def test_an_answer_waits_while_a_change_to_its_concept_is_proposed(tmp_path):
+    """A store edits a product after its fact sheet was approved. The
+    write gate never overwrites what a person signed: it files the new
+    text as a proposal. Until a person has looked, the approved text
+    printed on that product's page would stand beside the description
+    that replaced it."""
+    from okf_web.feed import ingest_feed
+    from okf_web.model import PROPOSALS_DIR
+
+    def feed(description):
+        path = tmp_path / "feed.csv"
+        path.write_text("id,title,description,link\n"
+                        f"PK-35,Trailhead 35 Pack,{description},https://shop.example/p/pack\n"
+                        "PK-50,Trailhead 50 Pack,A 50 liter pack.,https://shop.example/p/pack-50\n",
+                        encoding="utf-8")
+        return path
+
+    root = tmp_path / "bundle"
+    first = ingest_feed(feed("A 35 liter hiking backpack."), root)
+    assert len(first.written) == 2
+    pack, other = sorted(first.written)
+    review.batch_approve(load_bundle(root), "owner@shop.example")
+    result = publish(root, tmp_path / "one")
+    answers = lambda r: sorted(x for x in r.structured if x.startswith("answers/"))  # noqa: E731
+    assert len(answers(result)) == 3                      # two answers and the index
+    was = json.loads((tmp_path / "one" / ("answers/" + pack[:-3] + ".json")).read_text())
+    assert "35 liter hiking backpack" in json.dumps(was)
+
+    # The store changes the product. Nothing is overwritten; a proposal waits.
+    second = ingest_feed(feed("A 38 liter hiking backpack with a frame."), root)
+    assert second.proposed == [pack] and (root / PROPOSALS_DIR / pack).is_file()
+    assert "35 liter" in (root / pack).read_text()
+    # The review queue shows the same proposal the write gate filed.
+    assert review.queue_summary(load_bundle(root)).proposed == [root / PROPOSALS_DIR / pack]
+    result = publish(root, tmp_path / "two")
+    kept = answers(result)
+    assert "answers/" + pack[:-3] + ".json" not in kept
+    assert "answers/" + other[:-3] + ".json" in kept and ANSWERS_INDEX in kept
+    index = json.loads((tmp_path / "two" / ANSWERS_INDEX).read_text())
+    assert "https://shop.example/p/pack" not in index["pages"]
+    assert "https://shop.example/p/pack-50" in index["pages"]
+
+    # A person looks: the proposal is gone (accepted or set aside), and the answer is back.
+    (root / PROPOSALS_DIR / pack).unlink()
+    result = publish(root, tmp_path / "three")
+    assert "answers/" + pack[:-3] + ".json" in answers(result)
+
+
+def test_the_folder_of_proposals_has_one_name_in_the_package():
+    from pathlib import Path
+
+    import okf_web
+    from okf_web.model import INTERNAL_DIRS, PROPOSALS_DIR
+    assert PROPOSALS_DIR == "_review/proposed" and PROPOSALS_DIR.split("/")[0] in INTERNAL_DIRS
+    for path in sorted(Path(okf_web.__file__).resolve().parent.glob("*.py")):
+        assert '"_review" / "proposed"' not in path.read_text(encoding="utf-8"), path.name
+
+
 # --- freshness ------------------------------------------------------------
 
 def test_a_stale_concept_is_published_under_a_warning_but_never_printed(example_bundle, tmp_path):

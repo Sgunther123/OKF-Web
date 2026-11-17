@@ -4,8 +4,27 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-17 — **an answer leaves out what a concept
-says to an agent**. Seen by reading what the example's answers
+Last updated: 2026-11-17 — **an answer waits while a change to
+its concept is proposed**. When a source changes after a person
+approved a concept, the write gate files the new text under
+`_review/proposed/<path>` and leaves the approved text alone. An
+answer is printed on the page the concept is about, so the approved
+text would stand there beside what replaced it. `write_answers` now
+skips a concept that has a proposal waiting; the answer returns
+when a person has looked (the proposal accepted or set aside).
+JSON-LD is unchanged. `model.PROPOSALS_DIR` names the folder once;
+the write gate and the review queue use it, and a static test
+refuses the old spelling. `tests/test_answers.py` 33 (+2: a feed
+ingested, approved, changed and ingested again; the queue shows the
+proposal the gate filed); 6 mutations, 5 caught and the sixth
+closed with that last check. Suite **691** without `build`, 692
+with it. Docs: DESIGN §8, USER-GUIDE step 6, API.md, a CLAUDE.md
+invariant. Positions: `main` == `0140916` (fetched); the branch
+five ahead (`c706e0d`, `0b1d822`, `fc805ca`, `58d3b63`, run 18
+green, and this commit), which move to `main` on the user's word.
+
+Earlier on 2026-11-17, **an answer leaves out what a concept
+says to an agent** (`58d3b63`). Seen by reading what the example's answers
 print, section by section, and by a first sync of a store's catalog:
 a product's answer carried "Price and availability" (the standing
 note that live values are not stored here; feed ingestion writes it,
@@ -21,10 +40,9 @@ static test refuses a second spelling of either in the package.
 `tests/test_answers.py` 31 (+8); 6 mutations, all caught. Suite
 **689** without `build`, 690 with it. The example still publishes 45
 files; its tent's answer has three sections where it had five. Docs:
-DESIGN §8, API.md, a CLAUDE.md invariant. Positions: `main` ==
+DESIGN §8, API.md, a CLAUDE.md invariant. Positions then: `main` ==
 `0140916` (fetched); the branch four ahead (`c706e0d`, `0b1d822`,
-`fc805ca`, run 17 green, and this commit), which move to `main` on
-the user's word.
+`fc805ca`, run 17 green, and that commit).
 
 Earlier on 2026-11-17, **the plugin allows a day between two
 clocks** (`fc805ca`). Found by the first run of its reader against answers a
@@ -1285,7 +1303,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **689 passing** without `build`, 690 where it is installed (CI,
+- Test suite: **691 passing** without `build`, 692 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1362,11 +1380,12 @@ review.
   push. As of this commit: `main` == `0140916` (the user's "Push the
   commit directly to main" of 2026-11-12, 23:22 UTC, run 14 green
   first: a fast-forward from `c64e943` over `0140916`, a judge's note
-  is for the store's owner), and the branch is four ahead: `c706e0d`
+  is for the store's owner), and the branch is five ahead: `c706e0d`
   (answer blocks, run 15 green), `0b1d822` (the WordPress plugin,
   run 16 green), `fc805ca` (the plugin's clock tolerance, run 17
-  green) and this commit (an answer leaves out what was written for
-  an agent), which move to `main` on the user's word.
+  green), `58d3b63` (an answer leaves out what was written for an
+  agent, run 18 green) and this commit (an answer waits while a
+  change is proposed), which move to `main` on the user's word.
   Before that, `main` == `c64e943` (the user's "Push the
   commit directly to main" of 2026-11-12, 20:23 UTC, run 13 green
   first: a fast-forward from `5c3a3d9` over `c64e943`, a reply cut at
@@ -1438,7 +1457,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Leave out of an answer the two sections a concept carries for an agent: the live-values note and the related links
+(this commit)  Hold back the answer of a concept whose source changed since it was approved, until a person has looked
+58d3b63  Leave out of an answer the two sections a concept carries for an agent: the live-values note and the related links
 fc805ca  Let the plugin show an answer approved up to a day ahead of the store's clock, and read a dist on the real clock
 0b1d822  Add a WordPress plugin that prints a bundle's verified answers on the pages they are about, and only prints
 c706e0d  Write the vouched concepts as text a page can show: answer blocks, listed by the page each is about

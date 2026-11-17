@@ -102,6 +102,7 @@ code. Review 2026-10-21, phase U4.
 | `RISK_LOW` | str | risk tier `c` |
 | `DIST_MARKER` | str | `.okf-dist` |
 | `INTERNAL_DIRS` | tuple | directories a bundle keeps to itself |
+| `PROPOSALS_DIR` | str | where a change to an approved concept waits (`_review/proposed`) |
 
 ### `okf_web.net`
 

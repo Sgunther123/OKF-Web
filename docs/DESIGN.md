@@ -416,7 +416,10 @@ The bundle is static files — publishable to the same CDN as the site:
   (`Related`), because under a product on its own page the first
   reads as a contradiction and the second as a run of titles;
   translations are not restated (a page shows the view it was written
-  in). Every string is plain text for the reader to
+  in); and a concept with a change proposed against it has no answer
+  until a person has looked, because its page changed after the
+  approval and the approved text would stand beside what replaced it.
+  Every string is plain text for the reader to
   escape, and the files themselves are serialized like JSON-LD, inert
   wherever they are pasted. A dist with no answer has no index: a
   reader that finds none shows nothing. `--no-structured` skips these
