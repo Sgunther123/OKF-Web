@@ -53,7 +53,7 @@ from .model import (
     split_l10n,
 )
 from .net import ROBOTS_POLICY, FetchPolicy, origin, safe_fetch
-from .structured import write_llms_txt, write_structured
+from .structured import write_answers, write_llms_txt, write_structured
 from .views import published_view, select_publishable, withhold_reason  # noqa: F401 — re-exported (A-U7)
 
 __all__ = [
@@ -215,7 +215,8 @@ def publish(
         )
         _copy_tree(bundle_root, out, include, result)
         _write_derived(out, bundle, concept_include, result, base_path=base_path,
-                       bundle_url=bundle_url, site=site, structured=structured)
+                       bundle_url=bundle_url, site=site, structured=structured,
+                       today=today)
         _audit_links(bundle, result)
     return result
 
@@ -323,8 +324,9 @@ def _write_derived(
     bundle_url: str | None,
     site: str | None,
     structured: bool,
+    today: _dt.date | None = None,
 ) -> None:
-    """The derived tier (JSON-LD and llms.txt), then the manifest, the
+    """The derived tier (JSON-LD, llms.txt and answers), then the manifest, the
     link map and the llms snippet, in that order: the manifest's hashes,
     and any signature over them, cover the derived files."""
     # Derived tier: what engines read today, generated from the verified
@@ -337,6 +339,10 @@ def _write_derived(
         )
         result.structured.append(
             write_llms_txt(out, bundle, concept_include, base)
+        )
+        # The vouched concepts as text a page can show, by page.
+        result.structured.extend(
+            write_answers(out, bundle, concept_include, base, today=today)
         )
         result.published.extend(result.structured)
 

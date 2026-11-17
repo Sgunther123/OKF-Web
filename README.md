@@ -47,7 +47,10 @@ to pay for itself *without* that bet: every `publish` also emits
 **schema.org JSON-LD** and a complete **`llms.txt`** — formats engines
 read today — derived only from human-verified concepts, with prices
 and stock deliberately absent (live values stay executable, never
-static). `okf-web report` renders the measured answerability as a
+static), and the same verified concepts as **answer blocks**: plain
+text a store's own pages can show, listed by the page each is about,
+because assistants read what a page says far more than its markup.
+`okf-web report` renders the measured answerability as a
 shareable page — beside the same questions put to your own pages,
 once `evaluate --baseline` has measured that — `evaluate --probe`
 asks a live assistant with web search the same questions and records
@@ -163,8 +166,10 @@ service, is at [www.okf-web.com](https://www.okf-web.com).
 (sha256 delta sync) + `linkmap.json` (page ⇄ concept `<link>` tags) +
 `llms-snippet.txt` (discovery via `llms.txt`) — plus the **derived
 tier**: `jsonld/` (schema.org markup from human-verified concepts,
-one file per concept, `subjectOf` linking back to its source) and a
-complete `llms.txt`. Serve it from the same CDN as the site at
+one file per concept, `subjectOf` linking back to its source), a
+complete `llms.txt`, and `answers/` (the same concepts as plain text
+a page can show, with `answers/index.json` listing them by page).
+Serve it from the same CDN as the site at
 `/.well-known/okf/`; the serving rules are in
 [docs/DESIGN.md §8](docs/DESIGN.md#8-hosting-and-discovery), and a
 tested recipe per hosting type (nginx, Apache, Caddy, Cloudflare Pages,

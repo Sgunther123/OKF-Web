@@ -390,6 +390,32 @@ The bundle is static files — publishable to the same CDN as the site:
   via `linkmap.json`; if the platform already emits its own Product
   markup, prefer ours only for the surfaces platforms do badly (FAQ,
   policies, store identity). Opt out with `--no-structured`.
+- **Answer blocks: the same concepts as text a page can show.**
+  Assistants read the visible text of a store's pages far more than
+  its markup, and markup a shopper never sees is easy to distrust. So
+  `publish` also writes `dist/answers/<path>.json` for each concept a
+  named human vouched for, and `answers/index.json`, which lists them
+  by the page each is about (the concept's `resource`). One answer is
+  the concept in plain text: `title`, `summary` (its description),
+  `sections` (each heading with its text, markdown and footnote
+  apparatus stripped), `verified` (the tier and the instant, never a
+  reviewer's address), `subjectOf` (the bundle concept, where the
+  attestation is readable), and, when they exist, `page`,
+  `inLanguage` and `expires`. A page's own software (a plugin, a
+  theme template, a build step) reads the index, takes the answers
+  listed for its address, and prints them. The rules of this
+  derivation: it is restatement, so the JSON-LD gate applies
+  unchanged; a concept past its `stale_after` on the day of the
+  publish is left out even when the freshness policy ships it under a
+  warning, and a reader stops showing an answer at its `expires`; a
+  capability is executed for its live value and never printed, so
+  `Attested Computation` concepts have no answer, and neither has a
+  scorecard; translations are not restated (a page shows the view it
+  was written in). Every string is plain text for the reader to
+  escape, and the files themselves are serialized like JSON-LD, inert
+  wherever they are pasted. A dist with no answer has no index: a
+  reader that finds none shows nothing. `--no-structured` skips these
+  too.
 - **Freshness plumbing:** standard `ETag`/`Last-Modified` per file;
   `manifest.json` sha256s let an agent sync a 500-concept bundle by
   fetching one JSON file and the handful of changed concepts.

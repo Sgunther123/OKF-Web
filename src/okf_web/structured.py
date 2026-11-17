@@ -21,6 +21,18 @@ even if no engine ever fetches ``/.well-known/okf/`` (READINESS R2):
   human-verified gate applies to restated content (JSON-LD), not to
   pointers. ``llms-snippet.txt`` remains for sites that already have
   an llms.txt to paste into.
+* **Answer blocks**, one file per vouched concept under
+  ``dist/answers/``, and ``answers/index.json`` naming them by the
+  page each is about. An answer is the concept as **plain text a page
+  can show**: its title, its summary and its sections, with when it
+  was verified and when it goes stale. Assistants read the visible
+  text of a store's pages far more than its markup, and until now the
+  bundle put nothing there; a page's own software (a plugin, a
+  template) reads the index, takes the answers for its address, and
+  prints them. The same gate as JSON-LD applies, because this too is
+  restatement: only what a named human vouched for. No address of
+  any reviewer is written, and capability concepts are left out: a
+  live value is executed, never printed.
 
 The live-values rule survives the downgrade: Product JSON-LD carries
 identity (name, brand, GTIN/MPN/SKU, canonical URL) and **no price or
@@ -45,6 +57,10 @@ __all__ = [
     "write_structured",
     "LLMS_SECTIONS",
     "write_llms_txt",
+    "ANSWERS_INDEX",
+    "ANSWER_SCHEMA",
+    "answer_for",
+    "write_answers",
 ]
 
 _CONTEXT = "https://schema.org"
@@ -319,6 +335,104 @@ def write_structured(
         target.parent.mkdir(parents=True, exist_ok=True)
         write_atomic(target, dumps_script_safe(obj) + "\n")
         written.append(out_rel)
+    return written
+
+
+# --- answer blocks -------------------------------------------------------------------
+
+#: Where a dist lists its answers by the page each is about.
+ANSWERS_INDEX = "answers/index.json"
+#: The shape of one answer file; a reader that does not know it shows nothing.
+ANSWER_SCHEMA = "okf-web/answer/1"
+_ANSWERS_INDEX_SCHEMA = "okf-web/answers-index/1"
+#: Types that are not text for a page: a capability is executed for its
+#: live value, never printed, and a scorecard is about the bundle.
+_NOT_AN_ANSWER = frozenset({"Attested Computation", "GEO Scorecard"})
+
+
+def _answer_sections(body: str) -> list[dict]:
+    """A concept's body as headed blocks of plain text, the text before
+    the first heading included under an empty heading."""
+    blocks: list[tuple[str, list[str]]] = [("", [])]
+    for line in body.splitlines():
+        match = _HEADING_RE.match(line)
+        if match:
+            blocks.append((_plain(match.group(1)), []))
+        else:
+            blocks[-1][1].append(line)
+    return [{"heading": heading, "text": text}
+            for heading, lines in blocks if (text := _plain("\n".join(lines)))]
+
+
+def answer_for(concept: Concept, base: str, lang: str = "", today=None) -> dict | None:
+    """One concept as text a page can show, or None when it is not to
+    be restated: no named human vouched for it, it is past its
+    ``stale_after`` on ``today`` (the publisher's clock; a bundle
+    published with stale concepts under a warning still prints none of
+    them on a page), its type is not text for a page, or it says
+    nothing. Every string in it is plain text, to be escaped by
+    whatever prints it; ``page`` is the address it is about, when that
+    is ``http(s)``; ``subjectOf`` is the bundle concept, where the
+    attestation itself is readable; ``expires`` is when a reader stops
+    showing it. No reviewer's address is written."""
+    if concept.trust_tier not in (TRUST_HUMAN, TRUST_HUMAN_BATCH):
+        return None
+    if concept.type in _NOT_AN_ANSWER or concept.is_stale(today):
+        return None
+    summary = _plain(str(concept.frontmatter.get("description") or ""))
+    sections = _answer_sections(concept.body)
+    if not summary and not sections:
+        return None
+    answer: dict = {
+        "schema": ANSWER_SCHEMA,
+        "type": concept.type,
+        "title": _plain(concept.title),
+        "summary": summary,
+        "sections": sections,
+        "verified": {"tier": concept.trust_tier, "at": concept.verified_at},
+        "subjectOf": f"{base}/{concept.rel_path}",
+    }
+    if _is_http(concept.resource):
+        answer["page"] = concept.resource
+    if lang:
+        answer["inLanguage"] = lang
+    if concept.stale_after_iso:
+        answer["expires"] = concept.stale_after_iso
+    return answer
+
+
+def write_answers(dist: Path, bundle: Bundle, published: set[str], base: str,
+                  today=None) -> list[str]:
+    """Write ``dist/answers/<rel>.json`` for every published concept
+    that has an answer, and ``answers/index.json`` naming them, each
+    page's in the bundle's own order; returns the rel paths written
+    (for the manifest). A dist with no answer gets no index either:
+    nothing is better than an empty promise. Translations are not
+    restated here: a page shows the view it was written in."""
+    written: list[str] = []
+    pages: dict[str, list[str]] = {}
+    for rel in sorted(published):
+        concept = bundle.concepts.get(rel)
+        if concept is None or split_l10n(rel) is not None:
+            continue
+        answer = answer_for(concept, base, lang=bundle.language, today=today)
+        if answer is None:
+            continue
+        out_rel = "answers/" + (rel[:-3] if rel.endswith(".md") else rel) + ".json"
+        target = dist / out_rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        write_atomic(target, dumps_script_safe(answer) + "\n")
+        written.append(out_rel)
+        if "page" in answer:
+            pages.setdefault(answer["page"], []).append(out_rel)
+    if not written:
+        return written
+    index = {"schema": _ANSWERS_INDEX_SCHEMA, "answers": list(written),
+             "pages": dict(sorted(pages.items()))}
+    target = dist / ANSWERS_INDEX
+    target.parent.mkdir(parents=True, exist_ok=True)
+    write_atomic(target, dumps_script_safe(index) + "\n")
+    written.append(ANSWERS_INDEX)
     return written
 
 

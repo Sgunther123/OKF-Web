@@ -83,12 +83,20 @@ commit histories, environment quirks, and the user's operating rhythm).
   ship as Attested Computation capabilities; feed ingestion drops them
   (`feed.DROPPED_FIELDS`) from both concept text and the row hash. The rule
   survives every derived surface: `jsonld/` Product markup carries no
-  offers/price/availability, and `llms.txt` states none.
+  offers/price/availability, `llms.txt` states none, and an answer
+  block is concept text, which holds none.
 - **The derived tier restates only named-human-vouched concepts**
   (`structured.py`: JSON-LD gate on `TRUST_HUMAN` or `TRUST_HUMAN_BATCH`;
   every object carries `subjectOf` back to its bundle concept). Links
   (llms.txt) may cover the whole published set — navigation is not
   restatement. Types with no faithful schema.org mapping emit nothing.
+  Answer blocks (`answers/`, `structured.answer_for`) are restatement
+  too and hold the same gate, plus their own: a concept past its
+  `stale_after` on the publisher's clock is never printed on a page,
+  even when the freshness policy ships it under a warning; a
+  capability and a scorecard have no answer; no reviewer's address is
+  written; every string is plain text for the reader to escape; a
+  dist with no answer has no index.
 - **Attestation tiers never blur** (R3): `human:` = per-item review;
   `human-batch:` = wholesale sign-off → `human-attested`. Only `human:`
   satisfies E010. batch-approve must keep stamping `human-batch:` — its

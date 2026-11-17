@@ -266,6 +266,10 @@ code. Review 2026-10-21, phase U4.
 | `write_structured` | function | the JSON-LD tier into a dist |
 | `write_llms_txt` | function | llms.txt into a dist |
 | `jsonld_for` | function | the JSON-LD object for one concept |
+| `write_answers` | function | the answer blocks and their index into a dist |
+| `answer_for` | function | one concept as plain text a page can show, or `None` |
+| `ANSWERS_INDEX` | str | `answers/index.json`, where a dist lists its answers by page |
+| `ANSWER_SCHEMA` | str | the shape of one answer file (`okf-web/answer/1`) |
 | `dumps_script_safe` | function | JSON that is inert inside a `<script>` |
 | `LLMS_SECTIONS` | tuple | llms.txt's sections and the types each lists |
 

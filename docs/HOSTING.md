@@ -11,7 +11,7 @@ discovery and delegation contract every recipe satisfies).
 
 ## 0. What you are serving, and the rules every recipe implements
 
-What `publish` writes into `dist/` (the example bundle publishes 33 files):
+What `publish` writes into `dist/` (the example bundle publishes 45 files):
 
 | Path | What it is | Type to serve |
 | --- | --- | --- |
@@ -20,6 +20,7 @@ What `publish` writes into `dist/` (the example bundle publishes 33 files):
 | `linkmap.json` | page URL to concept path, for `<link rel="alternate">` tags on the storefront | `application/json` |
 | `llms.txt`, `llms-snippet.txt` | the complete `llms.txt`, and the block plus head tag to paste | `text/plain` |
 | `jsonld/**/*.json` | derived schema.org markup, human-verified concepts only | `application/json` |
+| `answers/**/*.json`, `answers/index.json` | the same concepts as plain text a page can show, and which page each is about | `application/json` |
 | `evaluations/` | the scorecard concept and `questions.yaml` | markdown, `text/plain` |
 | `attesters/` | attester code artifacts: `index.md` plus `*.py` files, to be read, never run | markdown, `text/plain` |
 | `l10n/` | translations | markdown |

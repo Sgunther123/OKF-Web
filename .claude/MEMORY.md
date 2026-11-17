@@ -4,8 +4,36 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-12 — **a judge's note is for the store's
-owner** (the first real contradiction the live check found, read by
+Last updated: 2026-11-17 — **answer blocks: the vouched concepts
+as text a page can show** (a third derived output of `publish`,
+beside JSON-LD and llms.txt). Assistants read the visible text of a
+store's pages far more than its markup, and the bundle put nothing
+there. `structured.answer_for` turns one concept into plain text
+(`title`, `summary`, `sections`, `verified` tier and instant,
+`subjectOf`, and `page`/`inLanguage`/`expires` when they exist);
+`structured.write_answers` writes `dist/answers/<path>.json` for
+each and `answers/index.json` (`ANSWERS_INDEX`), which lists them by
+the page each is about, so a page with several concepts gets all of
+them (`linkmap.json` still names one). Nothing here changes a site:
+a page's own software reads the index and prints. The gates: the
+JSON-LD gate unchanged (a named human vouched); never a concept
+past its `stale_after` on the publisher's clock, even under the
+default policy that ships it with a warning; never an `Attested
+Computation` or a scorecard; translations not restated; no
+reviewer's address; plain text serialized inert; no index when
+there is no answer; `--no-structured` skips them. The example
+publishes **45** files (was 33): 11 answers and their index.
+`tests/test_answers.py` (23); 20 mutations, all caught. Suite
+**664** without `build`, 665 with it. Docs: DESIGN §8, HOSTING §0
+(count from the run, a row for the folder), USER-GUIDE step 6,
+README, API.md, two CLAUDE.md invariants. Nothing in this repository
+reads the answers yet. Positions: `main` == `0140916` (fetched; the
+user's "Push the commit directly to main" of 2026-11-12, 23:22 UTC,
+run 14 green first, a fast-forward from `c64e943`); the branch one
+ahead with this commit, which moves to `main` on the user's word.
+
+Earlier, on 2026-11-12, **a judge's note is for the store's
+owner** (`0140916`; the first real contradiction the live check found, read by
 the maintainer). With the fix below in place the same store's
 question set came back whole (31 questions), and one of three live
 answers contradicted the store's own page on its warranty. The note
@@ -18,11 +46,10 @@ and never a label of the prompt; `engines.probe` shortens a longer
 note at a word with " ..." (`textwrap.shorten`, `_NOTE_CHARS` 320).
 One test added to `tests/test_engines.py` (27 there); 5 mutations,
 all caught. Suite **641** without `build`, 642 with it. The new
-wording has not been seen from a live judge yet. Positions: `main`
-== `c64e943` (fetched; the user's "Push the commit directly to
-main" of 2026-11-12, 20:23 UTC, run 13 green first, a fast-forward
-from `5c3a3d9`); the branch one ahead with this commit, which moves
-to `main` on the user's word.
+wording has not been seen from a live judge yet. Positions then:
+`main` == `c64e943` (fetched; the user's "Push the commit directly
+to main" of 2026-11-12, 20:23 UTC, run 13 green first, a
+fast-forward from `5c3a3d9`); the branch one ahead with that commit.
 
 Earlier on 2026-11-12, **a reply cut at its output limit is
 never used** (`c64e943`; found when a real question set came back
@@ -1188,7 +1215,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **641 passing** without `build`, 642 where it is installed (CI,
+- Test suite: **664 passing** without `build`, 665 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1262,12 +1289,15 @@ review.
   ahead of `main`. There is no record commit (dropped 2026-09-17), so
   the sha named here is refreshed only by the next content commit and
   can lag: always `git fetch` and read `origin/main` before a main
-  push. As of this commit: `main` == `c64e943` (the user's "Push the
+  push. As of this commit: `main` == `0140916` (the user's "Push the
+  commit directly to main" of 2026-11-12, 23:22 UTC, run 14 green
+  first: a fast-forward from `c64e943` over `0140916`, a judge's note
+  is for the store's owner), and the branch is one ahead with this
+  commit (answer blocks), which moves to `main` on the user's word.
+  Before that, `main` == `c64e943` (the user's "Push the
   commit directly to main" of 2026-11-12, 20:23 UTC, run 13 green
   first: a fast-forward from `5c3a3d9` over `c64e943`, a reply cut at
-  its output limit is never used), and the branch is one ahead with
-  this commit (a judge's note is for the store's owner), which moves
-  to `main` on the user's word. Before that, `main` == `5c3a3d9` (the
+  its output limit is never used). Before that, `main` == `5c3a3d9` (the
   user's "Push the
   commit directly to main" of 2026-11-12, 19:18 UTC, run 12 green
   first: a fast-forward from `bfbb0b7` over eight commits, `9431f79`
@@ -1335,7 +1365,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Have the live check's judge write its note for the store's owner, and cut a long note at a word
+(this commit)  Write the vouched concepts as text a page can show: answer blocks, listed by the page each is about
+0140916  Have the live check's judge write its note for the store's owner, and cut a long note at a word
 c64e943  Never use a model reply that was cut off at its output limit: room for the reasoning, one more try, then a failure
 5c3a3d9  Record both fixes seen working on the real store: ten concepts from six pages, and a live check that cites (MEMORY-only)
 5304935  Ask the live assistant for direct searches, and record whether they returned a page of the store: a reply made the default way carries no citations
@@ -1580,6 +1611,12 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
   reporting it changed: nothing retires it but a person. And
   `linkmap.json` names one path a URL, the last in path order when a
   page has several concepts.
+- Answer blocks are written and read by nothing here yet: a page
+  shows them only once its own software (a plugin on the store's
+  platform, a theme template, a build step) reads
+  `answers/index.json`. Whether assistants answer better from a page
+  that prints them has not been measured; `evaluate --baseline`
+  reading such a page is how it would be.
 - `okf-web mcp --url` (remote-bundle mode, DISTRIBUTION §4) shipped as
   GAPS item 10 (`40a176e`); nothing planned remains unscheduled here.
 

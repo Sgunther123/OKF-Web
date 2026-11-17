@@ -329,6 +329,19 @@ containing prices or stock, which go stale) and a ready-made
 `llms.txt` file. Ask them to add the structured data to the matching
 pages and serve `llms.txt` at the site root.
 
+There is a third: an `answers/` folder with the same approved facts
+as **plain words a page can show**. AI assistants read what is
+written on your pages far more than the labels behind them, so an
+approved answer does the most good where a shopper can see it too:
+your returns answer on your returns page, a product's facts on its
+product page. Each file is one fact sheet in plain text with the date
+a person approved it and the date it stops being current, and
+`answers/index.json` says which page each belongs on. Nothing in the
+folder changes your site by itself: your web person (or a plugin on
+your store's platform) reads it and decides where the words go.
+Drafts, facts only a machine checked, anything past its "stale after"
+date, and live values such as prices are never in it.
+
 Send the `dist` folder to whoever manages your website and ask them
 to serve it at:
 
