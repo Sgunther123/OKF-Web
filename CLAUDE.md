@@ -393,7 +393,11 @@ test_passport, test_locations) → re-measure the scorecard → verification loo
   product, a price or an option
   (`tests/test_wordpress_plugin.py` reads its source for them). It
   re-checks each answer's shape, tier, expiry and page: the reader
-  holds the publisher's gates again, never instead. Its version is in
+  holds the publisher's gates again, never instead. Its clock is the
+  store's, not the one that stamped an approval: it allows a day
+  between them (`CLOCK_SLACK`), and its test reads a dist on the
+  real clock; under a fixed one the first answers a running service
+  served were refused as dated in the future. Its version is in
   three places (plugin header, `OKF_WEB_ANSWERS_VERSION`, the
   readme's stable tag; a test keeps them equal). The suite runs its
   PHP tests when `php` is on the path and fails without it in CI. A

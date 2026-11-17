@@ -157,6 +157,10 @@ foreach ( array( null, 'text', 7, array() ) as $bad ) {
 	same( 'not an answer: ' . json_encode( $bad ), $R::clean_answer( $bad, $PAGE, $NOW ), null );
 }
 check( 'no expiry is allowed', is_array( $R::clean_answer( without( $answer, 'expires' ), $PAGE, $NOW ) ) );
+// A store's clock that runs slow: an approval dated a little ahead of it is shown.
+check( 'approved an hour ahead of this clock: shown', is_array( $R::clean_answer( array( 'verified' => array( 'tier' => 'human-reviewed', 'at' => '2026-11-17T13:00:00Z' ) ) + $answer, $PAGE, $NOW ) ) );
+check( 'approved a day ahead, to the second: shown', is_array( $R::clean_answer( array( 'verified' => array( 'tier' => 'human-reviewed', 'at' => '2026-11-18T12:00:00Z' ) ) + $answer, $PAGE, $NOW ) ) );
+same( 'approved more than a day ahead: not a date', $R::clean_answer( array( 'verified' => array( 'tier' => 'human-reviewed', 'at' => '2026-11-18T12:00:01Z' ) ) + $answer, $PAGE, $NOW ), null );
 check( 'shown until the instant before expiry', is_array( $R::clean_answer( array( 'expires' => '2026-11-17T12:00:01Z' ) + $answer, $PAGE, $NOW ) ) );
 same( 'a batch sign-off keeps its own tier', $R::clean_answer( array( 'verified' => array( 'tier' => 'human-attested', 'at' => '2026-08-05' ) ) + $answer, $PAGE, $NOW )['tier'], 'human-attested' );
 same( 'a record that is no web address is dropped', $R::clean_answer( array( 'subjectOf' => 'javascript:alert(1)' ) + $answer, $PAGE, $NOW )['record'], '' );
@@ -212,7 +216,9 @@ check( 'only the plugin\'s own tags are in the output', false === strpos( $strip
 check( 'a hostile date is escaped too', false === strpos( $R::render( array( $clean ), $labels, function () { return '<b>x</b>'; } ), '<b>' ) );
 
 // --- a real published dist, read the way the plugin reads it -----------------
+// On the real clock, as the plugin does: a dist is published against today.
 if ( isset( $argv[1] ) ) {
+	$NOW   = time();
 	$dist  = rtrim( $argv[1], '/' );
 	$index = json_decode( file_get_contents( $dist . '/answers/index.json' ), true );
 	check( 'the dist has an index this reader knows', $R::page_count( $index ) > 0 );

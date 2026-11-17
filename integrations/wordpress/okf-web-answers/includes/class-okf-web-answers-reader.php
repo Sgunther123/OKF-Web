@@ -34,6 +34,12 @@ final class OKF_Web_Answers_Reader {
 	const MAX_SUMMARY  = 1000;
 	const MAX_HEADING  = 200;
 	const MAX_TEXT     = 4000;
+	/**
+	 * How far ahead of this server's clock an approval may be dated: a
+	 * store's clock that runs slow must not hide an answer approved a
+	 * minute ago, and a date further ahead than this is not a date.
+	 */
+	const CLOCK_SLACK = 86400;
 
 	/**
 	 * A page address in the one form two spellings of it share: host in
@@ -184,7 +190,7 @@ final class OKF_Web_Answers_Reader {
 			return null;
 		}
 		$verified_at = isset( $verified['at'] ) ? self::instant( $verified['at'] ) : null;
-		if ( null === $verified_at || $verified_at > $now ) {
+		if ( null === $verified_at || $verified_at > $now + self::CLOCK_SLACK ) {
 			return null;
 		}
 		$expires = null;

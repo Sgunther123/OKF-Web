@@ -22,6 +22,9 @@ is left as it is:
   approved it), and the line under it says which: "checked and
   approved" for a review, "approved as part of a batch" for a
   wholesale sign-off;
+- its approval is dated, and not more than a day ahead of the
+  store's own clock (a clock that runs slow must not hide an answer
+  approved a minute ago);
 - it has not passed its `expires` instant, checked each time it is
   printed, so an answer that lapses while a copy is kept stops showing;
 - its own `page` is the page being viewed (scheme, a trailing slash,

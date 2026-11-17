@@ -4,9 +4,27 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-17 — **a WordPress plugin that prints a
-bundle's answers on the pages they are about**
-(`integrations/wordpress/okf-web-answers/`; the first reader of the
+Last updated: 2026-11-17 — **the plugin allows a day between two
+clocks**. Found by the first run of its reader against answers a
+running service had just served, not against the example: an answer
+approved minutes earlier was refused as dated in the future, because
+the reader's test read every dist on a fixed clock that the approval
+had passed. On a store, the same refusal would meet any server
+whose clock runs behind the one that stamped the approval.
+`OKF_Web_Answers_Reader::CLOCK_SLACK` (86,400 s): an approval dated
+up to a day ahead of the store's clock is shown, one further ahead
+is still not a date. `reader-test.php` reads a dist on the real
+clock, as the plugin and the publisher do (129 checks, 164 with the
+published example); 4 mutations, all caught. Suite unchanged
+(**681** without `build`, 682 with it). Still not run inside a
+WordPress. Positions: `main` == `0140916` (fetched); the branch
+three ahead (`c706e0d`, run 15 green; `0b1d822`, run 16 green, the
+plugin's PHP tests run there; and this commit), which move to
+`main` on the user's word.
+
+Earlier on 2026-11-17, **a WordPress plugin that prints a
+bundle's answers on the pages they are about** (`0b1d822`;
+`integrations/wordpress/okf-web-answers/`; the first reader of the
 answer blocks below, and the first code here that is not Python).
 Off until switched on. It reads `answers/index.json` from the site's
 own `/.well-known/okf`, or from an address the owner types (`https`
@@ -31,9 +49,9 @@ WordPress**: a local install (WordPress on SQLite, WooCommerce,
 WP-CLI, all downloaded) was refused by the session's permission
 check and not attempted another way; its README says what is
 untried. Docs: its README, the repository map, DESIGN §8,
-USER-GUIDE step 6, a CLAUDE.md gotcha. Positions: `main` ==
+USER-GUIDE step 6, a CLAUDE.md gotcha. Positions then: `main` ==
 `0140916` (fetched); the branch two ahead (`c706e0d`, run 15 green,
-and this commit), which move to `main` on the user's word.
+and that commit).
 
 Earlier on 2026-11-17, **answer blocks: the vouched concepts
 as text a page can show** (`c706e0d`; a third derived output of `publish`,
@@ -1323,9 +1341,10 @@ review.
   push. As of this commit: `main` == `0140916` (the user's "Push the
   commit directly to main" of 2026-11-12, 23:22 UTC, run 14 green
   first: a fast-forward from `c64e943` over `0140916`, a judge's note
-  is for the store's owner), and the branch is two ahead: `c706e0d`
-  (answer blocks, run 15 green) and this commit (the WordPress
-  plugin), which move to `main` on the user's word.
+  is for the store's owner), and the branch is three ahead: `c706e0d`
+  (answer blocks, run 15 green), `0b1d822` (the WordPress plugin,
+  run 16 green) and this commit (the plugin's clock tolerance),
+  which move to `main` on the user's word.
   Before that, `main` == `c64e943` (the user's "Push the
   commit directly to main" of 2026-11-12, 20:23 UTC, run 13 green
   first: a fast-forward from `5c3a3d9` over `c64e943`, a reply cut at
@@ -1397,7 +1416,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Add a WordPress plugin that prints a bundle's verified answers on the pages they are about, and only prints
+(this commit)  Let the plugin show an answer approved up to a day ahead of the store's clock, and read a dist on the real clock
+0b1d822  Add a WordPress plugin that prints a bundle's verified answers on the pages they are about, and only prints
 c706e0d  Write the vouched concepts as text a page can show: answer blocks, listed by the page each is about
 0140916  Have the live check's judge write its note for the store's owner, and cut a long note at a word
 c64e943  Never use a model reply that was cut off at its output limit: room for the reasoning, one more try, then a failure
