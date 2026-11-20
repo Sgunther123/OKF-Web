@@ -64,7 +64,15 @@ zip -r okf-web-answers.zip okf-web-answers
 ```
 
 Upload the zip under Plugins, Add New, Upload Plugin; activate it;
-open Settings, OKF-Web Answers; tick "Show answers".
+open Settings, OKF-Web Answers (WordPress's own Settings menu, not
+WooCommerce's); tick "Show answers". A new WooCommerce store starts
+in "Coming soon" mode: until it is switched to Live (WooCommerce,
+Settings, Site visibility), visitors, and the assistants that read
+its pages, see neither the store nor its answers.
+
+What the plugin has read is kept for fifteen minutes. Saving the
+settings makes it read again only when a setting changed; saving
+them unchanged does not.
 
 ## Testing it
 
@@ -78,9 +86,21 @@ python -m pytest -q tests/test_wordpress_plugin.py        # both, and the static
 `plugin-test.php` defines stand-ins for the WordPress functions the
 plugin calls and checks what it asks of them and what it prints.
 
-**Not yet done: a run inside WordPress.** The stand-ins say what the
-plugin does with WordPress's answers, not what a real WordPress, theme
-or WooCommerce version answers. Until it has been activated on a real
-site and seen printing on a page, a post and a product, treat it as
-untried there. When it has, record the WordPress, WooCommerce and PHP
-versions here.
+**Run inside WordPress, 2026-11-20.** On a temporary test site
+running WordPress 7.1.5, WooCommerce 11.3.1 and PHP 8.5.12 with the
+Twenty Twenty-Three block theme, and reading its answers from another
+host, the plugin was uploaded as the zip above and activated. A
+product's answer printed below the product's Description and Reviews
+tabs: WooCommerce's block template for a product still ran the hook
+the plugin uses. A page's answer printed after the page's own text.
+Unticking "Show answers" took both away and left the rest of each
+page as it was. All of it was read from outside, as a visitor sees
+it. Not yet seen: a post, a classic theme, and any other WordPress,
+WooCommerce or PHP version. The stand-ins remain the suite's test,
+so a change to where the plugin hooks into a page is seen on a real
+site again before it is believed.
+
+What it printed raised two questions, both still open. An answer on
+the page it was drafted from repeats that page: the refund page's
+answer repeated the whole policy under itself. And within one answer
+the summary repeats the start of its first section.

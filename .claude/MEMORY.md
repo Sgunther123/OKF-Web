@@ -4,8 +4,32 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-17 — **an answer waits while a change to
-its concept is proposed**. When a source changes after a person
+Last updated: 2026-11-20 — **the WordPress plugin has run inside
+a WordPress**. On a temporary test site (WordPress 7.1.5,
+WooCommerce 11.3.1, PHP 8.5.12, the Twenty Twenty-Three block
+theme), reading answers from another host, the plugin was uploaded
+as its zip and activated; its settings page listed the answers it
+could read. Read from outside, as a visitor sees it: a product's
+answer below the product's Description and Reviews tabs
+(WooCommerce's block template still ran the hook the plugin uses),
+a page's answer after the page's text, and both gone after
+"Show answers" was unticked, the rest of each page unchanged. Not
+yet seen: a post, a classic theme, other versions. Learned on the
+way, now in the plugin's README: its settings are under WordPress's
+Settings menu, not WooCommerce's; a new WooCommerce store starts in
+"Coming soon" mode, which hides it and its answers from visitors
+and assistants; and saving the settings unchanged does not make the
+plugin read again (only a changed setting does, or its fifteen
+minutes running out). What it printed raised two open questions
+(Open items). `readme.txt` says "Tested up to: 7.1"; the CLAUDE.md
+gotcha records the run. No code changed; suite unchanged (**691**
+without `build`, 692 with it). Positions: `main` == `0140916`
+(fetched); the branch six ahead (`c706e0d`, `0b1d822`, `fc805ca`,
+`58d3b63`, `c377ca6`, run 19 green, and this commit), which move to
+`main` on the user's word.
+
+Earlier on 2026-11-17, **an answer waits while a change to
+its concept is proposed** (`c377ca6`). When a source changes after a person
 approved a concept, the write gate files the new text under
 `_review/proposed/<path>` and leaves the approved text alone. An
 answer is printed on the page the concept is about, so the approved
@@ -19,9 +43,9 @@ ingested, approved, changed and ingested again; the queue shows the
 proposal the gate filed); 6 mutations, 5 caught and the sixth
 closed with that last check. Suite **691** without `build`, 692
 with it. Docs: DESIGN §8, USER-GUIDE step 6, API.md, a CLAUDE.md
-invariant. Positions: `main` == `0140916` (fetched); the branch
-five ahead (`c706e0d`, `0b1d822`, `fc805ca`, `58d3b63`, run 18
-green, and this commit), which move to `main` on the user's word.
+invariant. Positions then: `main` == `0140916` (fetched); the
+branch five ahead (`c706e0d`, `0b1d822`, `fc805ca`, `58d3b63`, run
+18 green, and that commit).
 
 Earlier on 2026-11-17, **an answer leaves out what a concept
 says to an agent** (`58d3b63`). Seen by reading what the example's answers
@@ -1380,12 +1404,14 @@ review.
   push. As of this commit: `main` == `0140916` (the user's "Push the
   commit directly to main" of 2026-11-12, 23:22 UTC, run 14 green
   first: a fast-forward from `c64e943` over `0140916`, a judge's note
-  is for the store's owner), and the branch is five ahead: `c706e0d`
+  is for the store's owner), and the branch is six ahead: `c706e0d`
   (answer blocks, run 15 green), `0b1d822` (the WordPress plugin,
   run 16 green), `fc805ca` (the plugin's clock tolerance, run 17
   green), `58d3b63` (an answer leaves out what was written for an
-  agent, run 18 green) and this commit (an answer waits while a
-  change is proposed), which move to `main` on the user's word.
+  agent, run 18 green), `c377ca6` (an answer waits while a change is
+  proposed, run 19 green) and this commit (the plugin's first run
+  inside a WordPress, on record), which move to `main` on the user's
+  word.
   Before that, `main` == `c64e943` (the user's "Push the
   commit directly to main" of 2026-11-12, 20:23 UTC, run 13 green
   first: a fast-forward from `5c3a3d9` over `c64e943`, a reply cut at
@@ -1457,7 +1483,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Hold back the answer of a concept whose source changed since it was approved, until a person has looked
+(this commit)  Record the plugin's first run inside a real WordPress: a product's answer and a page's, and the switch that takes them away
+c377ca6  Hold back the answer of a concept whose source changed since it was approved, until a person has looked
 58d3b63  Leave out of an answer the two sections a concept carries for an agent: the live-values note and the related links
 fc805ca  Let the plugin show an answer approved up to a day ahead of the store's clock, and read a dist on the real clock
 0b1d822  Add a WordPress plugin that prints a bundle's verified answers on the pages they are about, and only prints
@@ -1714,11 +1741,16 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
   reporting it changed: nothing retires it but a person. And
   `linkmap.json` names one path a URL, the last in path order when a
   page has several concepts.
-- The WordPress plugin has not run inside a WordPress (2026-11-17):
-  what a real WordPress, theme and WooCommerce version do with it is
-  untried. The trial is an activation on a real site, then a page, a
-  post and a product each seen printing its answers, and the
-  versions recorded in `integrations/wordpress/README.md`. Its
+- The WordPress plugin first ran inside a WordPress on 2026-11-20
+  (7.1.5, WooCommerce 11.3.1, PHP 8.5.12, Twenty Twenty-Three, a
+  block theme): a product and a page were seen printing their
+  answers, from outside, and the switch took them away; recorded in
+  `integrations/wordpress/README.md`. Not yet seen: a post, a
+  classic theme, other versions. What it printed raised two
+  questions, both open: an answer on the page it was drafted from
+  repeats that page (the refund page's answer repeated the whole
+  policy under itself), and within one answer the summary repeats
+  the start of its first section. Its
   licence header says Apache-2.0, as the repository's; whether it is
   offered in the WordPress.org directory, and under which licence
   line there, is the maintainer's choice.

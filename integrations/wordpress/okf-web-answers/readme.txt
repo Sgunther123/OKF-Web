@@ -2,7 +2,7 @@
 Contributors: okfweb
 Tags: answers, faq, ai, woocommerce, knowledge
 Requires at least: 5.8
-Tested up to: 6.8
+Tested up to: 7.1
 Requires PHP: 7.2
 Stable tag: 0.1.0
 License: Apache-2.0

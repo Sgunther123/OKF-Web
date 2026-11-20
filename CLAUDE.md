@@ -406,8 +406,14 @@ test_passport, test_locations) → re-measure the scorecard → verification loo
   readme's stable tag; a test keeps them equal). The suite runs its
   PHP tests when `php` is on the path and fails without it in CI. A
   change to the answer's shape is a new schema string on both sides.
-  It has been run against stand-ins for WordPress, not inside one:
-  its README says so until that changes.
+  It first ran inside a real WordPress on 2026-11-20 (7.1.5,
+  WooCommerce 11.3.1, PHP 8.5.12, the Twenty Twenty-Three block
+  theme): a product's answer below its tabs, a page's after its
+  text, the switch taking both away, all read from outside. Its
+  README records the run and what is still unseen (a post, a
+  classic theme). The suite still tries it against stand-ins only:
+  a change to where it hooks into a page is seen on a real site
+  again before it is believed.
 - PyPI registration and pushing a release tag are **user-only** actions. Never
   trigger a release. The release path — TestPyPI rehearsal proving the wheel's
   packaged data, then the real tag — is docs/DISTRIBUTION.md §6.
