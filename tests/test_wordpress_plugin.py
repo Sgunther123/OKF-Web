@@ -88,6 +88,8 @@ def test_it_reads_the_shape_the_toolchain_writes(example_bundle, tmp_path):
 def test_it_is_off_until_switched_on_and_says_what_it_does():
     main = MAIN.read_text(encoding="utf-8")
     assert "'enabled' => ! empty( $saved['enabled'] )," in main
+    # An answer is short until the whole fact sheet is asked for (0.2.0).
+    assert "'whole'   => ! empty( $saved['whole'] )," in main
     readme = (PLUGIN / "readme.txt").read_text(encoding="utf-8")
     for promise in ("It never changes your products, prices or pages.",
                     "It is off until you switch it on",

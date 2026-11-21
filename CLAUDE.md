@@ -413,7 +413,15 @@ test_passport, test_locations) → re-measure the scorecard → verification loo
   README records the run and what is still unseen (a post, a
   classic theme). The suite still tries it against stand-ins only:
   a change to where it hooks into a page is seen on a real site
-  again before it is believed.
+  again before it is believed. From 0.2.0 an answer prints its
+  title, its summary and who approved it when; its sections only
+  when the owner ticks "The whole fact sheet" (the maintainer's
+  choice, 2026-11-20: a fact sheet drafted from its page repeated
+  that page), and then a summary its first section begins with is
+  printed once. Every save of its settings reads everything again:
+  the saved settings count the saves and the kept copies are keyed
+  by that count, because WordPress runs no update hook for a value
+  saved unchanged.
 - PyPI registration and pushing a release tag are **user-only** actions. Never
   trigger a release. The release path — TestPyPI rehearsal proving the wheel's
   packaged data, then the real tag — is docs/DISTRIBUTION.md §6.

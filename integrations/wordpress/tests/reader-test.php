@@ -192,9 +192,26 @@ $html   = $R::render( array( $clean ), $labels, $date );
 check( 'a heading', false !== strpos( $html, '<h2 class="okf-web-answers__heading">Verified answers</h2>' ) );
 check( 'the title, escaped', false !== strpos( $html, '<h3 class="okf-web-answer__title">Return &amp; Exchange Policy</h3>' ) );
 check( 'the summary', false !== strpos( $html, '<p class="okf-web-answer__summary">Items may be returned within 60 days.</p>' ) );
-check( 'a section with its heading', false !== strpos( $html, '<h4 class="okf-web-answer__section">Window</h4><p>Sixty days from delivery.</p>' ) );
-check( 'a section without one', false !== strpos( $html, '<p>Opening line.</p>' ) && 1 === substr_count( $html, '<h4' ) );
+check( 'the short form, the default: no section', false === strpos( $html, '<h4' ) && false === strpos( $html, 'Sixty days from delivery.' ) && false === strpos( $html, 'Opening line.' ) );
 check( 'who and when', false !== strpos( $html, 'Checked and approved by a named person on 5 August 2026.' ) );
+$whole = $R::render( array( $clean ), $labels, $date, true );
+check( 'the whole form: a section with its heading', false !== strpos( $whole, '<h4 class="okf-web-answer__section">Window</h4><p>Sixty days from delivery.</p>' ) );
+check( 'the whole form: a section without one', false !== strpos( $whole, '<p>Opening line.</p>' ) && 1 === substr_count( $whole, '<h4' ) );
+check( 'the whole form keeps a summary its first section does not begin with', false !== strpos( $whole, '<p class="okf-web-answer__summary">Items may be returned within 60 days.</p>' ) );
+check( 'the whole form says who and when too', false !== strpos( $whole, 'Checked and approved by a named person on 5 August 2026.' ) );
+// A summary drafted from the text it sums up, as a connector drafts it.
+$drafted = $R::clean_answer( array( 'summary' => 'Water Bottle.', 'sections' => array( array( 'heading' => 'Overview', 'text' => 'Water bottle' ) ) ) + $answer, $PAGE, $NOW );
+$once    = $R::render( array( $drafted ), $labels, $date, true );
+check( 'the whole form prints a repeated summary once', false === strpos( $once, 'okf-web-answer__summary' ) && false !== strpos( $once, '<h4 class="okf-web-answer__section">Overview</h4><p>Water bottle</p>' ) );
+$short = $R::render( array( $drafted ), $labels, $date );
+check( 'the short form shows that summary and no section', false !== strpos( $short, '<p class="okf-web-answer__summary">Water Bottle.</p>' ) && false === strpos( $short, 'Overview' ) );
+same( 'a summary the first section begins with', $R::begins_with_summary( array( array( 'heading' => '', 'text' => 'Thirty days. Then a credit.' ) ), 'Thirty days.' ), true );
+same( 'one it does not begin with', $R::begins_with_summary( array( array( 'heading' => '', 'text' => 'Sixty days.' ) ), 'Thirty days.' ), false );
+same( 'only the first section counts', $R::begins_with_summary( array( array( 'heading' => '', 'text' => 'Sixty days.' ), array( 'heading' => '', 'text' => 'Thirty days.' ) ), 'Thirty days.' ), false );
+same( 'no section, nothing repeated', $R::begins_with_summary( array(), 'Thirty days.' ), false );
+same( 'a summary of nothing repeats nothing', $R::begins_with_summary( array( array( 'heading' => '', 'text' => 'x' ) ), ' . ' ), false );
+$bare = $R::clean_answer( array( 'summary' => '' ) + $answer, $PAGE, $NOW );
+check( 'with no summary the short form is the title and who approved it', 0 === preg_match( '/okf-web-answer__summary|<h4/', $R::render( array( $bare ), $labels, $date ) ) && false !== strpos( $R::render( array( $bare ), $labels, $date ), 'Checked and approved' ) );
 check( 'the record, linked', false !== strpos( $html, '<a href="https://shop.example/.well-known/okf/policies/returns.md" rel="nofollow">See the record</a>' ) );
 same( 'nothing to show prints nothing', $R::render( array(), $labels, $date ), '' );
 $batch = $R::clean_answer( array( 'verified' => array( 'tier' => 'human-attested', 'at' => '2026-08-05' ) ) + $answer, $PAGE, $NOW );
@@ -208,7 +225,9 @@ $evil    = $R::clean_answer( array(
 	'sections'  => array( array( 'heading' => $hostile, 'text' => $hostile ) ),
 	'subjectOf' => 'https://shop.example/x"onmouseover="alert(3)',
 ) + $answer, $PAGE, $NOW );
-$evil_html = $R::render( array( $evil ), array( 'heading' => $hostile, 'record' => $hostile ) + $labels, $date );
+$evil_html = $R::render( array( $evil ), array( 'heading' => $hostile, 'record' => $hostile ) + $labels, $date )
+	. $R::render( array( $evil ), array( 'heading' => $hostile, 'record' => $hostile ) + $labels, $date, true );
+check( 'the hostile section was printed, escaped', false !== strpos( $evil_html, '<h4 class="okf-web-answer__section">&lt;/p&gt;&lt;script&gt;' ) );
 check( 'no tag of the source survives', 0 === preg_match( '/<(script|img)\b/i', $evil_html ) );
 check( 'no attribute of the source survives', false === strpos( $evil_html, '"onmouseover="' ) && false === strpos( $evil_html, ' onerror=alert(2)>' ) );
 $stripped = preg_replace( '#</?(section|article|h2|h3|h4|p|a)\b[^<>]*>#', '', $evil_html );
@@ -234,7 +253,7 @@ if ( isset( $argv[1] ) ) {
 				$answers[] = $one;
 			}
 		}
-		$out = $R::render( $answers, $labels, $date );
+		$out = $R::render( $answers, $labels, $date ) . $R::render( $answers, $labels, $date, true );
 		check( "$page renders", '' !== $out && 0 === preg_match( '/<(script|img|iframe)\b/i', $out ) );
 		$shown += count( $answers );
 	}

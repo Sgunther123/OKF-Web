@@ -247,15 +247,37 @@ final class OKF_Web_Answers_Reader {
 	}
 
 	/**
-	 * Checked answers as HTML. Every string is escaped here, where it is
-	 * printed. Returns '' when there is nothing to show.
+	 * Whether the first section already begins with the summary: a
+	 * summary drafted from the text it sums up would be printed twice.
 	 *
-	 * @param array[] $answers Answers from clean_answer().
-	 * @param array   $labels  heading, reviewed, attested (each with %s for the date), record.
-	 * @param callable $date   Formats a Unix timestamp as a date.
+	 * @param array[] $sections The sections to be printed.
+	 * @param string  $summary  The summary.
+	 * @return bool
+	 */
+	public static function begins_with_summary( $sections, $summary ) {
+		if ( ! is_array( $sections ) || ! $sections ) {
+			return false;
+		}
+		$lead = rtrim( trim( (string) $summary ), ". \t" );
+		$text = trim( (string) $sections[0]['text'] );
+		return '' !== $lead && 0 === strncasecmp( $text, $lead, strlen( $lead ) );
+	}
+
+	/**
+	 * Checked answers as HTML. Every string is escaped here, where it is
+	 * printed. Returns '' when there is nothing to show. In the short
+	 * form, the default, an answer is its title, its summary and who
+	 * approved it when: on the page a fact sheet was written from, its
+	 * sections repeat the page. The whole form adds every section, and
+	 * leaves the summary out when the first section begins with it.
+	 *
+	 * @param array[]  $answers Answers from clean_answer().
+	 * @param array    $labels  heading, reviewed, attested (each with %s for the date), record.
+	 * @param callable $date    Formats a Unix timestamp as a date.
+	 * @param bool     $whole   Every section too, not only the summary.
 	 * @return string
 	 */
-	public static function render( $answers, $labels, $date ) {
+	public static function render( $answers, $labels, $date, $whole = false ) {
 		if ( ! is_array( $answers ) || ! $answers ) {
 			return '';
 		}
@@ -264,12 +286,13 @@ final class OKF_Web_Answers_Reader {
 			$html .= '<h2 class="okf-web-answers__heading">' . esc_html( $labels['heading'] ) . '</h2>';
 		}
 		foreach ( $answers as $answer ) {
-			$html .= '<article class="okf-web-answer">';
-			$html .= '<h3 class="okf-web-answer__title">' . esc_html( $answer['title'] ) . '</h3>';
-			if ( '' !== $answer['summary'] ) {
+			$sections = $whole ? $answer['sections'] : array();
+			$html    .= '<article class="okf-web-answer">';
+			$html    .= '<h3 class="okf-web-answer__title">' . esc_html( $answer['title'] ) . '</h3>';
+			if ( '' !== $answer['summary'] && ! self::begins_with_summary( $sections, $answer['summary'] ) ) {
 				$html .= '<p class="okf-web-answer__summary">' . esc_html( $answer['summary'] ) . '</p>';
 			}
-			foreach ( $answer['sections'] as $section ) {
+			foreach ( $sections as $section ) {
 				if ( '' !== $section['heading'] ) {
 					$html .= '<h4 class="okf-web-answer__section">' . esc_html( $section['heading'] ) . '</h4>';
 				}

@@ -341,8 +341,10 @@ folder changes your site by itself: your web person (or a plugin on
 your store's platform) reads it and decides where the words go. If
 your store runs on WordPress, with or without WooCommerce, that
 plugin exists: `integrations/wordpress/` in this project. Once you
-switch it on it shows each page's approved answers under the page's
-own content, and it never edits a page, a product or a price.
+switch it on it shows, under each page's own content, the title and
+summary of each answer approved for that page and the date a person
+approved it (the whole fact sheet only if you tick that in its
+settings), and it never edits a page, a product or a price.
 Drafts, facts only a machine checked, anything past its "stale after"
 date, and live values such as prices are never in it. Neither is a
 fact whose page has changed since you approved it: it waits until you

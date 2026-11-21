@@ -317,13 +317,20 @@ foreach ( array( 'http://bundles.example/x', 'https://bundles.example/x?y=1', 'f
 
 // --- saving the settings --------------------------------------------------------------------------
 $saved = OKF_Web_Answers::sanitize( array( 'enabled' => '1', 'source' => ' https://bundles.example/stores/abc/ ', 'heading' => " <b>Good</b>\n answers " ) );
-same( 'what is saved', $saved, array( 'enabled' => true, 'source' => 'https://bundles.example/stores/abc', 'heading' => 'Good answers' ) );
+same( 'what is saved', $saved, array( 'enabled' => true, 'source' => 'https://bundles.example/stores/abc', 'heading' => 'Good answers', 'whole' => false, 'saved' => 1 ) );
 same( 'no complaint', $GLOBALS['t']['errors'], array() );
 $saved = OKF_Web_Answers::sanitize( array( 'source' => 'http://bundles.example/x' ) );
 same( 'an address it will not read is not saved', $saved['source'], '' );
 same( 'off unless ticked', $saved['enabled'], false );
 same( 'and the page says so', $GLOBALS['t']['errors'], array( 'okf_web_answers_source' ) );
-same( 'nonsense in, defaults out', OKF_Web_Answers::sanitize( 'x' ), array( 'enabled' => false, 'source' => '', 'heading' => '' ) );
+same( 'nonsense in, defaults out', OKF_Web_Answers::sanitize( 'x' ), array( 'enabled' => false, 'source' => '', 'heading' => '', 'whole' => false, 'saved' => 1 ) );
+same( 'the whole fact sheet when ticked', OKF_Web_Answers::sanitize( array( 'whole' => '1' ) )['whole'], true );
+$GLOBALS['t']['options']['okf_web_answers'] = array( 'enabled' => true, 'saved' => 4 );
+same( 'every save counts, so the settings always change', OKF_Web_Answers::sanitize( array( 'enabled' => '1' ) )['saved'], 5 );
+$GLOBALS['t']['options']['okf_web_answers'] = array( 'enabled' => true, 'saved' => 'x' );
+same( 'a count that is not one starts again', OKF_Web_Answers::sanitize( array() )['saved'], 1 );
+$GLOBALS['t']['options']['okf_web_answers'] = array( 'enabled' => true, 'saved' => -3 );
+same( 'and so does one below nothing', OKF_Web_Answers::sanitize( array() )['saved'], 1 );
 same( 'a long heading is cut', strlen( OKF_Web_Answers::sanitize( array( 'heading' => str_repeat( 'a', 500 ) ) )['heading'] ), 120 );
 
 reset_world();
@@ -335,6 +342,44 @@ OKF_Web_Answers::forget_index();
 view( $RETURNS );
 OKF_Web_Answers::append_to_content( 'c' );
 same( 'saving the settings drops the kept index', requested(), array( "$OWN/answers/index.json" ) );
+
+// --- what an answer shows -------------------------------------------------------------------------
+reset_world();
+serve( $OWN, $world );
+$GLOBALS['t']['options']['okf_web_answers'] = array( 'enabled' => true );
+view( $RETURNS );
+$out = OKF_Web_Answers::append_to_content( 'c' );
+check( 'by default: the title, the summary and who approved it', false !== strpos( $out, 'Return Policy' ) && false !== strpos( $out, 'Summary of Return Policy.' ) && false !== strpos( $out, 'Checked and approved by a named person on 5 August 2026.' ) );
+check( 'by default: no section', false === strpos( $out, 'Text of Return Policy.' ) && false === strpos( $out, '<h4' ) );
+$GLOBALS['t']['options']['okf_web_answers'] = array( 'enabled' => true, 'whole' => true );
+view( $RETURNS );
+$out = OKF_Web_Answers::append_to_content( 'c' );
+check( 'ticked: the whole fact sheet', false !== strpos( $out, '<h4 class="okf-web-answer__section">Detail</h4><p>Text of Return Policy.</p>' ) && false !== strpos( $out, 'Summary of Return Policy.' ) );
+view( array( 'singular' => true, 'loop' => true, 'main' => true, 'product' => true, 'id' => 9 ) );
+ob_start();
+OKF_Web_Answers::print_for_product();
+$product = ob_get_clean();
+check( 'a product\'s answer in the whole form too', false !== strpos( $product, 'Text of Alpine Tent.' ) );
+$GLOBALS['t']['options']['okf_web_answers'] = array( 'enabled' => true );
+view( array( 'singular' => true, 'loop' => true, 'main' => true, 'product' => true, 'id' => 9 ) );
+ob_start();
+OKF_Web_Answers::print_for_product();
+$product = ob_get_clean();
+check( 'and in the short one by default', false !== strpos( $product, 'Summary of Alpine Tent.' ) && false === strpos( $product, 'Text of Alpine Tent.' ) );
+
+// --- a save reads everything again ------------------------------------------------------------------
+reset_world();
+serve( $OWN, $world );
+$GLOBALS['t']['options']['okf_web_answers'] = array( 'enabled' => true );
+view( $RETURNS );
+OKF_Web_Answers::append_to_content( 'c' );
+view( $RETURNS );
+OKF_Web_Answers::append_to_content( 'c' );
+same( 'unsaved, what was read is kept', requested(), array() );
+$GLOBALS['t']['options']['okf_web_answers'] = OKF_Web_Answers::sanitize( array( 'enabled' => '1' ) );
+view( $RETURNS );
+OKF_Web_Answers::append_to_content( 'c' );
+same( 'a save of the same settings reads the index and every answer again', requested(), array( "$OWN/answers/index.json", "$OWN/answers/faq/returns.json", "$OWN/answers/policies/returns.json" ) );
 
 echo $failures ? "$failures of $checks checks FAILED\n" : "ok: $checks checks\n";
 exit( $failures ? 1 : 0 );

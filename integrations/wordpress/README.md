@@ -7,8 +7,8 @@ without WooCommerce: when it is switched on, a page shows the answers
 listed for its own address, after its own content.
 
 It only prints. It creates, edits and deletes no post, page, product
-or price; it keeps its three settings and, for fifteen minutes, a copy
-of what it read. A test reads its source for any call that would do
+or price; it keeps its settings and, for fifteen minutes, a copy of
+what it read. A test reads its source for any call that would do
 otherwise.
 
 ## What it shows
@@ -32,6 +32,15 @@ is left as it is:
 
 Every string is escaped where it is printed. At most five answers a
 page, twelve sections an answer.
+
+What an answer shows: its title, its summary and the line saying who
+approved it and when. Its sections follow only when the owner ticks
+"The whole fact sheet" in the settings, and then a summary the first
+section already begins with is printed once. The short form is the
+default because a fact sheet is often written from the page it is
+printed on, and the whole of it repeats that page: the first run
+inside WordPress (below) printed a refund page's whole policy again
+under itself.
 
 ## Where it reads from
 
@@ -70,9 +79,9 @@ in "Coming soon" mode: until it is switched to Live (WooCommerce,
 Settings, Site visibility), visitors, and the assistants that read
 its pages, see neither the store nor its answers.
 
-What the plugin has read is kept for fifteen minutes. Saving the
-settings makes it read again only when a setting changed; saving
-them unchanged does not.
+What the plugin has read is kept for fifteen minutes. Saving its
+settings reads everything again, changed or not: the saved settings
+count the saves, and what was read is kept under that count.
 
 ## Testing it
 
@@ -100,7 +109,12 @@ WooCommerce or PHP version. The stand-ins remain the suite's test,
 so a change to where the plugin hooks into a page is seen on a real
 site again before it is believed.
 
-What it printed raised two questions, both still open. An answer on
-the page it was drafted from repeats that page: the refund page's
-answer repeated the whole policy under itself. And within one answer
-the summary repeats the start of its first section.
+What it printed decided 0.2.0. An answer on the page it was drafted
+from repeated that page (the refund page's answer repeated the whole
+policy under itself), so an answer now shows its title, its summary
+and who approved it, and its sections only when asked for. Within one
+answer the summary repeated the start of its first section, so the
+whole form prints it once. And saving the settings unchanged did not
+make the plugin read again; now every save does. 0.2.0 changes what is
+printed, not where: it is tried against the stand-ins, and goes onto
+the same site to be seen there before it is believed.

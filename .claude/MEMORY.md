@@ -4,8 +4,34 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-20 — **the WordPress plugin has run inside
-a WordPress**. On a temporary test site (WordPress 7.1.5,
+Last updated: 2026-11-20 — **plugin 0.2.0: a short answer box by
+default**, the maintainer's choice after the plugin's first run
+(below) printed a refund page's whole policy again under itself. An
+answer now prints its title, its summary and the line saying who
+approved it when; its sections only when the owner ticks "The whole
+fact sheet" in the settings, and then a summary its first section
+already begins with is printed once
+(`OKF_Web_Answers_Reader::begins_with_summary`). Every save of the
+settings reads everything again: the saved settings carry `saved`,
+a count of saves, and the kept copies' names include it, since
+WordPress runs no update hook for a value saved unchanged (the
+first run found that out). `render()` takes `$whole`; `settings()`
+and `sanitize()` carry `whole` and `saved`; the settings page has
+the new row and says that saving reads again. Version 0.2.0 in its
+three places; `readme.txt` has a new question and the changelog;
+the README and USER-GUIDE step 6 say what an answer shows. Tests:
+`reader-test.php` 141 checks (was 129), `plugin-test.php` 96 (was
+85), the static test holds the short default; 12 deliberate breaks,
+11 caught and the twelfth (a count below zero kept) closed with a
+check. Tried against the stand-ins; the zip went to the maintainer
+for the same test site, to be read there next. Suite **691**
+without `build`, 692 with it. Positions: `main` == `0140916`
+(fetched); the branch seven ahead (`c706e0d`, `0b1d822`, `fc805ca`,
+`58d3b63`, `c377ca6`, `3a065df`, run 20 green, and this commit),
+which move to `main` on the user's word.
+
+Earlier on 2026-11-20, **the WordPress plugin has run inside
+a WordPress** (`3a065df`). On a temporary test site (WordPress 7.1.5,
 WooCommerce 11.3.1, PHP 8.5.12, the Twenty Twenty-Three block
 theme), reading answers from another host, the plugin was uploaded
 as its zip and activated; its settings page listed the answers it
@@ -23,10 +49,9 @@ plugin read again (only a changed setting does, or its fifteen
 minutes running out). What it printed raised two open questions
 (Open items). `readme.txt` says "Tested up to: 7.1"; the CLAUDE.md
 gotcha records the run. No code changed; suite unchanged (**691**
-without `build`, 692 with it). Positions: `main` == `0140916`
+without `build`, 692 with it). Positions then: `main` == `0140916`
 (fetched); the branch six ahead (`c706e0d`, `0b1d822`, `fc805ca`,
-`58d3b63`, `c377ca6`, run 19 green, and this commit), which move to
-`main` on the user's word.
+`58d3b63`, `c377ca6`, run 19 green, and that commit).
 
 Earlier on 2026-11-17, **an answer waits while a change to
 its concept is proposed** (`c377ca6`). When a source changes after a person
@@ -1404,13 +1429,14 @@ review.
   push. As of this commit: `main` == `0140916` (the user's "Push the
   commit directly to main" of 2026-11-12, 23:22 UTC, run 14 green
   first: a fast-forward from `c64e943` over `0140916`, a judge's note
-  is for the store's owner), and the branch is six ahead: `c706e0d`
-  (answer blocks, run 15 green), `0b1d822` (the WordPress plugin,
-  run 16 green), `fc805ca` (the plugin's clock tolerance, run 17
-  green), `58d3b63` (an answer leaves out what was written for an
-  agent, run 18 green), `c377ca6` (an answer waits while a change is
-  proposed, run 19 green) and this commit (the plugin's first run
-  inside a WordPress, on record), which move to `main` on the user's
+  is for the store's owner), and the branch is seven ahead:
+  `c706e0d` (answer blocks, run 15 green), `0b1d822` (the WordPress
+  plugin, run 16 green), `fc805ca` (the plugin's clock tolerance,
+  run 17 green), `58d3b63` (an answer leaves out what was written
+  for an agent, run 18 green), `c377ca6` (an answer waits while a
+  change is proposed, run 19 green), `3a065df` (the plugin's first
+  run inside a WordPress, on record, run 20 green) and this commit
+  (plugin 0.2.0, the short box), which move to `main` on the user's
   word.
   Before that, `main` == `c64e943` (the user's "Push the
   commit directly to main" of 2026-11-12, 20:23 UTC, run 13 green
@@ -1483,7 +1509,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Record the plugin's first run inside a real WordPress: a product's answer and a page's, and the switch that takes them away
+(this commit)  Make the plugin's answer box short by default, read everything again on every save, and print a repeated summary once
+3a065df  Record the plugin's first run inside a real WordPress: a product's answer and a page's, and the switch that takes them away
 c377ca6  Hold back the answer of a concept whose source changed since it was approved, until a person has looked
 58d3b63  Leave out of an answer the two sections a concept carries for an agent: the live-values note and the related links
 fc805ca  Let the plugin show an answer approved up to a day ahead of the store's clock, and read a dist on the real clock
@@ -1747,10 +1774,10 @@ bb43386  Add subscription-based LLM access (--llm claude-code)
   answers, from outside, and the switch took them away; recorded in
   `integrations/wordpress/README.md`. Not yet seen: a post, a
   classic theme, other versions. What it printed raised two
-  questions, both open: an answer on the page it was drafted from
-  repeats that page (the refund page's answer repeated the whole
-  policy under itself), and within one answer the summary repeats
-  the start of its first section. Its
+  questions, both settled in 0.2.0 (the short box by default, on
+  the maintainer's word; a repeated summary printed once in the
+  whole form). 0.2.0 itself is tried against the stand-ins and is
+  next to be read on that site. Its
   licence header says Apache-2.0, as the repository's; whether it is
   offered in the WordPress.org directory, and under which licence
   line there, is the maintainer's choice.

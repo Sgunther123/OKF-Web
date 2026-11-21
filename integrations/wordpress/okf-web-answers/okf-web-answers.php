@@ -3,7 +3,7 @@
  * Plugin Name:       OKF-Web Answers
  * Plugin URI:        https://github.com/sgunther123/okf-web
  * Description:       Shows the answers a person approved for your store on the pages they are about, read from your store's published OKF-Web bundle. It never changes your products, prices or pages.
- * Version:           0.1.0
+ * Version:           0.2.0
  * Requires at least: 5.8
  * Requires PHP:      7.2
  * Author:            OKF-Web contributors
@@ -23,7 +23,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'OKF_WEB_ANSWERS_VERSION', '0.1.0' );
+define( 'OKF_WEB_ANSWERS_VERSION', '0.2.0' );
 
 require_once __DIR__ . '/includes/class-okf-web-answers-reader.php';
 
@@ -64,9 +64,12 @@ final class OKF_Web_Answers {
 	}
 
 	/**
-	 * The settings, with every key present. Off until switched on.
+	 * The settings, with every key present. Off until switched on, and
+	 * each answer in its short form until the whole fact sheet is asked
+	 * for. `saved` counts the saves: what was read is kept under it, so
+	 * every save reads again.
 	 *
-	 * @return array{enabled:bool,source:string,heading:string}
+	 * @return array{enabled:bool,source:string,heading:string,whole:bool,saved:int}
 	 */
 	public static function settings() {
 		$saved = get_option( self::OPTION, array() );
@@ -75,6 +78,8 @@ final class OKF_Web_Answers {
 			'enabled' => ! empty( $saved['enabled'] ),
 			'source'  => isset( $saved['source'] ) && is_string( $saved['source'] ) ? $saved['source'] : '',
 			'heading' => isset( $saved['heading'] ) && is_string( $saved['heading'] ) ? $saved['heading'] : __( 'Verified answers', 'okf-web-answers' ),
+			'whole'   => ! empty( $saved['whole'] ),
+			'saved'   => isset( $saved['saved'] ) && is_numeric( $saved['saved'] ) ? max( 0, (int) $saved['saved'] ) : 0,
 		);
 	}
 
@@ -131,13 +136,14 @@ final class OKF_Web_Answers {
 
 	/**
 	 * The cache name for an address. Keyed by the address, so a changed
-	 * source never shows the old source's answers.
+	 * source never shows the old source's answers, and by the count of
+	 * saves, so saving the settings reads everything again.
 	 *
 	 * @param string $url The address.
 	 * @return string
 	 */
 	private static function cache_name( $url ) {
-		return self::CACHE_PREFIX . md5( $url );
+		return self::CACHE_PREFIX . md5( self::settings()['saved'] . '|' . $url );
 	}
 
 	/**
@@ -228,7 +234,7 @@ final class OKF_Web_Answers {
 				$shown[] = $answer;
 			}
 		}
-		return OKF_Web_Answers_Reader::render( $shown, self::labels(), array( __CLASS__, 'format_date' ) );
+		return OKF_Web_Answers_Reader::render( $shown, self::labels(), array( __CLASS__, 'format_date' ), $settings['whole'] );
 	}
 
 	/**
@@ -305,7 +311,9 @@ final class OKF_Web_Answers {
 	}
 
 	/**
-	 * What may be saved: a switch, an address this plugin reads, a heading.
+	 * What may be saved: a switch, an address this plugin reads, a
+	 * heading, whether an answer shows its whole fact sheet, and the
+	 * count of saves.
 	 *
 	 * @param mixed $input What the form sent.
 	 * @return array
@@ -326,6 +334,11 @@ final class OKF_Web_Answers {
 			'enabled' => ! empty( $input['enabled'] ),
 			'source'  => $source,
 			'heading' => function_exists( 'mb_substr' ) ? mb_substr( $heading, 0, 120 ) : substr( $heading, 0, 120 ),
+			'whole'   => ! empty( $input['whole'] ),
+			// Every save counts, so the settings always change and what
+			// was read is read again: saving is how an owner sees an
+			// approval made a minute ago.
+			'saved'   => self::settings()['saved'] + 1,
 		);
 	}
 
@@ -376,6 +389,13 @@ final class OKF_Web_Answers {
 						<td><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[enabled]" value="1" <?php checked( $settings['enabled'] ); ?>> <?php esc_html_e( 'Show approved answers on the pages they are about', 'okf-web-answers' ); ?></label></td>
 					</tr>
 					<tr>
+						<th scope="row"><?php esc_html_e( 'What each answer shows', 'okf-web-answers' ); ?></th>
+						<td>
+							<label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[whole]" value="1" <?php checked( $settings['whole'] ); ?>> <?php esc_html_e( 'The whole fact sheet, not only its summary', 'okf-web-answers' ); ?></label>
+							<p class="description"><?php esc_html_e( 'Unticked, each answer shows its title, its summary and the line saying who approved it and when. Ticked, every part of the fact sheet follows; on the page it was written from, that repeats what the page already says.', 'okf-web-answers' ); ?></p>
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><label for="okf-web-answers-source"><?php esc_html_e( 'Where to read them', 'okf-web-answers' ); ?></label></th>
 						<td>
 							<input type="url" class="regular-text code" id="okf-web-answers-source" name="<?php echo esc_attr( self::OPTION ); ?>[source]" value="<?php echo esc_attr( $settings['source'] ); ?>" placeholder="<?php echo esc_attr( home_url( '/.well-known/okf' ) ); ?>">
@@ -410,7 +430,7 @@ final class OKF_Web_Answers {
 					?>
 				</p>
 			<?php endif; ?>
-			<p><?php esc_html_e( 'What is read is kept for fifteen minutes. An answer is shown only if a named person approved it, it has not passed its expiry date, and it is about the page being viewed. To place the answers yourself, put the shortcode [okf_web_answers] where you want them.', 'okf-web-answers' ); ?></p>
+			<p><?php esc_html_e( 'What is read is kept for fifteen minutes, and saving this page reads it again. An answer is shown only if a named person approved it, it has not passed its expiry date, and it is about the page being viewed. To place the answers yourself, put the shortcode [okf_web_answers] where you want them.', 'okf-web-answers' ); ?></p>
 		</div>
 		<?php
 	}
