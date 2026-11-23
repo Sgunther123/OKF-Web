@@ -21,7 +21,11 @@ zero LLM tokens — cheap enough to run nightly in CI:
 
 Concepts without a ``resource`` + ``source_hash`` pair (hand-authored
 concepts, scorecards) are skipped — drift is defined against a
-surveyed source, and there is nothing to compare otherwise. The
+surveyed source, and there is nothing to compare otherwise. A concept
+made from a record rather than a page (a feed's row, or the row of a
+producer the caller names with ``record_actors``) carries that
+record's fingerprint: no page can match it, so it is listed, never
+fetched, and left to its producer's next run. The
 semantic half (does the *claim* still hold, not just the page bytes)
 stays with the LLM re-survey this check tells you to run.
 """
@@ -57,6 +61,10 @@ class DriftReport:
     # a page fetch can only ever disagree (review 2026-10-21, L-U3). The
     # next feed ingest is their drift check.
     feed_derived: list[str] = field(default_factory=list)
+    # The same case under a producer the caller named
+    # (``check_bundle(record_actors=...)``): the fingerprint of a record
+    # of its own, checked by that producer's next run.
+    record_derived: list[str] = field(default_factory=list)
 
     @property
     def clean(self) -> bool:
@@ -69,6 +77,7 @@ def check_bundle(
     timeout: float = 30.0,
     allow_private: bool = False,
     policy=None,
+    record_actors=(),
 ) -> DriftReport:
     """Compare every surveyed concept's source page against its hash.
 
@@ -76,7 +85,16 @@ def check_bundle(
     extracted from the same page. Fetches run under the page policy
     (private hosts refused unless ``allow_private``) or an explicit
     ``policy``.
+
+    ``record_actors`` names producers (their ``generated.by``) that
+    write through the gate with the fingerprint of a record of their
+    own in ``x_geo.source_hash``, as the feed ingest does: a catalog
+    API's row, say. Their concepts are listed under ``record_derived``
+    and never fetched; the producer's next run is their drift check.
     """
+    if isinstance(record_actors, str):
+        record_actors = (record_actors,)  # one name, not its letters
+    record_actors = frozenset(record_actors)
     if fetch_text is None:
         if policy is not None:
             fetch_text = lambda url: _fetch_page_text(url, policy=policy)  # noqa: E731
@@ -94,6 +112,9 @@ def check_bundle(
             continue
         if concept.generated_by == FEED_ACTOR:
             report.feed_derived.append(rel)
+            continue
+        if concept.generated_by in record_actors:
+            report.record_derived.append(rel)
             continue
         if url not in pages:
             try:

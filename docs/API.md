@@ -323,8 +323,8 @@ code. Review 2026-10-21, phase U4.
 
 | Name | Kind | Meaning |
 | --- | --- | --- |
-| `check_bundle` | function | every surveyed source page against its hash |
-| `DriftReport` | class | unchanged, drifted, unreachable, skipped, feed_derived |
+| `check_bundle` | function | every surveyed source page against its hash; `record_actors` names producers whose concepts are left to their own next run |
+| `DriftReport` | class | unchanged, drifted, unreachable, skipped, feed_derived, record_derived |
 
 ### `okf_web.discover`
 

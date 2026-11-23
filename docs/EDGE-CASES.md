@@ -491,7 +491,11 @@ test in `tests/test_operator_loop.py`.
   feed-derived concept read as drifted forever. Such concepts
   (`generated.by == feed.FEED_ACTOR`) are now counted as
   `feed_derived`, never fetched, and left to the next ingest; the CLI
-  summary names them and exits clean.
+  summary names them and exits clean. A producer outside the
+  toolchain that writes through the gate with a record's fingerprint
+  is in the same case (2026-11-23): the caller names it,
+  `check_bundle(record_actors=...)`, and its concepts are counted as
+  `record_derived` and left to its own next run.
 - **L-U4 (medium).** `--include-machine-confirmed` shipped `deprecated`
   concepts while the viewer called them drafts. The option ships
   low-risk *drafts* only; the viewer names any other status.

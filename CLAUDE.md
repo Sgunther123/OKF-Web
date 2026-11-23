@@ -205,7 +205,10 @@ commit histories, environment quirks, and the user's operating rhythm).
   `stale_after` at the following midnight UTC and W027 accepts nothing
   later (U3) — the last day of a sale is never withheld as stale.
   `drift` leaves feed-derived concepts (`generated.by ==
-  feed.FEED_ACTOR`) to the next ingest; `report` holds the bundle lock.
+  feed.FEED_ACTOR`) to the next ingest, and those of a producer the
+  caller names (`check_bundle(record_actors=...)`) to that producer's
+  next run: a record's fingerprint matches no page. `report` holds the
+  bundle lock.
 - **The report and the viewer show only measured facts** (`report.py`,
   `viewer.py`; the viewer's `REVENUE_MOMENTS` sentences are editorial
   vocabulary naming the stakes, never numbers): every number

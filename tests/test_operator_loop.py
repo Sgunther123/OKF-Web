@@ -91,6 +91,47 @@ def test_drift_leaves_feed_derived_concepts_to_the_next_ingest(tmp_path, capsys)
     assert code == 0 and "1 feed-derived" in out
 
 
+def test_drift_leaves_a_named_producers_concepts_to_that_producer(tmp_path):
+    """The write gate takes any producer. One that fingerprints a record
+    of its own (a catalog API's row) is in the feed's case: no page can
+    match its hash. The caller names it, and drift leaves its concepts
+    to its next run without fetching their pages."""
+    importer = "process:catalog-import"
+    root = tmp_path / "b"
+    (root / "catalog").mkdir(parents=True)
+    page = "Alpine Tent\nA two-person tent for three seasons.\n"
+
+    def concept(title, url, source_hash, by):
+        return ("---\ntype: Product\n"
+                f"title: {title}\ndescription: {title}.\ntags: [x]\nresource: {url}\n"
+                f"status: draft\ngenerated:\n  by: {by}\n  at: 2026-08-01T00:00:00Z\n"
+                f"x_geo:\n  risk: b\n  source_hash: {source_hash}\n---\n\n{title}.\n")
+
+    (root / "catalog" / "row.md").write_text(concept(
+        "Camp Stove", "https://shop.example/p/stove",
+        surveyor.stable_page_hash("7\ncamp-stove\nCamp Stove"), importer), encoding="utf-8")
+    (root / "catalog" / "page.md").write_text(concept(
+        "Alpine Tent", "https://shop.example/p/tent",
+        surveyor.stable_page_hash(page), "surveyor/1"), encoding="utf-8")
+    fetched = []
+
+    def fetch_text(url):
+        fetched.append(url)
+        return page
+
+    report = drift.check_bundle(root, fetch_text=fetch_text, record_actors=[importer])
+    assert report.record_derived == ["catalog/row.md"] and report.feed_derived == []
+    assert report.unchanged == ["catalog/page.md"] and report.clean
+    assert fetched == ["https://shop.example/p/tent"]
+    # One name alone is one producer, not its letters.
+    alone = drift.check_bundle(root, fetch_text=fetch_text, record_actors=importer)
+    assert alone.record_derived == ["catalog/row.md"] and alone.clean
+    # Unnamed, it is a surveyed concept like any other, and no page matches a row.
+    unnamed = drift.check_bundle(root, fetch_text=fetch_text)
+    assert [rel for rel, _ in unnamed.drifted] == ["catalog/row.md"]
+    assert unnamed.record_derived == [] and unnamed.unchanged == ["catalog/page.md"]
+
+
 # --- L-U4: --include-machine-confirmed ships low-risk drafts, nothing else --------------
 
 def test_include_machine_confirmed_never_ships_a_deprecated_concept(bundle_copy):

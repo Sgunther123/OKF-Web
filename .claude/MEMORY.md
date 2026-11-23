@@ -4,8 +4,30 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-20 — **plugin 0.2.0: a short answer box by
-default**, the maintainer's choice after the plugin's first run
+Last updated: 2026-11-23 — **drift leaves a named producer's concepts
+to that producer**. The write gate takes any producer, and one that
+keeps the fingerprint of a record of its own in `x_geo.source_hash` (a
+catalog API's row) is in the feed's case (L-U3): `drift` fetched the
+concept's page, no page hashes like a row, and the concept read as
+drifted at every check. Where a scheduled sweep acts on that, stamping
+a drifted concept stale, a fact a person approved was withheld again
+the night after, and its answer with it: that is how it was found.
+`drift.check_bundle` now takes `record_actors`, the `generated.by` of
+such producers: their concepts are listed under
+`DriftReport.record_derived`, never fetched, and left to the
+producer's next run. A single name is one producer, not its letters.
+Nothing is exempt unless named; the CLI names none and reads as
+before. One test: a named producer's concept beside a surveyed one,
+the fetches counted, the name given alone, and the unnamed case. 6
+deliberate breaks, all caught. API.md, EDGE-CASES (under L-U3) and the
+CLAUDE.md invariant say so. Suite **692** without `build`, 693 with
+it. Positions: `main` == `0140916` (fetched); the branch eight ahead
+(`c706e0d`, `0b1d822`, `fc805ca`, `58d3b63`, `c377ca6`, `3a065df`,
+`78e5386`, run 21 green, and this commit), which move to `main` on the
+user's word.
+
+Earlier on 2026-11-20, **plugin 0.2.0: a short answer box by
+default** (`78e5386`), the maintainer's choice after the plugin's first run
 (below) printed a refund page's whole policy again under itself. An
 answer now prints its title, its summary and the line saying who
 approved it when; its sections only when the owner ticks "The whole
@@ -25,10 +47,9 @@ the README and USER-GUIDE step 6 say what an answer shows. Tests:
 11 caught and the twelfth (a count below zero kept) closed with a
 check. Tried against the stand-ins; the zip went to the maintainer
 for the same test site, to be read there next. Suite **691**
-without `build`, 692 with it. Positions: `main` == `0140916`
+without `build`, 692 with it. Positions then: `main` == `0140916`
 (fetched); the branch seven ahead (`c706e0d`, `0b1d822`, `fc805ca`,
-`58d3b63`, `c377ca6`, `3a065df`, run 20 green, and this commit),
-which move to `main` on the user's word.
+`58d3b63`, `c377ca6`, `3a065df`, run 20 green, and that commit).
 
 Earlier on 2026-11-20, **the WordPress plugin has run inside
 a WordPress** (`3a065df`). On a temporary test site (WordPress 7.1.5,
@@ -1352,7 +1373,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **691 passing** without `build`, 692 where it is installed (CI,
+- Test suite: **692 passing** without `build`, 693 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1429,15 +1450,16 @@ review.
   push. As of this commit: `main` == `0140916` (the user's "Push the
   commit directly to main" of 2026-11-12, 23:22 UTC, run 14 green
   first: a fast-forward from `c64e943` over `0140916`, a judge's note
-  is for the store's owner), and the branch is seven ahead:
+  is for the store's owner), and the branch is eight ahead:
   `c706e0d` (answer blocks, run 15 green), `0b1d822` (the WordPress
   plugin, run 16 green), `fc805ca` (the plugin's clock tolerance,
   run 17 green), `58d3b63` (an answer leaves out what was written
   for an agent, run 18 green), `c377ca6` (an answer waits while a
   change is proposed, run 19 green), `3a065df` (the plugin's first
-  run inside a WordPress, on record, run 20 green) and this commit
-  (plugin 0.2.0, the short box), which move to `main` on the user's
-  word.
+  run inside a WordPress, on record, run 20 green), `78e5386`
+  (plugin 0.2.0, the short box, run 21 green) and this commit (drift
+  leaves a named producer's concepts to that producer), which move to
+  `main` on the user's word.
   Before that, `main` == `c64e943` (the user's "Push the
   commit directly to main" of 2026-11-12, 20:23 UTC, run 13 green
   first: a fast-forward from `5c3a3d9` over `c64e943`, a reply cut at
@@ -1509,7 +1531,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Make the plugin's answer box short by default, read everything again on every save, and print a repeated summary once
+(this commit)  Let drift leave the concepts of a producer the caller names to that producer's next run, as it leaves a feed's
+78e5386  Make the plugin's answer box short by default, read everything again on every save, and print a repeated summary once
 3a065df  Record the plugin's first run inside a real WordPress: a product's answer and a page's, and the switch that takes them away
 c377ca6  Hold back the answer of a concept whose source changed since it was approved, until a person has looked
 58d3b63  Leave out of an answer the two sections a concept carries for an agent: the live-values note and the related links
