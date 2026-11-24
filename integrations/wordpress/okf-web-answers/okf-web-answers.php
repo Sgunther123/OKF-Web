@@ -3,12 +3,12 @@
  * Plugin Name:       OKF-Web Answers
  * Plugin URI:        https://github.com/sgunther123/okf-web
  * Description:       Shows the answers a person approved for your store on the pages they are about, read from your store's published OKF-Web bundle. It never changes your products, prices or pages.
- * Version:           0.2.0
+ * Version:           0.2.1
  * Requires at least: 5.8
  * Requires PHP:      7.2
  * Author:            OKF-Web contributors
- * License:           Apache-2.0
- * License URI:       https://www.apache.org/licenses/LICENSE-2.0
+ * License:           GPLv2 or later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       okf-web-answers
  *
  * What it does, in full: when it is switched on, it reads
@@ -23,7 +23,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'OKF_WEB_ANSWERS_VERSION', '0.2.0' );
+define( 'OKF_WEB_ANSWERS_VERSION', '0.2.1' );
 
 require_once __DIR__ . '/includes/class-okf-web-answers-reader.php';
 

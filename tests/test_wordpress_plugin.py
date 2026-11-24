@@ -61,8 +61,48 @@ def _run(*args, **kwargs):
 
 def test_the_plugin_ships_these_files_and_no_others():
     shipped = sorted(str(p.relative_to(PLUGIN)) for p in PLUGIN.rglob("*") if p.is_file())
-    assert shipped == ["includes/class-okf-web-answers-reader.php", "okf-web-answers.php",
-                       "readme.txt", "uninstall.php"]
+    assert shipped == ["LICENSE", "includes/class-okf-web-answers-reader.php",
+                       "okf-web-answers.php", "readme.txt", "uninstall.php"]
+
+
+def test_it_is_licensed_as_wordpress_is_and_says_so_everywhere():
+    """GPLv2 or later, the license WordPress uses and its directory
+    strongly recommends; the folder carries the license's text. The
+    rest of the repository stays Apache-2.0."""
+    gpl = ("GPLv2 or later", "https://www.gnu.org/licenses/gpl-2.0.html")
+    main = MAIN.read_text(encoding="utf-8")
+    assert (re.search(r"^ \* License:\s+(.+)$", main, re.MULTILINE).group(1),
+            re.search(r"^ \* License URI:\s+(\S+)$", main, re.MULTILINE).group(1)) == gpl
+    readme = (PLUGIN / "readme.txt").read_text(encoding="utf-8")
+    assert (re.search(r"^License: (.+)$", readme, re.MULTILINE).group(1),
+            re.search(r"^License URI: (\S+)$", readme, re.MULTILINE).group(1)) == gpl
+    text = (PLUGIN / "LICENSE").read_text(encoding="utf-8")
+    assert text.split("\n")[:2] == ["                    GNU GENERAL PUBLIC LICENSE",
+                                    "                       Version 2, June 1991"]
+    assert text.rstrip().endswith("Public License instead of this License.")
+    assert (REPO / "LICENSE").read_text(encoding="utf-8").lstrip().startswith("Apache License")
+
+
+def test_its_readme_keeps_the_directory_rules():
+    """What the WordPress.org directory reads from the readme's header:
+    the fields it requires, at most five tags, a short description of
+    150 characters or fewer, and versions written as numbers."""
+    readme = (PLUGIN / "readme.txt").read_text(encoding="utf-8")
+    head, _, rest = readme.partition("\n\n")
+    assert head.splitlines()[0] == "=== OKF-Web Answers ==="
+    fields = dict(line.split(": ", 1) for line in head.splitlines()[1:])
+    assert {"Contributors", "Tags", "Requires at least", "Tested up to", "Requires PHP",
+            "Stable tag", "License", "License URI"} <= set(fields)
+    assert 1 <= len([tag for tag in fields["Tags"].split(",") if tag.strip()]) <= 5
+    assert re.fullmatch(r"\d+\.\d+", fields["Tested up to"])
+    assert re.fullmatch(r"\d+\.\d+(\.\d+)?", fields["Requires at least"])
+    short = rest.split("\n\n", 1)[0]
+    assert "\n" not in short and 0 < len(short) <= 150 and "<" not in short
+    assert "== Description ==" in readme and "== External services ==" in readme
+    main = MAIN.read_text(encoding="utf-8")
+    for field in ("Requires at least", "Requires PHP"):
+        stated = re.search(rf"^ \* {field}:\s+(\S+)$", main, re.MULTILINE).group(1)
+        assert stated == fields[field], field
 
 
 def test_its_version_is_stated_once_in_three_places():
@@ -136,7 +176,7 @@ def test_no_file_of_the_plugin_names_a_host():
     address; no service is built into it."""
     for path in SHIPPED:
         hosts = set(re.findall(r"https?://([A-Za-z0-9.-]+)", path.read_text(encoding="utf-8")))
-        assert hosts <= {"github.com", "www.apache.org"}, (path.name, hosts)
+        assert hosts <= {"github.com", "www.gnu.org"}, (path.name, hosts)
 
 
 # --- the plugin's own tests, run -------------------------------------------

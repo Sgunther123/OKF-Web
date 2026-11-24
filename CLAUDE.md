@@ -46,7 +46,9 @@ commit histories, environment quirks, and the user's operating rhythm).
 
 ## Two repositories, one history
 
-- This repository is **strictly open source** (Apache-2.0). A hosted
+- This repository is **strictly open source** (Apache-2.0; the
+  WordPress plugin's own folder is GPLv2 or later, WordPress's license,
+  for its directory). A hosted
   edition of the toolchain, run as a service, is developed in its own
   private repository; its plans, pricing, operations and records live
   there and never here. `tests/test_public_surface.py` is the executable

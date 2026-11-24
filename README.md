@@ -222,4 +222,7 @@ in `bundle-example/` uses reserved `.example` domains throughout.
 
 ## License
 
-[Apache-2.0](LICENSE).
+[Apache-2.0](LICENSE). The WordPress plugin in
+[`integrations/wordpress/okf-web-answers/`](integrations/wordpress/okf-web-answers/)
+is GPLv2 or later, the license WordPress itself uses
+([its LICENSE](integrations/wordpress/okf-web-answers/LICENSE)).

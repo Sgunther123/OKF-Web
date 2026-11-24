@@ -83,6 +83,23 @@ What the plugin has read is kept for fifteen minutes. Saving its
 settings reads everything again, changed or not: the saved settings
 count the saves, and what was read is kept under that count.
 
+## In the WordPress.org directory
+
+The plugin is licensed GPLv2 or later, the license WordPress itself
+uses ([its LICENSE](okf-web-answers/LICENSE)); the rest of this
+repository is Apache-2.0. Its readme follows the directory's format,
+and a test holds the header to the directory's rules: the fields it
+requires, at most five tags, a short description of 150 characters or
+fewer.
+
+The first submission is the maintainer's: an account on WordPress.org
+whose username is the readme's `Contributors` line, then the zip above
+uploaded at wordpress.org/plugins/developers/add. The directory takes
+the slug from the plugin's name, `okf-web-answers`, and reviews a
+first submission in about two weeks. Later versions go through the
+directory's own repository, with the version raised in its three
+places.
+
 ## Testing it
 
 ```bash

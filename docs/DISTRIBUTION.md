@@ -30,6 +30,7 @@ and [USER-GUIDE.md](USER-GUIDE.md).
 | Generative engines | None — they read bundles at store origins | The point of the design; nothing to install |
 | Auditors | PyPI + `[sign]` extra | The same open tooling the methodology mandates |
 | Non-developer merchants | **Not this repo's channel** | Platform apps reach them; the open core rides inside |
+| WordPress and WooCommerce store owners | The WordPress.org plugin directory (`okf-web-answers`) | Prints a published bundle's approved answers on the pages they are about; GPLv2 or later, WordPress's own license |
 
 ## 3. PyPI is the primary channel
 
@@ -154,6 +155,14 @@ What the plan does with that:
    away (`pipx run okf-web mcp …`), list it in the MCP registries and
    client catalogs (§4). First release only; later releases update
    the listings.
+
+**The WordPress plugin releases on its own.** Its version lives in
+its three places (the plugin header, `OKF_WEB_ANSWERS_VERSION`, the
+readme's stable tag; a test keeps them equal), never with the Python
+package's. The first submission to the WordPress.org directory is the
+maintainer's (integrations/wordpress/README.md, "In the WordPress.org
+directory"), reviewed in about two weeks; later versions go through
+the directory's own repository after the plugin's tests pass.
 
 ## 7. Deliberate non-goals (until demand is demonstrated)
 

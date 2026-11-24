@@ -4,9 +4,9 @@ Tags: answers, faq, ai, woocommerce, knowledge
 Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.2
-Stable tag: 0.2.0
-License: Apache-2.0
-License URI: https://www.apache.org/licenses/LICENSE-2.0
+Stable tag: 0.2.1
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Shows the answers a person approved for your store on the pages they are about. It never changes your products, prices or pages.
 
@@ -61,6 +61,9 @@ What it reads is kept for fifteen minutes, and a failed read is remembered for f
 This plugin reads JSON files from the address in its settings: your own site by default, or the address you enter. It makes these requests from your server, not from your visitors' browsers, when a page is viewed and its copy is older than fifteen minutes. It sends nothing about your visitors. Like every request WordPress makes, it carries your site's address in its User-Agent. If you enter the address of a service that hosts your bundle, that service's terms and privacy policy apply to those requests.
 
 == Changelog ==
+
+= 0.2.1 =
+* Licensed GPLv2 or later, the license WordPress itself uses, so that the plugin can be offered in the WordPress.org directory. Nothing it does has changed.
 
 = 0.2.0 =
 * Each answer shows its title, its summary and who approved it and when; the whole fact sheet only when that is ticked in the settings. On the page a fact sheet was written from, the whole of it repeated the page.

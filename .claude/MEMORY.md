@@ -4,8 +4,32 @@ Companion to `/CLAUDE.md` (durable rules live there; this file is the mutable
 state). **Any commit that changes something recorded here updates this file in
 the same commit.**
 
-Last updated: 2026-11-23 — **drift leaves a named producer's concepts
-to that producer**. The write gate takes any producer, and one that
+Last updated: 2026-11-24 — **the WordPress plugin licensed GPLv2 or
+later**, so that the WordPress.org directory can list it (the
+maintainer's choice of 2026-11-24). The directory strongly recommends
+WordPress's own license and its readme rules ask for a
+GPLv2-compatible one; Apache-2.0 is compatible with GPLv3 only. Only
+the plugin's folder changed: its header and readme say `GPLv2 or
+later` with gnu.org's address, the folder carries the license's text
+(`LICENSE`, the FSF's text verbatim, 18,092 bytes), and the rest of
+the repository stays Apache-2.0 (README's License section, CLAUDE.md).
+Version 0.2.1 in its three places; its changelog says nothing it does
+changed. Tests: the shipped files include `LICENSE`;
+`test_it_is_licensed_as_wordpress_is_and_says_so_everywhere`;
+`test_its_readme_keeps_the_directory_rules` (the header fields the
+directory requires, at most five tags, a short description of 150
+characters or fewer, versions as numbers, the plugin header's
+requirements equal to the readme's); the host test allows www.gnu.org
+in place of www.apache.org. 9 deliberate breaks, all caught.
+integrations/wordpress/README.md ("In the WordPress.org directory")
+and DISTRIBUTION.md (§2's table, §6) give the submission: the
+maintainer's account, the username in `Contributors`, the zip
+uploaded, about two weeks' review. Suite **694** without `build`, 695
+with it. Positions: `main` == `d1ae4ce` (fetched), the branch one
+ahead with this commit, which moves to `main` on the user's word.
+
+Earlier on 2026-11-23, **drift leaves a named producer's concepts
+to that producer** (`d1ae4ce`). The write gate takes any producer, and one that
 keeps the fingerprint of a record of its own in `x_geo.source_hash` (a
 catalog API's row) is in the feed's case (L-U3): `drift` fetched the
 concept's page, no page hashes like a row, and the concept read as
@@ -21,10 +45,10 @@ before. One test: a named producer's concept beside a surveyed one,
 the fetches counted, the name given alone, and the unnamed case. 6
 deliberate breaks, all caught. API.md, EDGE-CASES (under L-U3) and the
 CLAUDE.md invariant say so. Suite **692** without `build`, 693 with
-it. Positions: `main` == `0140916` (fetched); the branch eight ahead
+it. Positions then: `main` == `0140916`; the branch eight ahead
 (`c706e0d`, `0b1d822`, `fc805ca`, `58d3b63`, `c377ca6`, `3a065df`,
-`78e5386`, run 21 green, and this commit), which move to `main` on the
-user's word.
+`78e5386`, run 21 green, and `d1ae4ce`), which moved to `main` on the
+user's word of 2026-11-24 (run 22 green first).
 
 Earlier on 2026-11-20, **plugin 0.2.0: a short answer box by
 default** (`78e5386`), the maintainer's choice after the plugin's first run
@@ -1373,7 +1397,7 @@ review.
   `OKF_VERSION = "0.2"`, `PROFILE = "ecommerce-geo/1.13"` (bumped
   2026-11-06 for declared applicability; 1.12 on 2026-10-04 for the
   declared language; 1.11 on 2026-09-20 for GAPS items 3, 5, 7).
-- Test suite: **692 passing** without `build`, 693 where it is installed (CI,
+- Test suite: **694 passing** without `build`, 695 where it is installed (CI,
   and this container's 3.11 since 2026-11-10) and
   the packaging test runs (`python -m pytest -q`; run twice — ~27 s
   a run, the parse cache accelerating example-bundle loads). Includes
@@ -1447,19 +1471,23 @@ review.
   ahead of `main`. There is no record commit (dropped 2026-09-17), so
   the sha named here is refreshed only by the next content commit and
   can lag: always `git fetch` and read `origin/main` before a main
-  push. As of this commit: `main` == `0140916` (the user's "Push the
+  push. As of this commit: `main` == `d1ae4ce` (the user's "Push the
+  commit directly to main" of 2026-11-24, 18:14 UTC, run 22 green
+  first: a fast-forward from `0140916` over eight commits, `c706e0d`
+  (answer blocks, run 15 green), `0b1d822` (the WordPress plugin, run
+  16 green), `fc805ca` (the plugin's clock tolerance, run 17 green),
+  `58d3b63` (an answer leaves out what was written for an agent, run
+  18 green), `c377ca6` (an answer waits while a change is proposed,
+  run 19 green), `3a065df` (the plugin's first run inside a
+  WordPress, on record, run 20 green), `78e5386` (plugin 0.2.0, the
+  short box, run 21 green) and `d1ae4ce` (drift leaves a named
+  producer's concepts to that producer)), and the branch is one
+  ahead: this commit (the plugin licensed GPLv2 or later), which
+  moves to `main` on the user's word.
+  Before that, `main` == `0140916` (the user's "Push the
   commit directly to main" of 2026-11-12, 23:22 UTC, run 14 green
   first: a fast-forward from `c64e943` over `0140916`, a judge's note
-  is for the store's owner), and the branch is eight ahead:
-  `c706e0d` (answer blocks, run 15 green), `0b1d822` (the WordPress
-  plugin, run 16 green), `fc805ca` (the plugin's clock tolerance,
-  run 17 green), `58d3b63` (an answer leaves out what was written
-  for an agent, run 18 green), `c377ca6` (an answer waits while a
-  change is proposed, run 19 green), `3a065df` (the plugin's first
-  run inside a WordPress, on record, run 20 green), `78e5386`
-  (plugin 0.2.0, the short box, run 21 green) and this commit (drift
-  leaves a named producer's concepts to that producer), which move to
-  `main` on the user's word.
+  is for the store's owner).
   Before that, `main` == `c64e943` (the user's "Push the
   commit directly to main" of 2026-11-12, 20:23 UTC, run 13 green
   first: a fast-forward from `5c3a3d9` over `c64e943`, a reply cut at
@@ -1531,7 +1559,8 @@ The rewrite of 2026-11-06 dropped the twenty commits that changed only
 keeps them), and every other sha is this history's.
 
 ```
-(this commit)  Let drift leave the concepts of a producer the caller names to that producer's next run, as it leaves a feed's
+(this commit)  License the WordPress plugin GPLv2 or later, as WordPress is, so that its directory can list it
+d1ae4ce  Let drift leave the concepts of a producer the caller names to that producer's next run, as it leaves a feed's
 78e5386  Make the plugin's answer box short by default, read everything again on every save, and print a repeated summary once
 3a065df  Record the plugin's first run inside a real WordPress: a product's answer and a page's, and the switch that takes them away
 c377ca6  Hold back the answer of a concept whose source changed since it was approved, until a person has looked
